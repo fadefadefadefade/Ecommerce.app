@@ -1,4 +1,3 @@
-import '../config/api_config.dart';
 import 'api_service.dart';
 
 class PsgcService {
@@ -26,6 +25,12 @@ class PsgcService {
     } catch (e) {
       return [];
     }
+  }
+
+  // Alias for getProvincesByRegion
+  static Future<List<Map<String, dynamic>>> getProvinces(
+      String regionCode) async {
+    return getProvincesByRegion(regionCode);
   }
 
   static Future<List<Map<String, dynamic>>> getMunicipalities(

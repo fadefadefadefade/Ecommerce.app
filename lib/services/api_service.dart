@@ -59,6 +59,56 @@ class ApiService {
     }
   }
   
+  static Future<Map<String, dynamic>> put(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+  
+  static Future<Map<String, dynamic>> patch(
+    String endpoint,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+  
+  static Future<Map<String, dynamic>> delete(String endpoint) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+        headers: headers,
+      );
+      
+      return _handleResponse(response);
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+  
   static Map<String, dynamic> _handleResponse(http.Response response) {
     final data = jsonDecode(response.body);
     

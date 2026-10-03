@@ -16,7 +16,7 @@ class ApiConfig {
   
   // Seller endpoints
   static const String sellerDashboard = '/seller/dashboard';
-  static const String sellerBooks = '/seller/books';
+  static const String sellerProducts = '/seller/products';
   static const String sellerOrders = '/seller/orders';
   
   // Courier endpoints

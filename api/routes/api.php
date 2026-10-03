@@ -4,6 +4,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HomeController;
+use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\CheckoutController;
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\SellerController;
 use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\AdminController;
@@ -30,10 +35,35 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/products/{id}', [HomeController::class, 'productDetail']);
     Route::get('/categories', [HomeController::class, 'categories']);
     
+    // Cart routes
+    Route::get('/cart', [CartController::class, 'index']);
+    Route::post('/cart', [CartController::class, 'store']);
+    Route::patch('/cart/{id}', [CartController::class, 'update']);
+    Route::delete('/cart/{id}', [CartController::class, 'destroy']);
+    
+    // Checkout routes
+    Route::get('/checkout', [CheckoutController::class, 'index']);
+    Route::post('/checkout', [CheckoutController::class, 'store']);
+    
+    // Order routes
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
+    
+    // Profile routes
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::post('/profile', [ProfileController::class, 'update']);
+    
+    // Address routes
+    Route::get('/addresses', [AddressController::class, 'index']);
+    Route::post('/addresses', [AddressController::class, 'store']);
+    Route::put('/addresses/{id}', [AddressController::class, 'update']);
+    Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
+    Route::patch('/addresses/{id}/set-default', [AddressController::class, 'setDefault']);
+    
     // Seller routes
     Route::prefix('seller')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard']);
-        Route::get('/books', [SellerController::class, 'books']);
+        Route::get('/products', [SellerController::class, 'products']);
         Route::get('/orders', [SellerController::class, 'orders']);
     });
     

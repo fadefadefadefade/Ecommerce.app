@@ -20,25 +20,45 @@ class AuthController extends Controller
 
         if (!Auth::attempt($credentials)) {
             return response()->json([
+                'success' => false,
                 'message' => 'These credentials do not match our records.',
             ], 401);
         }
 
         $user = Auth::user();
         
+        // Check if user account is approved (only for non-admin roles)
+        if ($user->role !== 'admin' && $user->approval_status === 'pending') {
+            Auth::logout();
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account is pending approval. Please wait for administrator approval.',
+            ], 403);
+        }
+
+        if ($user->role !== 'admin' && $user->approval_status === 'rejected') {
+            Auth::logout();
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account has been rejected. Please contact support.',
+            ], 403);
+        }
+        
         // Create token
         $token = $user->createToken('mobile-app')->plainTextToken;
 
         return response()->json([
+            'success' => true,
             'token' => $token,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'phone' => $user->contact_no ?? '',
                 'role' => $user->role ?? 'buyer',
                 'approval_status' => $user->approval_status ?? 'approved',
+                'avatar' => $user->profile_photo_path ? asset('storage/' . $user->profile_photo_path) : null,
                 'created_at' => $user->created_at,
-                'last_login_at' => $user->last_login_at,
             ],
         ]);
     }

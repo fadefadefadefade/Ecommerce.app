@@ -78,4 +78,13 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void updateUser(Map<String, dynamic> userData) {
+    _user = User.fromJson(userData);
+    _storage.write(
+      key: 'user_data',
+      value: jsonEncode(_user!.toJson()),
+    );
+    notifyListeners();
+  }
 }
