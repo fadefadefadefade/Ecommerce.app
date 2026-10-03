@@ -1,0 +1,45 @@
+class User {
+  final int id;
+  final String name;
+  final String email;
+  final String role;
+  final String? approvalStatus;
+  final DateTime? lastLoginAt;
+  final DateTime createdAt;
+
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.role,
+    this.approvalStatus,
+    this.lastLoginAt,
+    required this.createdAt,
+  });
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      role: json['role'],
+      approvalStatus: json['approval_status'],
+      lastLoginAt: json['last_login_at'] != null 
+          ? DateTime.parse(json['last_login_at']) 
+          : null,
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'role': role,
+      'approval_status': approvalStatus,
+      'last_login_at': lastLoginAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
