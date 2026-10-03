@@ -7,10 +7,17 @@ use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\SellerController;
 use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\PsgcController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+
+// PSGC (Philippine Address) routes
+Route::get('/psgc/regions', [PsgcController::class, 'regions']);
+Route::get('/psgc/regions/{code}/provinces', [PsgcController::class, 'provincesByRegion']);
+Route::get('/psgc/provinces/{code}/municipalities', [PsgcController::class, 'municipalities']);
+Route::get('/psgc/municipalities/{code}/barangays', [PsgcController::class, 'barangays']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
