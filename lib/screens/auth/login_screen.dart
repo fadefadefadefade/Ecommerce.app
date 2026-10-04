@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -221,39 +222,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Remember Me & Forgot Password
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Remember Me checkbox - wrapped to prevent overflow
+                    Wrap(
                       children: [
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: _rememberMe,
-                              onChanged: (value) {
-                                setState(() => _rememberMe = value ?? false);
-                              },
-                              activeColor: const Color(0xFFfa4e1c),
-                            ),
-                            const Text(
-                              'Remember Me',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF5a4d45),
-                              ),
-                            ),
-                          ],
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: Implement forgot password
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() => _rememberMe = value ?? false);
                           },
-                          child: const Text(
-                            'Forgot Your Password?',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFfa4e1c),
-                            ),
+                          activeColor: const Color(0xFFfa4e1c),
+                        ),
+                        const Text(
+                          'Remember Me',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF5a4d45),
                           ),
                         ),
                       ],
@@ -302,8 +285,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Register Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
                       children: [
                         const Text(
                           "Don't have an account? ",
@@ -314,7 +297,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         TextButton(
                           onPressed: () {
-                            // TODO: Navigate to register
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const RegisterScreen(),
+                              ),
+                            );
                           },
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,

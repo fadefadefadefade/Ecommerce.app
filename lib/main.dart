@@ -80,9 +80,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const LoginScreen();
         }
 
-        // Route based on user role
-        switch (authProvider.user!.role) {
+        // Route based on user role (customer and buyer are the same)
+        final role = authProvider.user!.role;
+        switch (role) {
           case 'buyer':
+          case 'customer':
             return const BuyerHomeScreen();
           case 'seller':
             return const SellerDashboardScreen();

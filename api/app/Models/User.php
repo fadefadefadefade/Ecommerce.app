@@ -51,4 +51,21 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
         ];
     }
+
+    /**
+     * Get the user's addresses.
+     */
+    public function addresses()
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    /**
+     * Get the user's default address.
+     */
+    public function defaultAddress()
+    {
+        return $this->addresses()->where('is_default', true)->first()
+            ?? $this->addresses()->oldest()->first();
+    }
 }

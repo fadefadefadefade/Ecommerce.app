@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../config/api_config.dart';
+import 'cart_screen.dart';
+import 'product_detail_screen.dart';
+import 'shop_screen.dart';
+import 'profile_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -81,20 +85,53 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       ),
                     ],
                   ),
-                  ElevatedButton(
-                    onPressed: () => context.read<AuthProvider>().logout(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFfa4e1c),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.person_outline),
+                        style: IconButton.styleFrom(
+                          foregroundColor: const Color(0xFFfa4e1c),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CartScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.shopping_cart_outlined),
+                        style: IconButton.styleFrom(
+                          foregroundColor: const Color(0xFFfa4e1c),
+                        ),
                       ),
-                    ),
-                    child: const Text('Logout'),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => context.read<AuthProvider>().logout(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFfa4e1c),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Logout'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -117,7 +154,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     // Search Bar
                     TextField(
                       decoration: InputDecoration(
-                        hintText: 'Search for books...',
+                        hintText: 'Search for products...',
                         hintStyle: const TextStyle(color: Color(0xFF8a7a70)),
                         prefixIcon: const Icon(Icons.search, color: Color(0xFF8a7a70)),
                         filled: true,
@@ -179,7 +216,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                                     textAlign: TextAlign.center,
                                   ),
                                   Text(
-                                    '${category['books_count'] ?? 0} books',
+                                    '${category['products_count'] ?? 0} items',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF8a7a70),
@@ -194,13 +231,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       const SizedBox(height: 24),
                     ],
 
-                    // Featured Books
+                    // Featured Products
                     if (featured.isNotEmpty) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Featured Books',
+                            'Featured Products',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
@@ -208,7 +245,14 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ShopScreen(),
+                                ),
+                              );
+                            },
                             child: const Text(
                               'See All →',
                               style: TextStyle(
@@ -246,7 +290,14 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ShopScreen(),
+                                ),
+                              );
+                            },
                             child: const Text(
                               'See All →',
                               style: TextStyle(
@@ -278,95 +329,107 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   }
 
   Widget _buildProductCard(dynamic product) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE6D9CF)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Center(
-              child: product['image_url'] != null
-                  ? Image.network(
-                      product['image_url'],
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.book, size: 60),
-                    )
-                  : const Icon(Icons.book, size: 60, color: Color(0xFF8a7a70)),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailScreen(
+              productId: product['id'],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product['title'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF222222),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product['author'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF8a7a70),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '₱${(product['price'] ?? 0).toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFfa4e1c),
-                      ),
+        );
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE6D9CF)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Center(
+                child: product['image_url'] != null
+                    ? Image.network(
+                        product['image_url'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag, size: 60),
+                      )
+                    : const Icon(Icons.shopping_bag, size: 60, color: Color(0xFF8a7a70)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['title'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF222222),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: (product['stock'] ?? 0) > 0
-                            ? const Color(0xFFECFDF5)
-                            : const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        (product['stock'] ?? 0) > 0 ? 'In Stock' : 'Out of Stock',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: (product['stock'] ?? 0) > 0
-                              ? const Color(0xFF059669)
-                              : const Color(0xFFDC2626),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    product['author'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8a7a70),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₱${(product['price'] ?? 0).toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFfa4e1c),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (product['stock'] ?? 0) > 0
+                              ? const Color(0xFFECFDF5)
+                              : const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          (product['stock'] ?? 0) > 0 ? 'In Stock' : 'Out of Stock',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: (product['stock'] ?? 0) > 0
+                                ? const Color(0xFF059669)
+                                : const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

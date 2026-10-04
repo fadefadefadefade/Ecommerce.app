@@ -2,6 +2,7 @@ class User {
   final int id;
   final String name;
   final String email;
+  final String? phone;
   final String role;
   final String? approvalStatus;
   final DateTime? lastLoginAt;
@@ -11,6 +12,7 @@ class User {
     required this.id,
     required this.name,
     required this.email,
+    this.phone,
     required this.role,
     this.approvalStatus,
     this.lastLoginAt,
@@ -22,6 +24,7 @@ class User {
       id: json['id'],
       name: json['name'],
       email: json['email'],
+      phone: json['phone'],
       role: json['role'],
       approvalStatus: json['approval_status'],
       lastLoginAt: json['last_login_at'] != null 
@@ -36,6 +39,7 @@ class User {
       'id': id,
       'name': name,
       'email': email,
+      'phone': phone,
       'role': role,
       'approval_status': approvalStatus,
       'last_login_at': lastLoginAt?.toIso8601String(),
