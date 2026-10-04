@@ -16,6 +16,12 @@ class AuthProvider with ChangeNotifier {
   
   final _storage = const FlutterSecureStorage();
 
+  @override
+  void notifyListeners() {
+    debugPrint('🔔 AuthProvider.notifyListeners() called - hasListeners: $hasListeners, user: ${_user?.email ?? 'null'}, isAuthenticated: $isAuthenticated');
+    super.notifyListeners();
+  }
+
   Future<void> checkAuthStatus() async {
     _isLoading = true;
     notifyListeners();
@@ -38,11 +44,13 @@ class AuthProvider with ChangeNotifier {
     String password, {
     bool remember = false,
   }) async {
+    debugPrint('🔑 Starting login for: $email');
     _isLoading = true;
     notifyListeners();
     
     try {
       final result = await ApiService.login(email, password, remember: remember);
+      debugPrint('🔄 API response received: ${result['success']}');
       
       if (result['success']) {
         _user = User.fromJson(result['data']['user']);
@@ -54,16 +62,21 @@ class AuthProvider with ChangeNotifier {
         );
         
         _isLoading = false;
-        notifyListeners(); // This should trigger AuthWrapper to rebuild
-        debugPrint('📢 notifyListeners() called after successful login');
+        debugPrint('📢 About to call notifyListeners() after successful login');
+        notifyListeners();
         
-        // Add a small delay to ensure the UI updates
-        await Future.delayed(const Duration(milliseconds: 100));
+        // Force another notifyListeners after a small delay to ensure UI updates
+        Future.delayed(const Duration(milliseconds: 100), () {
+          debugPrint('🔄 Forcing additional notifyListeners call');
+          notifyListeners();
+        });
         
+        debugPrint('✅ Login process completed successfully');
         return {'success': true, 'user': _user};
       } else {
-        _user = null; // Clear any existing user
+        _user = null;
         _isLoading = false;
+        debugPrint('❌ Login failed: ${result['message']}');
         notifyListeners();
         return {
           'success': false,
@@ -71,8 +84,9 @@ class AuthProvider with ChangeNotifier {
         };
       }
     } catch (e) {
-      _user = null; // Clear any existing user on error
+      _user = null;
       _isLoading = false;
+      debugPrint('💥 Login exception: $e');
       notifyListeners();
       return {
         'success': false,

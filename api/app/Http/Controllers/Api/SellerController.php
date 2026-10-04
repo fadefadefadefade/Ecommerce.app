@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Category;
 use App\Models\ProductImage;
 use App\Models\ProductVariation;
@@ -406,9 +408,444 @@ class SellerController extends Controller
 
     public function orders(Request $request)
     {
-        // Mock orders for now - replace with real order data
+        $sellerId = $request->user()->id;
+        
+        // Get orders containing this seller's products
+        $query = Order::whereHas('items.product', function ($q) use ($sellerId) {
+            $q->where('seller_id', $sellerId);
+        })->with(['user', 'items' => function ($q) use ($sellerId) {
+            $q->whereHas('product', function ($subQ) use ($sellerId) {
+                $subQ->where('seller_id', $sellerId);
+            })->with('product');
+        }]);
+
+        // Filter by status
+        if ($request->has('status') && !empty($request->status)) {
+            $query->where('status', $request->status);
+        }
+
+        // Search functionality
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($userQ) use ($search) {
+                      $userQ->where('name', 'like', "%{$search}%")
+                           ->orWhere('email', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $orders = $query->latest()->paginate($request->get('limit', 20));
+
+        // Calculate seller earnings for each order
+        $ordersWithEarnings = $orders->getCollection()->map(function ($order) {
+            $sellerEarning = 0;
+            $commissionAmount = 0;
+            
+            foreach ($order->items as $item) {
+                $itemTotal = $item->price * $item->quantity;
+                $commission = $itemTotal * 0.15; // 15% commission
+                $earning = $itemTotal - $commission;
+                
+                $sellerEarning += $earning;
+                $commissionAmount += $commission;
+                
+                // Add calculated fields to item
+                $item->seller_earning = $earning;
+                $item->commission_amount = $commission;
+            }
+            
+            $order->seller_earning = $sellerEarning;
+            $order->commission_amount = $commissionAmount;
+            
+            return $order;
+        });
+
+        $orders->setCollection($ordersWithEarnings);
+
+        // Get status counts for filtering
+        $statusCounts = [
+            'all' => Order::whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'pending' => Order::where('status', 'Pending')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'processing' => Order::where('status', 'Processing')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'shipped' => Order::where('status', 'Shipped')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'delivered' => Order::where('status', 'Delivered')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'cancelled' => Order::where('status', 'Cancelled')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+        ];
+
         return response()->json([
-            'orders' => [],
+            'orders' => $orders->items(),
+            'pagination' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+            ],
+            'status_counts' => $statusCounts,
+        ]);
+    }
+
+    public function getOrderCounts(Request $request)
+    {
+        $sellerId = $request->user()->id;
+        
+        $counts = [
+            'pending' => Order::where('status', 'Pending')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'processing' => Order::where('status', 'Processing')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'shipped' => Order::where('status', 'Shipped')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'delivered' => Order::where('status', 'Delivered')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'cancelled' => Order::where('status', 'Cancelled')->whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+            'total' => Order::whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->count(),
+        ];
+
+        return response()->json([
+            'counts' => $counts,
+        ]);
+    }
+
+    public function getOrderDetails(Request $request, $id)
+    {
+        $sellerId = $request->user()->id;
+        
+        $order = Order::whereHas('items.product', function ($q) use ($sellerId) {
+            $q->where('seller_id', $sellerId);
+        })->with(['user', 'items' => function ($q) use ($sellerId) {
+            $q->whereHas('product', function ($subQ) use ($sellerId) {
+                $subQ->where('seller_id', $sellerId);
+            })->with('product');
+        }])->findOrFail($id);
+
+        // Calculate seller earnings for the order
+        $sellerEarning = 0;
+        $commissionAmount = 0;
+        
+        foreach ($order->items as $item) {
+            $itemTotal = $item->price * $item->quantity;
+            $commission = $itemTotal * 0.15; // 15% commission
+            $earning = $itemTotal - $commission;
+            
+            $sellerEarning += $earning;
+            $commissionAmount += $commission;
+            
+            // Add calculated fields to item
+            $item->seller_earning = $earning;
+            $item->commission_amount = $commission;
+        }
+        
+        $order->seller_earning = $sellerEarning;
+        $order->commission_amount = $commissionAmount;
+
+        return response()->json([
+            'order' => $order,
+            'parcel' => null, // Mock parcel tracking data
+        ]);
+    }
+
+    public function updateOrderStatus(Request $request, $id)
+    {
+        $sellerId = $request->user()->id;
+        
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:Pending,Processing,Shipped,Delivered,Cancelled',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $order = Order::whereHas('items.product', function ($q) use ($sellerId) {
+            $q->where('seller_id', $sellerId);
+        })->findOrFail($id);
+
+        $order->update(['status' => $request->status]);
+
+        return response()->json([
+            'message' => "Order status updated to {$request->status}",
+            'order' => $order->load(['user', 'items.product']),
+        ]);
+    }
+
+    public function schedulePickup(Request $request, $id)
+    {
+        $sellerId = $request->user()->id;
+        
+        $validator = Validator::make($request->all(), [
+            'courier_name' => 'required|string',
+            'tracking_number' => 'nullable|string',
+            'pickup_scheduled_at' => 'required|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $order = Order::whereHas('items.product', function ($q) use ($sellerId) {
+            $q->where('seller_id', $sellerId);
+        })->findOrFail($id);
+
+        // Update order status to Shipped
+        $order->update(['status' => 'Shipped']);
+
+        return response()->json([
+            'message' => 'Pickup scheduled successfully',
+            'order' => $order->load(['user', 'items.product']),
+            'delivery' => [
+                'courier_name' => $request->courier_name,
+                'tracking_number' => $request->tracking_number,
+                'pickup_scheduled_at' => $request->pickup_scheduled_at,
+                'notes' => $request->notes,
+            ],
+            'parcel' => [
+                'status' => 'scheduled',
+                'tracking_number' => $request->tracking_number,
+            ],
+        ]);
+    }
+
+    public function markHandedOver(Request $request, $id)
+    {
+        $sellerId = $request->user()->id;
+        
+        $order = Order::whereHas('items.product', function ($q) use ($sellerId) {
+            $q->where('seller_id', $sellerId);
+        })->findOrFail($id);
+
+        // Update order status to Shipped if not already
+        if ($order->status !== 'Shipped') {
+            $order->update(['status' => 'Shipped']);
+        }
+
+        return response()->json([
+            'message' => 'Order marked as handed over to courier',
+            'order' => $order->load(['user', 'items.product']),
+            'delivery' => [
+                'handed_over_at' => now()->toISOString(),
+                'status' => 'in_transit',
+            ],
+        ]);
+    }
+
+    public function getSalesReport(Request $request)
+    {
+        $sellerId = $request->user()->id;
+        
+        // Get date range
+        $fromDate = $request->get('from', now()->subDays(30)->startOfDay());
+        $toDate = $request->get('to', now()->endOfDay());
+        
+        if (is_string($fromDate)) {
+            $fromDate = \Carbon\Carbon::parse($fromDate)->startOfDay();
+        }
+        if (is_string($toDate)) {
+            $toDate = \Carbon\Carbon::parse($toDate)->endOfDay();
+        }
+
+        // Get orders in date range for this seller
+        $orders = Order::whereHas('items.product', function ($q) use ($sellerId) {
+            $q->where('seller_id', $sellerId);
+        })->whereBetween('created_at', [$fromDate, $toDate])
+          ->with(['items' => function ($q) use ($sellerId) {
+              $q->whereHas('product', function ($subQ) use ($sellerId) {
+                  $subQ->where('seller_id', $sellerId);
+              })->with('product');
+          }])->get();
+
+        // Calculate metrics
+        $totalOrders = $orders->count();
+        $totalRevenue = 0;
+        $totalCommission = 0;
+        $totalEarnings = 0;
+        $productPerformance = [];
+
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $itemTotal = $item->price * $item->quantity;
+                $commission = $itemTotal * 0.15; // 15% commission
+                $earning = $itemTotal - $commission;
+                
+                $totalRevenue += $itemTotal;
+                $totalCommission += $commission;
+                $totalEarnings += $earning;
+
+                // Track product performance
+                $productId = $item->product->id;
+                if (!isset($productPerformance[$productId])) {
+                    $productPerformance[$productId] = [
+                        'book_id' => $productId,
+                        'title' => $item->product->title,
+                        'quantity' => 0,
+                        'revenue' => 0,
+                        'earnings' => 0,
+                        'commission' => 0,
+                        'product' => $item->product,
+                    ];
+                }
+
+                $productPerformance[$productId]['quantity'] += $item->quantity;
+                $productPerformance[$productId]['revenue'] += $itemTotal;
+                $productPerformance[$productId]['earnings'] += $earning;
+                $productPerformance[$productId]['commission'] += $commission;
+            }
+        }
+
+        // Sort product performance by revenue
+        $productPerformance = collect($productPerformance)->sortByDesc('revenue')->values();
+
+        // Calculate additional metrics
+        $averageOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
+        $profitMargin = $totalRevenue > 0 ? ($totalEarnings / $totalRevenue) * 100 : 0;
+        $commissionRate = 15; // 15% commission rate
+
+        // Generate sales trend (daily)
+        $salesTrend = [];
+        $days = $fromDate->diffInDays($toDate) + 1;
+        
+        for ($i = 0; $i < $days; $i++) {
+            $date = $fromDate->copy()->addDays($i);
+            $dayOrders = $orders->filter(function ($order) use ($date) {
+                return $order->created_at->isSameDay($date);
+            });
+            
+            $dayEarnings = 0;
+            foreach ($dayOrders as $order) {
+                foreach ($order->items as $item) {
+                    $itemTotal = $item->price * $item->quantity;
+                    $commission = $itemTotal * 0.15;
+                    $dayEarnings += $itemTotal - $commission;
+                }
+            }
+            
+            $salesTrend[] = [
+                'date' => $date->format('M j'),
+                'earnings' => $dayEarnings,
+                'orders' => $dayOrders->count(),
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'report' => [
+                'total_orders' => $totalOrders,
+                'total_revenue' => $totalRevenue,
+                'total_commission' => $totalCommission,
+                'total_earnings' => $totalEarnings,
+                'average_order_value' => $averageOrderValue,
+                'profit_margin' => $profitMargin,
+                'commission_rate' => $commissionRate,
+                'product_performance' => $productPerformance,
+                'sales_trend' => $salesTrend,
+                'from_date' => $fromDate->toDateString(),
+                'to_date' => $toDate->toDateString(),
+                'formatted_total_revenue' => '₱' . number_format($totalRevenue, 2),
+                'formatted_total_earnings' => '₱' . number_format($totalEarnings, 2),
+                'formatted_total_commission' => '₱' . number_format($totalCommission, 2),
+                'formatted_average_order_value' => '₱' . number_format($averageOrderValue, 2),
+            ],
+        ]);
+    }
+
+    public function getProductPerformance(Request $request)
+    {
+        $sellerId = $request->user()->id;
+        
+        // Get date range
+        $fromDate = $request->get('from', now()->subDays(30)->startOfDay());
+        $toDate = $request->get('to', now()->endOfDay());
+        
+        if (is_string($fromDate)) {
+            $fromDate = \Carbon\Carbon::parse($fromDate)->startOfDay();
+        }
+        if (is_string($toDate)) {
+            $toDate = \Carbon\Carbon::parse($toDate)->endOfDay();
+        }
+
+        // Get product performance data
+        $products = Product::where('seller_id', $sellerId)
+            ->whereHas('orderItems', function ($q) use ($fromDate, $toDate) {
+                $q->whereHas('order', function ($orderQ) use ($fromDate, $toDate) {
+                    $orderQ->whereBetween('created_at', [$fromDate, $toDate]);
+                });
+            })
+            ->withSum(['orderItems as total_quantity' => function ($q) use ($fromDate, $toDate) {
+                $q->whereHas('order', function ($orderQ) use ($fromDate, $toDate) {
+                    $orderQ->whereBetween('created_at', [$fromDate, $toDate]);
+                });
+            }], 'quantity')
+            ->with(['orderItems' => function ($q) use ($fromDate, $toDate) {
+                $q->whereHas('order', function ($orderQ) use ($fromDate, $toDate) {
+                    $orderQ->whereBetween('created_at', [$fromDate, $toDate]);
+                });
+            }])
+            ->get();
+
+        $productPerformance = $products->map(function ($product) {
+            $totalRevenue = 0;
+            $totalQuantity = 0;
+            
+            foreach ($product->orderItems as $item) {
+                $itemTotal = $item->price * $item->quantity;
+                $totalRevenue += $itemTotal;
+                $totalQuantity += $item->quantity;
+            }
+            
+            $commission = $totalRevenue * 0.15;
+            $earnings = $totalRevenue - $commission;
+            $averagePrice = $totalQuantity > 0 ? $totalRevenue / $totalQuantity : 0;
+            $profitMargin = $totalRevenue > 0 ? ($earnings / $totalRevenue) * 100 : 0;
+            
+            return [
+                'book_id' => $product->id,
+                'title' => $product->title,
+                'quantity' => $totalQuantity,
+                'revenue' => $totalRevenue,
+                'earnings' => $earnings,
+                'commission' => $commission,
+                'average_price' => $averagePrice,
+                'profit_margin' => $profitMargin,
+                'formatted_revenue' => '₱' . number_format($totalRevenue, 2),
+                'formatted_earnings' => '₱' . number_format($earnings, 2),
+                'formatted_average_price' => '₱' . number_format($averagePrice, 2),
+                'product' => $product,
+            ];
+        })->sortByDesc('revenue')->values();
+
+        return response()->json([
+            'success' => true,
+            'products' => $productPerformance,
+            'from_date' => $fromDate->toDateString(),
+            'to_date' => $toDate->toDateString(),
         ]);
     }
 

@@ -77,6 +77,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/products/{id}/status', [SellerController::class, 'updateStatus']);
         
         Route::get('/orders', [SellerController::class, 'orders']);
+        Route::get('/orders/counts', [SellerController::class, 'getOrderCounts']);
+        Route::get('/orders/{id}', [SellerController::class, 'getOrderDetails']);
+        Route::patch('/orders/{id}', [SellerController::class, 'updateOrderStatus']);
+        Route::post('/orders/{id}/handover', [SellerController::class, 'schedulePickup']);
+        Route::post('/orders/{id}/handed-over', [SellerController::class, 'markHandedOver']);
+        
+        // Reports and Analytics routes
+        Route::get('/reports', [SellerController::class, 'getSalesReport']);
+        Route::get('/reports/product-performance', [SellerController::class, 'getProductPerformance']);
     });
     
     // Courier routes

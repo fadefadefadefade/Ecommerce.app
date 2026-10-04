@@ -19,10 +19,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ],
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
       child: MaterialApp(
         title: 'ALVY',
         debugShowCheckedModeBanner: false,
@@ -49,37 +47,77 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  AuthProvider? _authProvider;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().checkAuthStatus();
+      _authProvider = context.read<AuthProvider>();
+      _authProvider!.addListener(_onAuthStateChanged);
+      _authProvider!.checkAuthStatus();
     });
+  }
+
+  @override
+  void dispose() {
+    try {
+      _authProvider?.removeListener(_onAuthStateChanged);
+    } catch (e) {
+      // Ignore errors during dispose
+      debugPrint('⚠️  Error removing AuthWrapper listener: $e');
+    }
+    super.dispose();
+  }
+
+  void _onAuthStateChanged() {
+    debugPrint('🔔 AuthProvider listener triggered - rebuilding!');
+    if (mounted) {
+      setState(() {
+        // Force rebuild when auth state changes
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        debugPrint('🔍 AuthWrapper rebuild - isLoading: ${authProvider.isLoading}, user: ${authProvider.user?.email ?? 'null'}');
+      builder: (context, authProvider, child) {
+        debugPrint('🔍 AuthWrapper rebuild - isLoading: ${authProvider.isLoading}, user: ${authProvider.user?.email ?? 'null'}, role: ${authProvider.user?.role ?? 'null'}');
         
+        // Show loading spinner while authenticating
         if (authProvider.isLoading) {
+          debugPrint('⏳ Showing loading spinner');
           return const Scaffold(
+            backgroundColor: Color(0xFFfbeee8),
             body: Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFfa4e1c),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFFfa4e1c)),
+                  SizedBox(height: 16),
+                  Text('Logging in...', style: TextStyle(color: Color(0xFF6b90aa))),
+                ],
               ),
             ),
           );
         }
 
+        // Show login screen if no user
         if (authProvider.user == null) {
+          debugPrint('🔑 Showing login screen (no user)');
           return const LoginScreen();
         }
 
-        // Use AuthProvider's role-based routing
-        debugPrint('🚀 Routing to role-based screen for role: ${authProvider.user!.role}');
-        return authProvider.getMainScreenForRole();
+        // User is authenticated, route to appropriate screen
+        debugPrint('🚀 User authenticated, routing to role-based screen');
+        try {
+          return authProvider.getMainScreenForRole();
+        } catch (e) {
+          debugPrint('💥 Error in getMainScreenForRole: $e');
+          // Fallback to login screen on error
+          return const LoginScreen();
+        }
       },
     );
   }
