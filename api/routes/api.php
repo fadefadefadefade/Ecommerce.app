@@ -63,7 +63,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Seller routes
     Route::prefix('seller')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard']);
+        
+        // Product management routes
+        Route::get('/products/counts', [SellerController::class, 'getProductCounts']);
         Route::get('/products', [SellerController::class, 'products']);
+        Route::get('/products/{id}', [SellerController::class, 'getProduct']);
+        Route::post('/products', [SellerController::class, 'createProduct']);
+        Route::put('/products/{id}', [SellerController::class, 'updateProduct']);
+        Route::delete('/products/{id}', [SellerController::class, 'deleteProduct']);
+        Route::patch('/products/{id}/archive', [SellerController::class, 'archiveProduct']);
+        Route::patch('/products/{id}/unarchive', [SellerController::class, 'unarchiveProduct']);
+        Route::patch('/products/{id}/stock', [SellerController::class, 'updateStock']);
+        Route::patch('/products/{id}/status', [SellerController::class, 'updateStatus']);
+        
         Route::get('/orders', [SellerController::class, 'orders']);
     });
     

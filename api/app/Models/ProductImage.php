@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductImage extends Model
 {
-    protected $table = 'book_images'; // Temporarily use book_images table
+    protected $table = 'book_images'; // Using existing book_images table
 
     protected $fillable = [
-        'book_id', // Still using book_id FK until we rename tables
+        'book_id', // Using existing book_id FK
+        'product_id', // Alias for book_id
         'path',
-        'alt_text',
+        'label',
         'sort_order',
     ];
 
@@ -20,13 +21,29 @@ class ProductImage extends Model
         'sort_order' => 'integer',
     ];
 
+    // Automatically set book_id when product_id is set
+    public function setProductIdAttribute($value)
+    {
+        $this->attributes['book_id'] = $value;
+    }
+
+    public function getProductIdAttribute()
+    {
+        return $this->attributes['book_id'];
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'book_id');
     }
 
-    public function getUrlAttribute(): string
+    public function book(): BelongsTo
     {
-        return asset('storage/' . $this->path);
+        return $this->belongsTo(Product::class, 'book_id');
+    }
+
+    public function url(): string
+    {
+        return $this->path ? asset('storage/' . $this->path) : '';
     }
 }

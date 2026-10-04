@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
+import '../seller/seller_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -319,6 +320,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Seller Login Link
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SellerLoginScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Seller Login',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFfa4e1c),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
