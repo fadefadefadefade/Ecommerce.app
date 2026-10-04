@@ -21,7 +21,9 @@ class User {
 
   // Role checking methods
   bool get isSeller => role == 'seller';
-  bool get isBuyer => role == 'buyer';
+  bool get isBuyer => role == 'buyer' || role == 'customer';
+  bool get isCustomer => role == 'customer' || role == 'buyer';
+  bool get isCourier => role == 'courier';
   bool get isAdmin => role == 'admin';
   
   // Seller status checking

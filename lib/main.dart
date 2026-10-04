@@ -4,11 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/buyer/home_screen.dart';
-import 'screens/seller/dashboard_screen.dart';
-import 'screens/courier/dashboard_screen.dart';
-import 'screens/admin/dashboard_screen.dart';
-import 'screens/sorting_center/dashboard_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,6 +61,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
+        debugPrint('🔍 AuthWrapper rebuild - isLoading: ${authProvider.isLoading}, user: ${authProvider.user?.email ?? 'null'}');
+        
         if (authProvider.isLoading) {
           return const Scaffold(
             body: Center(
@@ -80,23 +77,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const LoginScreen();
         }
 
-        // Route based on user role (customer and buyer are the same)
-        final role = authProvider.user!.role;
-        switch (role) {
-          case 'buyer':
-          case 'customer':
-            return const BuyerHomeScreen();
-          case 'seller':
-            return const SellerDashboardScreen();
-          case 'courier':
-            return const CourierDashboardScreen();
-          case 'admin':
-            return const AdminDashboardScreen();
-          case 'sorting_center':
-            return const SortingCenterDashboardScreen();
-          default:
-            return const LoginScreen();
-        }
+        // Use AuthProvider's role-based routing
+        debugPrint('🚀 Routing to role-based screen for role: ${authProvider.user!.role}');
+        return authProvider.getMainScreenForRole();
       },
     );
   }

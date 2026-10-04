@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
-import '../seller/seller_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,7 +40,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       setState(() => _isLoading = false);
 
-      if (!result['success']) {
+      if (result['success']) {
+        // Success! AuthProvider will handle routing to appropriate screen
+        // The main app will listen to AuthProvider and navigate automatically
+        debugPrint('✅ Login screen received success result');
+      } else {
+        debugPrint('❌ Login screen received error: ${result['message']}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'Login failed'),
@@ -322,28 +326,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                    // Seller Login Link
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SellerLoginScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Seller Login',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFfa4e1c),
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
+                    // Additional help text
+                    const Text(
+                      'Login with your email and password.\nAll user types use the same login.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8a7a70),
                       ),
                     ),
                   ],
