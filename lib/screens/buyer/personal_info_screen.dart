@@ -339,7 +339,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           
                           // Gender
                           DropdownButtonFormField<String>(
-                            value: _selectedGender,
+                            initialValue: _selectedGender,
                             decoration: InputDecoration(
                               labelText: 'Gender',
                               border: OutlineInputBorder(

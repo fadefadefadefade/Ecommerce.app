@@ -255,7 +255,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             Column(
                               children: [
                                 DropdownButtonFormField<String>(
-                                  value: _selectedRegion,
+                                  initialValue: _selectedRegion,
                                   decoration: const InputDecoration(
                                     labelText: 'Region *',
                                     border: OutlineInputBorder(),
@@ -280,7 +280,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 DropdownButtonFormField<String>(
-                                  value: _selectedProvince,
+                                  initialValue: _selectedProvince,
                                   decoration: const InputDecoration(
                                     labelText: 'Province *',
                                     border: OutlineInputBorder(),
@@ -307,7 +307,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 DropdownButtonFormField<String>(
-                                  value: _selectedCity,
+                                  initialValue: _selectedCity,
                                   decoration: const InputDecoration(
                                     labelText: 'City / Municipality *',
                                     border: OutlineInputBorder(),
@@ -334,7 +334,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 DropdownButtonFormField<String>(
-                                  value: _selectedBarangay,
+                                  initialValue: _selectedBarangay,
                                   decoration: const InputDecoration(
                                     labelText: 'Barangay *',
                                     border: OutlineInputBorder(),
@@ -580,7 +580,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ],
                                     ),
                                   );
-                                }).toList(),
+                                }),
                                 const Divider(height: 24),
                                 _buildSummaryRow('Subtotal', _subtotal),
                                 const SizedBox(height: 8),

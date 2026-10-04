@@ -205,8 +205,8 @@ class _AddressesScreenState extends State<AddressesScreen> {
             Container(
               width: 100,
               height: 100,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F0F6),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F0F6),
                 shape: BoxShape.circle,
               ),
               child: const Center(

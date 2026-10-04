@@ -48,8 +48,8 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        user?.name?.isNotEmpty == true
-                            ? user!.name![0].toUpperCase()
+                        user?.name.isNotEmpty == true
+                            ? user!.name[0].toUpperCase()
                             : 'U',
                         style: const TextStyle(
                           fontSize: 28,
@@ -86,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            user?.role?.toUpperCase() ?? 'BUYER',
+                            user?.role.toUpperCase() ?? 'BUYER',
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -131,7 +131,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 _InfoItem(
                   label: 'User Role',
-                  value: user?.role?.toUpperCase() ?? 'BUYER',
+                  value: user?.role.toUpperCase() ?? 'BUYER',
                 ),
               ],
               onEdit: () {

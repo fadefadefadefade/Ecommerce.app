@@ -259,7 +259,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                           ],
                                         ),
                                       );
-                                    }).toList(),
+                                    }),
                                     const Divider(height: 24),
                                     // Price Breakdown
                                     _buildPriceRow(

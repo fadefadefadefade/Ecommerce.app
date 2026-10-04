@@ -63,10 +63,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _loadRegions() async {
-    final regions = await PsgcService.getRegions();
+    print('Starting to load regions...');
+    try {
+      final regions = await PsgcService.getRegions();
+      print('Loaded ${regions.length} regions: $regions');
+      if (!mounted) return;
+      setState(() {
+        _regions = regions;
+      });
+      print('Regions set in state: ${_regions.length}');
+    } catch (e) {
+      print('Error loading regions: $e');
+      // Fallback: Use hardcoded regions if API fails
+      setState(() {
+        _regions = [
+          {'code': '010000000', 'name': 'Region I – Ilocos Region'},
+          {'code': '020000000', 'name': 'Region II – Cagayan Valley'},
+          {'code': '030000000', 'name': 'Region III – Central Luzon'},
+          {'code': '040000000', 'name': 'Region IV-A – CALABARZON'},
+          {'code': '170000000', 'name': 'Region IV-B – MIMAROPA'},
+          {'code': '050000000', 'name': 'Region V – Bicol Region'},
+          {'code': '060000000', 'name': 'Region VI – Western Visayas'},
+          {'code': '070000000', 'name': 'Region VII – Central Visayas'},
+          {'code': '080000000', 'name': 'Region VIII – Eastern Visayas'},
+          {'code': '090000000', 'name': 'Region IX – Zamboanga Peninsula'},
+          {'code': '100000000', 'name': 'Region X – Northern Mindanao'},
+          {'code': '110000000', 'name': 'Region XI – Davao Region'},
+          {'code': '120000000', 'name': 'Region XII – SOCCSKSARGEN'},
+          {'code': '130000000', 'name': 'Region XIII – Caraga'},
+          {'code': '140000000', 'name': 'CAR – Cordillera Administrative Region'},
+          {'code': '150000000', 'name': 'BARMM – Bangsamoro'},
+          {'code': '990000000', 'name': 'NCR – National Capital Region'},
+        ];
+      });
+    }
+  }
+
+  Future<void> _loadProvinces(String regionCode) async {
     setState(() {
-      _regions = regions;
+      _loadingProvinces = true;
+      // Reset all child selections and lists
+      _selectedProvinceCode = null;
+      _selectedProvinceName = null;
+      _selectedMunicipalityCode = null;
+      _selectedMunicipalityName = null;
+      _selectedBarangayName = null;
+      _provinces = [];
+      _municipalities = [];
+      _barangays = [];
     });
+
+    try {
+      final provinces = await PsgcService.getProvincesByRegion(regionCode);
+      if (!mounted) return;
+      setState(() {
+        _provinces = provinces;
+        _loadingProvinces = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingProvinces = false;
+      });
+      print('Error loading provinces: $e');
+    }
+  }
+
+  Future<void> _loadMunicipalities(String provinceCode) async {
+    setState(() {
+      _loadingMunicipalities = true;
+      // Reset all child selections and lists
+      _selectedMunicipalityCode = null;
+      _selectedMunicipalityName = null;
+      _selectedBarangayName = null;
+      _municipalities = [];
+      _barangays = [];
+    });
+
+    try {
+      final municipalities = await PsgcService.getMunicipalities(provinceCode);
+      if (!mounted) return;
+      setState(() {
+        _municipalities = municipalities;
+        _loadingMunicipalities = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingMunicipalities = false;
+      });
+      print('Error loading municipalities: $e');
+    }
+  }
+
+  Future<void> _loadBarangays(String municipalityCode) async {
+    setState(() {
+      _loadingBarangays = true;
+      // Reset barangay selection and list
+      _selectedBarangayName = null;
+      _barangays = [];
+    });
+
+    try {
+      final barangays = await PsgcService.getBarangays(municipalityCode);
+      if (!mounted) return;
+      setState(() {
+        _barangays = barangays;
+        _loadingBarangays = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingBarangays = false;
+      });
+      print('Error loading barangays: $e');
+    }
   }
 
   @override
@@ -427,34 +538,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
 
                 // Region Dropdown
-                _buildPsgcDropdown(
-                  label: 'Region',
-                  value: _selectedRegionCode,
-                  items: _regions,
-                  onChanged: (value) async {
-                    setState(() {
-                      _selectedRegionCode = value;
-                      _selectedRegionName = _regions
-                          .firstWhere((r) => r['code'] == value)['name'];
-                      _selectedProvinceCode = null;
-                      _selectedProvinceName = null;
-                      _selectedMunicipalityCode = null;
-                      _selectedMunicipalityName = null;
-                      _selectedBarangayName = null;
-                      _provinces = [];
-                      _municipalities = [];
-                      _barangays = [];
-                      _loadingProvinces = true;
-                    });
-                    
-                    final provinces = await PsgcService.getProvincesByRegion(value!);
-                    setState(() {
-                      _provinces = provinces;
-                      _loadingProvinces = false;
-                    });
-                  },
-                  hint: '— Select Region —',
-                ),
+                _regions.isEmpty 
+                  ? Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFDCC2)),
+                      ),
+                      child: const Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFfa4e1c),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Loading regions...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF8a7a70),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _buildPsgcDropdown(
+                      label: 'Region',
+                      value: _selectedRegionCode,
+                      items: _regions,
+                      onChanged: (value) {
+                        print('Region selected: $value');
+                        if (value != null) {
+                          final selectedRegion = _regions.firstWhere(
+                            (r) => r['code'] == value,
+                            orElse: () => {'name': 'Unknown'},
+                          );
+                          print('Selected region data: $selectedRegion');
+                          setState(() {
+                            _selectedRegionCode = value;
+                            _selectedRegionName = selectedRegion['name'];
+                          });
+                          _loadProvinces(value);
+                        }
+                      },
+                      hint: 'Region',
+                    ),
                 const SizedBox(height: 16),
 
                 Row(
@@ -466,29 +600,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         items: _provinces,
                         onChanged: _selectedRegionCode == null
                             ? null
-                            : (value) async {
-                                setState(() {
-                                  _selectedProvinceCode = value;
-                                  _selectedProvinceName = _provinces
-                                      .firstWhere((p) => p['code'] == value)['name'];
-                                  _selectedMunicipalityCode = null;
-                                  _selectedMunicipalityName = null;
-                                  _selectedBarangayName = null;
-                                  _municipalities = [];
-                                  _barangays = [];
-                                  _loadingMunicipalities = true;
-                                });
-                                
-                                final municipalities =
-                                    await PsgcService.getMunicipalities(value!);
-                                setState(() {
-                                  _municipalities = municipalities;
-                                  _loadingMunicipalities = false;
-                                });
+                            : (value) {
+                                if (value != null) {
+                                  final selectedProvince = _provinces.firstWhere(
+                                    (p) => p['code'] == value,
+                                    orElse: () => {},
+                                  );
+                                  setState(() {
+                                    _selectedProvinceCode = value;
+                                    _selectedProvinceName = selectedProvince['name'];
+                                  });
+                                  _loadMunicipalities(value);
+                                }
                               },
                         hint: _selectedRegionCode == null
-                            ? '— Select Region first —'
-                            : '— Select Province —',
+                            ? 'Region'
+                            : 'Province',
                         isLoading: _loadingProvinces,
                       ),
                     ),
@@ -500,26 +627,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         items: _municipalities,
                         onChanged: _selectedProvinceCode == null
                             ? null
-                            : (value) async {
-                                setState(() {
-                                  _selectedMunicipalityCode = value;
-                                  _selectedMunicipalityName = _municipalities
-                                      .firstWhere((m) => m['code'] == value)['name'];
-                                  _selectedBarangayName = null;
-                                  _barangays = [];
-                                  _loadingBarangays = true;
-                                });
-                                
-                                final barangays =
-                                    await PsgcService.getBarangays(value!);
-                                setState(() {
-                                  _barangays = barangays;
-                                  _loadingBarangays = false;
-                                });
+                            : (value) {
+                                if (value != null) {
+                                  final selectedMunicipality = _municipalities.firstWhere(
+                                    (m) => m['code'] == value,
+                                    orElse: () => {},
+                                  );
+                                  setState(() {
+                                    _selectedMunicipalityCode = value;
+                                    _selectedMunicipalityName = selectedMunicipality['name'];
+                                  });
+                                  _loadBarangays(value);
+                                }
                               },
                         hint: _selectedProvinceCode == null
-                            ? '— Select Province first —'
-                            : '— Select Municipality —',
+                            ? 'Province '
+                            : 'Municipality',
                         isLoading: _loadingMunicipalities,
                       ),
                     ),
@@ -537,14 +660,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onChanged: _selectedMunicipalityCode == null
                             ? null
                             : (value) {
-                                setState(() {
-                                  _selectedBarangayName = _barangays
-                                      .firstWhere((b) => b['name'] == value)['name'];
-                                });
+                                if (value != null) {
+                                  final selectedBarangay = _barangays.firstWhere(
+                                    (b) => b['name'] == value,
+                                    orElse: () => {},
+                                  );
+                                  setState(() {
+                                    _selectedBarangayName = selectedBarangay['name'];
+                                  });
+                                }
                               },
                         hint: _selectedMunicipalityCode == null
-                            ? '— Select Municipality first —'
-                            : '— Select Barangay —',
+                            ? 'Municipality'
+                            : 'Barangay',
                         isLoading: _loadingBarangays,
                         useNameAsValue: true,
                       ),
@@ -926,7 +1054,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
@@ -1022,6 +1150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     bool isLoading = false,
     bool useNameAsValue = false,
   }) {
+    print('Building $label dropdown: ${items.length} items, value: $value, onChanged: ${onChanged != null}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1044,7 +1173,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(height: 6),
         isLoading
             ? Container(
-                padding: const EdgeInsets.all(12),
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
@@ -1071,40 +1201,71 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
               )
-            : DropdownButtonFormField<String>(
-                value: value,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFDCC2)),
+            : Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: onChanged == null ? const Color(0xFFF5F5F5) : Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: onChanged == null 
+                        ? const Color(0xFFE0E0E0) 
+                        : const Color(0xFFFFDCC2)
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFDCC2)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFfa4e1c), width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.all(12),
-                  hintText: hint,
                 ),
-                items: items.isEmpty
-                    ? []
-                    : items
-                        .map((item) => DropdownMenuItem<String>(
-                              value: useNameAsValue ? item['name'] : item['code'],
-                              child: Text(
-                                item['name'],
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ))
-                        .toList(),
-                onChanged: onChanged,
-                validator: (value) => value == null ? 'Required field' : null,
+                child: DropdownButtonFormField<String>(
+                  initialValue: value,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: onChanged == null ? const Color(0xFFF5F5F5) : Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFfa4e1c), width: 2),
+                    ),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    hintText: hint,
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: onChanged == null ? const Color(0xFFBDBDBD) : const Color(0xFF8a7a70),
+                    ),
+                  ),
+                  items: items.isEmpty
+                      ? null
+                      : items
+                          .map((item) => DropdownMenuItem<String>(
+                                value: useNameAsValue ? item['name'] : item['code'],
+                                child: Text(
+                                  item['name'] ?? '',
+                                  style: const TextStyle(fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ))
+                          .toList(),
+                  onChanged: onChanged,
+                  validator: (value) => value == null ? 'Required field' : null,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: onChanged == null ? const Color(0xFFBDBDBD) : const Color(0xFF333333),
+                  ),
+                  dropdownColor: Colors.white,
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    color: onChanged == null ? const Color(0xFFBDBDBD) : const Color(0xFF6b90aa),
+                  ),
+                ),
               ),
       ],
     );
   }
+

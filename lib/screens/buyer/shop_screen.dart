@@ -99,12 +99,12 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           child: TextField(
             controller: _searchController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: 'Search products...',
-              hintStyle: const TextStyle(color: Color(0xFF999999), fontSize: 14),
-              prefixIcon: const Icon(Icons.search, color: Color(0xFF757575), size: 20),
+              hintStyle: TextStyle(color: Color(0xFF999999), fontSize: 14),
+              prefixIcon: Icon(Icons.search, color: Color(0xFF757575), size: 20),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
             onSubmitted: (_) => _performSearch(),
           ),
@@ -379,9 +379,9 @@ class _ShopScreenState extends State<ShopScreen> {
                 AspectRatio(
                   aspectRatio: 1,
                   child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: const BorderRadius.vertical(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.vertical(
                         top: Radius.circular(4),
                       ),
                     ),
