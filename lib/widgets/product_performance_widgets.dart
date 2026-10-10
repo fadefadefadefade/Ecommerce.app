@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'product_thumb.dart';
-import 'package:intl/intl.dart';
 import '../services/report_service.dart';
 
 class ProductPerformanceCard extends StatelessWidget {

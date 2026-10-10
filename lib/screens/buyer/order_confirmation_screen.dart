@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/num_utils.dart';
 import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
@@ -126,7 +127,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                   text: 'Your order has been placed successfully.\nPlease prepare ',
                                 ),
                                 TextSpan(
-                                  text: '₱${(_order!['total_price'] ?? 0).toStringAsFixed(2)}',
+                                  text: '₱${asDouble(_order!['total_price']).toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFFFA4E1C),
@@ -242,7 +243,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(
-                                                    'Qty: ${item['quantity']} × ₱${(item['price'] ?? 0).toStringAsFixed(2)}',
+                                                    'Qty: ${item['quantity']} × ₱${asDouble(item['price']).toStringAsFixed(2)}',
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       color: context.bc.muted,
@@ -252,7 +253,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                               ),
                                             ),
                                             Text(
-                                              '₱${(item['subtotal'] ?? 0).toStringAsFixed(2)}',
+                                              '₱${asDouble(item['subtotal']).toStringAsFixed(2)}',
                                               style: const TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.bold,
@@ -452,7 +453,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   }
 
   Widget _buildPriceRow(String label, dynamic amount, {bool isBold = false, bool isLarge = false}) {
-    final price = (amount ?? 0).toDouble();
+    final price = asDouble(amount);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

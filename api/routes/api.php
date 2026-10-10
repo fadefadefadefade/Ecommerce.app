@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Order routes
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
+    Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
     
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'show']);
@@ -101,9 +102,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('courier')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard']);
         Route::get('/deliveries', [CourierController::class, 'deliveries']);
-        Route::post('/deliveries/{id}/accept', [CourierController::class, 'acceptDelivery']);
-        Route::post('/deliveries/{id}/pickup', [CourierController::class, 'markAsPickedUp']);
-        Route::post('/deliveries/{id}/deliver', [CourierController::class, 'markAsDelivered']);
+        Route::get('/deliveries/{id}', [CourierController::class, 'show']);
+        Route::post('/deliveries/{id}/start', [CourierController::class, 'start']);
+        Route::post('/deliveries/{id}/deliver', [CourierController::class, 'deliver']);
+        Route::post('/deliveries/{id}/fail', [CourierController::class, 'fail']);
     });
     
     // Logistics routes (admin only, mirrors the web logistics panel)

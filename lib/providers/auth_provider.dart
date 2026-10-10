@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../screens/buyer/buyer_main_screen.dart';
 import '../screens/seller/seller_main_screen.dart';
 import '../screens/logistics/logistics_main_screen.dart';
+import '../screens/courier/courier_main_screen.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -126,8 +127,12 @@ class AuthProvider with ChangeNotifier {
         }
       
       case 'courier':
-        debugPrint('📱 Routing to CourierDashboard (coming soon)');
-        return _buildComingSoonScreen('Courier Dashboard');
+        debugPrint('📱 Routing to CourierMainScreen');
+        return const CourierMainScreen();
+
+      case 'sorting_center':
+        // Sorting centers work from the web panel for now.
+        return _buildComingSoonScreen('Sorting Center');
       
       case 'admin':
         debugPrint('📱 Routing to LogisticsMainScreen');

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/num_utils.dart';
 import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
@@ -49,7 +50,7 @@ class _CartScreenState extends State<CartScreen> with LiveRefresh {
       if (!mounted) return;
       setState(() {
         _cartItems = response['items'] ?? [];
-        _subtotal = (response['subtotal'] ?? 0).toDouble();
+        _subtotal = asDouble(response['subtotal']);
         _isLoading = false;
       });
       widget.onChanged?.call();
@@ -291,7 +292,7 @@ class _CartScreenState extends State<CartScreen> with LiveRefresh {
   Widget _buildCartItem(Map<String, dynamic> item) {
     final product = item['product'];
     final quantity = item['quantity'] as int;
-    final subtotal = (item['subtotal'] ?? 0).toDouble();
+    final subtotal = asDouble(item['subtotal']);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -362,7 +363,7 @@ class _CartScreenState extends State<CartScreen> with LiveRefresh {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '₱${(product['effective_price'] ?? 0).toStringAsFixed(2)}',
+                              '₱${asDouble(product['effective_price']).toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,

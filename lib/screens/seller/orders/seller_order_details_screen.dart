@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/reason_dialog.dart';
+import '../../../widgets/order_progress.dart';
 import '../../../widgets/product_thumb.dart';
 import 'package:intl/intl.dart';
 import '../../../models/order.dart';
@@ -59,7 +61,7 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
     }
   }
 
-  Future<void> _updateOrderStatus(String newStatus) async {
+  Future<void> _updateOrderStatus(String newStatus, {String? reason}) async {
     if (_order == null || _isUpdatingStatus) return;
 
     setState(() {
@@ -67,8 +69,9 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
     });
 
     try {
-      final result = await OrderService.updateOrderStatus(widget.orderId, newStatus);
-      
+      final result = await OrderService.updateOrderStatus(widget.orderId, newStatus, reason: reason);
+      if (!mounted) return;
+
       if (result['success']) {
         setState(() {
           _order = result['order'];
@@ -94,10 +97,11 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isUpdatingStatus = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update status: $e'),
@@ -107,195 +111,105 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
     }
   }
 
-  void _showStatusUpdateDialog() {
-    if (_order == null) return;
-    
-    final possibleStatuses = OrderService.getNextPossibleStatuses(_order!.status);
-    
-    if (possibleStatuses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No status updates available for this order'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    showDialog(
+  Future<void> _confirmShipToWarehouse() async {
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Order Status'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ship to warehouse?'),
+        content: const Text(
+          'A parcel will be created and sent to the sorting center. '
+          'Logistics will assign a courier, who will deliver it to the buyer.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: stageColor('warehouse'), foregroundColor: Colors.white),
+            child: const Text('Ship to Warehouse'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) _updateOrderStatus('Shipped');
+  }
+
+  Future<void> _confirmCancel() async {
+    final reason = await showReasonDialog(
+      context,
+      title: 'Cancel this order?',
+      message: 'The buyer will see the reason. Items go back to your stock.',
+      hint: 'e.g. Item is out of stock',
+      confirmLabel: 'Cancel Order',
+      cancelLabel: 'Keep Order',
+      confirmColor: stageColor('cancelled'),
+      maxLength: 300,
+    );
+    if (reason != null && mounted) _updateOrderStatus('Cancelled', reason: reason);
+  }
+
+  /// The seller's next step for the current stage.
+  Widget _buildSellerActions() {
+    final stage = _order!.stage;
+    if (_isUpdatingStatus) return const SizedBox.shrink();
+
+    Widget cancelButton() => TextButton.icon(
+          onPressed: _confirmCancel,
+          icon: const Icon(Icons.cancel_outlined, size: 18),
+          label: const Text('Cancel Order'),
+          style: TextButton.styleFrom(foregroundColor: stageColor('cancelled')),
+        );
+
+    Widget primary(String label, IconData icon, String color, VoidCallback onPressed) => SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            label: Text(label),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: stageColor(color),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        );
+
+    switch (stage) {
+      case 'pending':
+        return Column(children: [
+          primary('Start Processing', Icons.inventory_2_outlined, 'processing', () => _updateOrderStatus('Processing')),
+          cancelButton(),
+        ]);
+      case 'processing':
+        return Column(children: [
+          primary('Ship to Warehouse', Icons.warehouse_outlined, 'warehouse', _confirmShipToWarehouse),
+          cancelButton(),
+        ]);
+      case 'warehouse':
+      case 'delivering':
+        return _note(Icons.local_shipping_outlined,
+            stage == 'warehouse'
+                ? 'With logistics. A courier will be assigned and will update the delivery.'
+                : 'Out for delivery. The courier will mark it delivered.');
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _note(IconData icon, String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F0F6),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
           children: [
-            Text('Current Status: ${_order!.status}'),
-            const SizedBox(height: 16),
-            const Text('Select new status:'),
-            ...possibleStatuses.map((status) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(status),
-              onTap: () {
-                Navigator.pop(context);
-                _updateOrderStatus(status);
-              },
-            )),
+            Icon(icon, color: const Color(0xFF1565C0), size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF222222)))),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSchedulePickupDialog() {
-    if (_order == null) return;
-
-    final courierController = TextEditingController();
-    final trackingController = TextEditingController();
-    final notesController = TextEditingController();
-    DateTime selectedDate = DateTime.now().add(const Duration(hours: 2));
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Schedule Pickup'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: courierController,
-                decoration: const InputDecoration(
-                  labelText: 'Courier Name *',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: trackingController,
-                decoration: const InputDecoration(
-                  labelText: 'Tracking Number (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              StatefulBuilder(
-                builder: (context, setDialogState) => InkWell(
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 30)),
-                    );
-                    if (date != null) {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.fromDateTime(selectedDate),
-                      );
-                      if (time != null) {
-                        setDialogState(() {
-                          selectedDate = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                        });
-                      }
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.schedule),
-                        const SizedBox(width: 8),
-                        Text(DateFormat('MMM d, y - h:mm a').format(selectedDate)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (courierController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter courier name')),
-                );
-                return;
-              }
-              
-              Navigator.pop(context);
-              
-              final result = await OrderService.schedulePickup(
-                widget.orderId,
-                courierName: courierController.text,
-                trackingNumber: trackingController.text.isEmpty ? null : trackingController.text,
-                pickupScheduledAt: selectedDate,
-                notes: notesController.text.isEmpty ? null : notesController.text,
-              );
-              
-              if (result['success']) {
-                setState(() {
-                  _order = result['order'];
-                  _parcel = result['parcel'];
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message']), backgroundColor: Colors.green),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFfa4e1c)),
-            child: const Text('Schedule Pickup'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _markHandedOver() async {
-    final result = await OrderService.markHandedOver(widget.orderId);
-    
-    if (result['success']) {
-      setState(() {
-        _order = result['order'];
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message']), backgroundColor: Colors.green),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -306,60 +220,6 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
         foregroundColor: Colors.white,
         title: Text('Order #${widget.orderId}'),
         elevation: 0,
-        actions: [
-          if (_order != null && !_isUpdatingStatus)
-            PopupMenuButton(
-              icon: const Icon(Icons.more_vert),
-              itemBuilder: (context) => [
-                if (OrderService.getNextPossibleStatuses(_order!.status).isNotEmpty)
-                  const PopupMenuItem(
-                    value: 'update_status',
-                    child: Row(
-                      children: [
-                        Icon(Icons.update),
-                        SizedBox(width: 8),
-                        Text('Update Status'),
-                      ],
-                    ),
-                  ),
-                if (_order!.status == 'Pending' || _order!.status == 'Processing')
-                  const PopupMenuItem(
-                    value: 'schedule_pickup',
-                    child: Row(
-                      children: [
-                        Icon(Icons.local_shipping),
-                        SizedBox(width: 8),
-                        Text('Schedule Pickup'),
-                      ],
-                    ),
-                  ),
-                if (_order!.status == 'Processing' && _order!.delivery != null)
-                  const PopupMenuItem(
-                    value: 'mark_handed_over',
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle),
-                        SizedBox(width: 8),
-                        Text('Mark Handed Over'),
-                      ],
-                    ),
-                  ),
-              ],
-              onSelected: (value) {
-                switch (value) {
-                  case 'update_status':
-                    _showStatusUpdateDialog();
-                    break;
-                  case 'schedule_pickup':
-                    _showSchedulePickupDialog();
-                    break;
-                  case 'mark_handed_over':
-                    _markHandedOver();
-                    break;
-                }
-              },
-            ),
-        ],
       ),
       body: _buildBody(),
     );
@@ -445,6 +305,15 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
     );
   }
 
+  /// What the seller should know/do at each step.
+  static const _sellerStepHints = {
+    'pending': 'New order. Confirm it to start processing.',
+    'processing': 'Pack the items and hand them over for pickup.',
+    'warehouse': 'The parcel is with logistics at the sorting center.',
+    'delivering': 'A rider is delivering the parcel to the buyer.',
+    'delivered': 'The buyer has received the order.',
+  };
+
   Widget _buildStatusCard() {
     final statusColors = OrderService.getStatusColor(_order!.status);
     
@@ -511,6 +380,32 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          if (_order!.stage == 'cancelled')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: stageColor('cancelled').withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.cancel, color: stageColor('cancelled')),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'This order was cancelled.',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF222222)),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            OrderProgressTimeline(stage: _order!.stage, hints: _sellerStepHints),
+          const SizedBox(height: 16),
+          _buildSellerActions(),
           if (_isUpdatingStatus) ...[
             const SizedBox(height: 12),
             const Row(
@@ -868,7 +763,7 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
             _buildInfoRow(Icons.qr_code, 'Parcel ID', _parcel!['tracking_number']),
           if (_parcel!['currentSortingCenter'] != null)
             _buildInfoRow(Icons.business, 'Sorting Center', _parcel!['currentSortingCenter']['name']),
-          _buildInfoRow(Icons.info_outline, 'Parcel Status', _parcel!['status'] ?? 'Unknown'),
+          _buildInfoRow(Icons.info_outline, 'Parcel Status', _parcel!['status_label'] ?? _parcel!['status'] ?? 'Unknown'),
         ],
       ),
     );

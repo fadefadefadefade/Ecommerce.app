@@ -14,8 +14,6 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  static const _steps = ['Pending', 'Processing', 'Shipped', 'Delivered'];
-
   Map<String, dynamic>? _order;
   bool _loading = true;
   String? _error;
@@ -100,11 +98,49 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  static const _stepHints = {
+    'pending': 'Waiting for the seller to confirm your order.',
+    'processing': 'The seller is preparing your items.',
+    'warehouse': 'Your parcel is on its way to or at the sorting center.',
+    'delivering': 'A rider is delivering your parcel.',
+    'delivered': 'Your order has been delivered.',
+  };
+
+  static const _cancelReasons = [
+    'Changed my mind',
+    'Ordered by mistake',
+    'Found a better price elsewhere',
+    'Need to change the delivery address',
+    'Delivery takes too long',
+  ];
+
+  Future<void> _cancelOrder() async {
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.bc.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => const _CancelReasonSheet(reasons: _cancelReasons),
+    );
+    if (reason == null || !mounted) return;
+
+    try {
+      final data = ApiService.unwrap(
+        await ApiService.post('/orders/${widget.orderId}/cancel', body: {'cancellation_reason': reason}),
+      );
+      if (!mounted) return;
+      showAccountSnack(context, data['message'] ?? 'Your order has been cancelled.');
+    } catch (e) {
+      if (mounted) showAccountSnack(context, errorText(e), error: true);
+    }
+    _load();
+  }
+
   Widget _buildStatus() {
     final c = context.bc;
-    final status = '${_order!['status'] ?? ''}';
-    final cancelled = ['cancelled', 'failed', 'returned'].contains(status.toLowerCase());
-    final current = _steps.indexWhere((s) => s.toLowerCase() == status.toLowerCase());
+    final stage = '${_order!['stage'] ?? ''}';
+    final cancelled = stage == 'cancelled';
+    final canCancel = _order!['can_cancel'] == true;
 
     return AccountCard(
       child: Column(
@@ -116,53 +152,63 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Text('Placed ${formatDate(_order!['created_at'])}',
                     style: TextStyle(color: c.muted, fontSize: 12)),
               ),
-              OrderStatusBadge(status),
+              StageBadge(stage, label: _order!['stage_label']),
             ],
           ),
           const SizedBox(height: 16),
           if (cancelled)
-            Row(
-              children: [
-                Icon(Icons.cancel, color: orderStatusColor(status)),
-                const SizedBox(width: 8),
-                Text('This order was $status.', style: TextStyle(color: c.text)),
-              ],
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: stageColor('cancelled').withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.cancel, color: stageColor('cancelled')),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('This order was cancelled.',
+                            style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
+                        if ((_order!['cancellation_reason'] ?? '').toString().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text('Reason: ${_order!['cancellation_reason']}',
+                              style: TextStyle(color: c.textSecondary, fontSize: 13)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             )
           else
-            Row(
-              children: List.generate(_steps.length * 2 - 1, (i) {
-                if (i.isOdd) {
-                  final done = current >= (i ~/ 2) + 1;
-                  return Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: const EdgeInsets.only(bottom: 18),
-                      color: done ? BuyerPalette.primary : c.border,
-                    ),
-                  );
-                }
-                final step = i ~/ 2;
-                final done = current >= step;
-                return Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: done ? BuyerPalette.primary : c.border,
-                      child: Icon(done ? Icons.check : Icons.circle, size: done ? 14 : 6, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _steps[step],
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: done ? c.text : c.muted,
-                        fontWeight: step == current ? FontWeight.w700 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                );
-              }),
+            OrderProgressTimeline(stage: stage, hints: _stepHints),
+          if (canCancel) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _cancelOrder,
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancel Order'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: stageColor('cancelled'),
+                  side: BorderSide(color: stageColor('cancelled')),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'You can cancel while the order is Pending or Processing.',
+              style: TextStyle(fontSize: 11, color: c.muted),
+            ),
+          ],
         ],
       ),
     );
@@ -285,6 +331,108 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(width: 10),
           Expanded(child: Text(text)),
         ],
+      ),
+    );
+  }
+}
+
+/// Bottom sheet to pick (or type) a cancellation reason. Pops the reason, or null.
+class _CancelReasonSheet extends StatefulWidget {
+  final List<String> reasons;
+  const _CancelReasonSheet({required this.reasons});
+
+  @override
+  State<_CancelReasonSheet> createState() => _CancelReasonSheetState();
+}
+
+class _CancelReasonSheetState extends State<_CancelReasonSheet> {
+  String? _selected;
+  final _other = TextEditingController();
+
+  @override
+  void dispose() {
+    _other.dispose();
+    super.dispose();
+  }
+
+  String? get _reason {
+    if (_selected != 'Other') return _selected;
+    final text = _other.text.trim();
+    return text.isEmpty ? null : text;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.bc;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Cancel order?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
+              const SizedBox(height: 4),
+              Text('Tell us why you are cancelling.', style: TextStyle(color: c.muted)),
+              const SizedBox(height: 8),
+              RadioGroup<String>(
+                groupValue: _selected,
+                onChanged: (v) => setState(() => _selected = v),
+                child: Column(
+                  children: [
+                    for (final r in [...widget.reasons, 'Other'])
+                      RadioListTile<String>(
+                        value: r,
+                        title: Text(r, style: TextStyle(color: c.text)),
+                        activeColor: BuyerPalette.primary,
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                      ),
+                  ],
+                ),
+              ),
+              if (_selected == 'Other')
+                TextField(
+                  controller: _other,
+                  maxLength: 500,
+                  maxLines: 2,
+                  autofocus: true,
+                  onChanged: (_) => setState(() {}),
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    hintText: 'Your reason',
+                    filled: true,
+                    fillColor: c.subtle,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Keep Order'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _reason == null ? null : () => Navigator.pop(context, _reason),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: stageColor('cancelled'),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Cancel Order'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/reason_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../../models/logistics.dart';
 
@@ -410,33 +411,16 @@ Future<String?> askReason(
   required String title,
   required String hint,
   String confirmLabel = 'Submit',
-}) async {
-  final controller = TextEditingController();
-  final result = await showDialog<String>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        maxLines: 3,
-        maxLength: 500,
-        decoration: InputDecoration(hintText: hint, border: const OutlineInputBorder()),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: LogisticsColors.danger,
-            foregroundColor: Colors.white,
-          ),
-          child: Text(confirmLabel),
-        ),
-      ],
-    ),
+}) {
+  // Reason is optional here; the dialog owns (and safely disposes) its controller.
+  return showReasonDialog(
+    context,
+    title: title,
+    hint: hint,
+    confirmLabel: confirmLabel,
+    confirmColor: LogisticsColors.danger,
+    required: false,
   );
-  controller.dispose();
-  return result;
 }
 
 /// Infinite-scroll list over a paginated endpoint with pull-to-refresh.

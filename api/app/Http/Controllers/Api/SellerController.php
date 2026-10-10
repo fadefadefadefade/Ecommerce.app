@@ -451,7 +451,7 @@ class SellerController extends Controller
             
             foreach ($order->items as $item) {
                 $itemTotal = $item->price * $item->quantity;
-                $commission = $itemTotal * 0.15; // 15% commission
+                $commission = $this->itemCommission($item);
                 $earning = $itemTotal - $commission;
                 
                 $sellerEarning += $earning;
@@ -491,6 +491,9 @@ class SellerController extends Controller
                 $q->where('seller_id', $sellerId);
             })->count(),
         ];
+
+        // Progress step (Pending … Delivered) for each order card
+        $orders->getCollection()->each(fn (Order $order) => $order->withTrackingStage());
 
         return response()->json([
             'orders' => $orders->items(),
@@ -552,23 +555,32 @@ class SellerController extends Controller
         
         foreach ($order->items as $item) {
             $itemTotal = $item->price * $item->quantity;
-            $commission = $itemTotal * 0.15; // 15% commission
-            $earning = $itemTotal - $commission;
-            
+            // Use what checkout stored; fall back to the platform rate for old rows.
+            $commission = (float) ($item->commission_amount
+                ?: $itemTotal * ((float) config('marketplace.commission_rate', 10) / 100));
+            $earning = (float) ($item->seller_earning ?: $itemTotal - $commission);
+
             $sellerEarning += $earning;
             $commissionAmount += $commission;
-            
-            // Add calculated fields to item
+
             $item->seller_earning = $earning;
             $item->commission_amount = $commission;
         }
-        
+
         $order->seller_earning = $sellerEarning;
         $order->commission_amount = $commissionAmount;
+        $order->withTrackingStage();
+
+        $parcel = \App\Models\Parcel::where('order_id', $order->id)->latest('id')->first();
 
         return response()->json([
             'order' => $order,
-            'parcel' => null, // Mock parcel tracking data
+            'parcel' => $parcel ? [
+                'tracking_number' => $parcel->tracking_number,
+                'status' => $parcel->status,
+                'status_label' => $parcel->status_label,
+                'updated_at' => $parcel->updated_at,
+            ] : null,
         ]);
     }
 
@@ -576,27 +588,56 @@ class SellerController extends Controller
     {
         $sellerId = $request->user()->id;
         
+        // Sellers move an order Pending → Processing → Shipped (to warehouse), or
+        // cancel it before shipping. Delivering/Delivered belong to the courier.
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:Pending,Processing,Shipped,Delivered,Cancelled',
+            'status' => 'required|in:Processing,Shipped,Cancelled',
+            'cancellation_reason' => 'required_if:status,Cancelled|nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation failed',
+                'message' => $validator->errors()->first(),
                 'errors' => $validator->errors(),
             ], 422);
         }
 
-        $order = Order::whereHas('items.product', function ($q) use ($sellerId) {
-            $q->where('seller_id', $sellerId);
-        })->findOrFail($id);
+        return DB::transaction(function () use ($request, $sellerId, $id) {
+            $order = Order::whereHas('items.product', function ($q) use ($sellerId) {
+                $q->where('seller_id', $sellerId);
+            })->lockForUpdate()->findOrFail($id);
 
-        $order->update(['status' => $request->status]);
+            $allowedFrom = [
+                'Processing' => ['Pending'],
+                'Shipped' => ['Processing'],
+                'Cancelled' => Order::CANCELLABLE,
+            ][$request->status];
 
-        return response()->json([
-            'message' => "Order status updated to {$request->status}",
-            'order' => $order->load(['user', 'items.product']),
-        ]);
+            if (! in_array($order->status, $allowedFrom, true)) {
+                $current = Order::stageLabel($order->trackingStage());
+                return response()->json([
+                    'message' => "Can't change a {$current} order to " . ($request->status === 'Shipped' ? 'Shipped to Warehouse' : $request->status) . '.',
+                ], 422);
+            }
+
+            $parcel = null;
+            if ($request->status === 'Shipped') {
+                $parcel = $order->shipToWarehouse($request->user());
+            } elseif ($request->status === 'Cancelled') {
+                $order->cancelWithRestock('Cancelled by seller: ' . $request->cancellation_reason);
+            } else {
+                $order->update(['status' => $request->status]);
+            }
+
+            $label = Order::stageLabel($order->fresh()->trackingStage());
+
+            return response()->json([
+                'message' => $parcel
+                    ? "Shipped to warehouse. Parcel {$parcel->tracking_number} is waiting for a rider."
+                    : "Order is now {$label}.",
+                'order' => $order->fresh()->load(['user', 'items.product'])->withTrackingStage(),
+            ]);
+        });
     }
 
     public function schedulePickup(Request $request, $id)
@@ -621,12 +662,14 @@ class SellerController extends Controller
             $q->where('seller_id', $sellerId);
         })->findOrFail($id);
 
-        // Update order status to Shipped
-        $order->update(['status' => 'Shipped']);
+        if (! in_array($order->status, ['Processing', 'Shipped'], true)) {
+            return response()->json(['message' => 'Only Processing orders can be shipped to the warehouse.'], 422);
+        }
+        $parcel = DB::transaction(fn () => $order->shipToWarehouse($request->user()));
 
         return response()->json([
             'message' => 'Pickup scheduled successfully',
-            'order' => $order->load(['user', 'items.product']),
+            'order' => $order->load(['user', 'items.product'])->withTrackingStage(),
             'delivery' => [
                 'courier_name' => $request->courier_name,
                 'tracking_number' => $request->tracking_number,
@@ -634,8 +677,9 @@ class SellerController extends Controller
                 'notes' => $request->notes,
             ],
             'parcel' => [
-                'status' => 'scheduled',
-                'tracking_number' => $request->tracking_number,
+                'status' => $parcel->status,
+                'status_label' => $parcel->status_label,
+                'tracking_number' => $parcel->tracking_number,
             ],
         ]);
     }
@@ -648,14 +692,14 @@ class SellerController extends Controller
             $q->where('seller_id', $sellerId);
         })->findOrFail($id);
 
-        // Update order status to Shipped if not already
-        if ($order->status !== 'Shipped') {
-            $order->update(['status' => 'Shipped']);
+        if (! in_array($order->status, ['Processing', 'Shipped'], true)) {
+            return response()->json(['message' => 'Only Processing orders can be shipped to the warehouse.'], 422);
         }
+        DB::transaction(fn () => $order->shipToWarehouse($request->user()));
 
         return response()->json([
             'message' => 'Order marked as handed over to courier',
-            'order' => $order->load(['user', 'items.product']),
+            'order' => $order->load(['user', 'items.product'])->withTrackingStage(),
             'delivery' => [
                 'handed_over_at' => now()->toISOString(),
                 'status' => 'in_transit',
@@ -698,7 +742,7 @@ class SellerController extends Controller
         foreach ($orders as $order) {
             foreach ($order->items as $item) {
                 $itemTotal = $item->price * $item->quantity;
-                $commission = $itemTotal * 0.15; // 15% commission
+                $commission = $this->itemCommission($item);
                 $earning = $itemTotal - $commission;
                 
                 $totalRevenue += $itemTotal;
@@ -732,7 +776,7 @@ class SellerController extends Controller
         // Calculate additional metrics
         $averageOrderValue = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
         $profitMargin = $totalRevenue > 0 ? ($totalEarnings / $totalRevenue) * 100 : 0;
-        $commissionRate = 15; // 15% commission rate
+        $commissionRate = $this->commissionRate();
 
         // Generate sales trend (daily)
         $salesTrend = [];
@@ -748,7 +792,7 @@ class SellerController extends Controller
             foreach ($dayOrders as $order) {
                 foreach ($order->items as $item) {
                     $itemTotal = $item->price * $item->quantity;
-                    $commission = $itemTotal * 0.15;
+                    $commission = $this->itemCommission($item);
                     $dayEarnings += $itemTotal - $commission;
                 }
             }
@@ -826,7 +870,7 @@ class SellerController extends Controller
                 $totalQuantity += $item->quantity;
             }
             
-            $commission = $totalRevenue * 0.15;
+            $commission = $totalRevenue * ($this->commissionRate() / 100);
             $earnings = $totalRevenue - $commission;
             $averagePrice = $totalQuantity > 0 ? $totalRevenue / $totalQuantity : 0;
             $profitMargin = $totalRevenue > 0 ? ($earnings / $totalRevenue) * 100 : 0;
@@ -957,5 +1001,20 @@ class SellerController extends Controller
                 ]);
             }
         }
+    }
+
+    /** Platform commission (%), same setting as the web app. */
+    private function commissionRate(): float
+    {
+        return (float) config('marketplace.commission_rate', 10);
+    }
+
+    /** Commission on one order item: what checkout stored, else the current rate. */
+    private function itemCommission($item): float
+    {
+        if ((float) $item->commission_amount > 0) {
+            return (float) $item->commission_amount;
+        }
+        return $item->price * $item->quantity * ($this->commissionRate() / 100);
     }
 }

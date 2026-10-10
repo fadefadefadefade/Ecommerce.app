@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/order.dart';
 import '../models/order_item.dart';
 import 'api_service.dart';
@@ -83,19 +82,22 @@ class OrderService {
   }
 
   // Update order status (seller can update orders containing their products)
+  /// Seller moves an order: 'Processing', 'Shipped' (to warehouse) or 'Cancelled' (needs [reason]).
   static Future<Map<String, dynamic>> updateOrderStatus(
     int orderId,
-    String status,
-  ) async {
+    String status, {
+    String? reason,
+  }) async {
     try {
       final result = await ApiService.patch('/seller/orders/$orderId', {
         'status': status,
+        if (reason != null) 'cancellation_reason': reason,
       });
-      
+
       if (result['success']) {
         return {
           'success': true,
-          'message': 'Order status updated to $status',
+          'message': result['data']['message'] ?? 'Order status updated to $status',
           'order': Order.fromJson(result['data']['order']),
         };
       } else {

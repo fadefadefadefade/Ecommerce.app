@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/buyer_colors.dart';
+export '../../../widgets/order_progress.dart';
 
 // Small shared pieces for the buyer account screens (orders, security, etc.).
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/num_utils.dart';
 import '../../../widgets/product_thumb.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
@@ -127,6 +128,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     final stats = [
       {
         'title': 'My Products',
+        'icon': Icons.inventory_2_outlined,
         'value': '${_dashboardData['totalProducts'] ?? 0}',
         'gradient': const LinearGradient(
           colors: [Color(0xFF002b4d), Color(0xFF003d6b)],
@@ -136,6 +138,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       },
       {
         'title': 'Total Orders', 
+        'icon': Icons.receipt_long_outlined,
         'value': '${_dashboardData['totalOrders'] ?? 0}',
         'gradient': const LinearGradient(
           colors: [Color(0xFFfa4e1c), Color(0xFFfb7048)],
@@ -145,7 +148,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       },
       {
         'title': 'Gross Revenue',
-        'value': '₱${(_dashboardData['grossRevenue'] ?? 0.0).toStringAsFixed(2)}',
+        'icon': Icons.trending_up,
+        'value': '₱${asDouble(_dashboardData['grossRevenue']).toStringAsFixed(2)}',
         'subtitle': 'Before ${_dashboardData['commissionRate']?.toStringAsFixed(0) ?? '10'}% commission',
         'gradient': const LinearGradient(
           colors: [Color(0xFF002b4d), Color(0xFF004a80)],
@@ -155,8 +159,9 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       },
       {
         'title': 'My Earnings',
-        'value': '₱${(_dashboardData['totalEarnings'] ?? 0.0).toStringAsFixed(2)}',
-        'subtitle': 'After deducting ₱${(_dashboardData['totalCommission'] ?? 0.0).toStringAsFixed(2)} commission',
+        'icon': Icons.account_balance_wallet_outlined,
+        'value': '₱${asDouble(_dashboardData['totalEarnings']).toStringAsFixed(2)}',
+        'subtitle': 'After deducting ₱${asDouble(_dashboardData['totalCommission']).toStringAsFixed(2)} commission',
         'gradient': const LinearGradient(
           colors: [Color(0xFF059669), Color(0xFF34D399)],
           begin: Alignment.topLeft,
@@ -170,7 +175,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.1,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
@@ -186,16 +191,16 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Decorative circle
               Container(
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
                 ),
+                child: Icon(stat['icon'] as IconData, size: 18, color: Colors.white),
               ),
-              const SizedBox(height: 8),
+              const Spacer(),
               Text(
                 stat['title'] as String,
                 style: const TextStyle(
@@ -205,22 +210,30 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                stat['value'] as String,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              const SizedBox(height: 2),
+              // Large amounts shrink instead of overflowing the card
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  stat['value'] as String,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               if (stat['subtitle'] != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   stat['subtitle'] as String,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10,
                     color: Colors.white70,
+                    height: 1.2,
                   ),
                 ),
               ],
@@ -365,7 +378,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '₱${(order['total'] as num? ?? 0).toStringAsFixed(2)}',
+                          '₱${asDouble(order['total']).toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

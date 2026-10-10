@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/buyer_colors.dart';
+import '../../services/api_service.dart';
 import '../../services/psgc_service.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -18,9 +19,13 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   final _streetController = TextEditingController();
   final _zipController = TextEditingController();
 
-  final String _selectedLabel = 'Home';
-  final bool _isDefault = false;
-  final bool _isSaving = false;
+  static const _labels = ['Home', 'Work', 'Other'];
+
+  String _selectedLabel = 'Home';
+  bool _isDefault = false;
+  bool _isSaving = false;
+
+  bool get _isEdit => widget.address != null;
 
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _provinces = [];
@@ -40,12 +45,87 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   @override
   void initState() {
     super.initState();
+    final a = widget.address;
+    if (a != null) {
+      _fullNameController.text = a['full_name'] ?? '';
+      _phoneController.text = a['phone'] ?? '';
+      _zipController.text = a['zip'] ?? '';
+      _selectedLabel = a['label'] ?? 'Home';
+      _isDefault = a['is_default'] == true || a['is_default'] == 1;
+      // address_line is saved as "house, street"
+      final line = (a['address_line'] ?? '') as String;
+      final comma = line.indexOf(', ');
+      if (comma > 0) {
+        _houseNumberController.text = line.substring(0, comma);
+        _streetController.text = line.substring(comma + 2);
+      } else {
+        _streetController.text = line;
+      }
+    }
     _loadRegions();
+  }
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _phoneController.dispose();
+    _houseNumberController.dispose();
+    _streetController.dispose();
+    _zipController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    final a = widget.address;
+    // When editing without re-picking the location, keep the saved one.
+    final city = _selectedMunicipalityName ?? a?['city'];
+    if (city == null || (city as String).isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your region, province, city and barangay')),
+      );
+      return;
+    }
+    final relocated = _selectedMunicipalityName != null;
+    final house = _houseNumberController.text.trim();
+    final street = _streetController.text.trim();
+    final body = {
+      'label': _selectedLabel,
+      'full_name': _fullNameController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'address_line': [house, street].where((s) => s.isNotEmpty).join(', '),
+      'barangay': relocated ? _selectedBarangayName : a?['barangay'],
+      'city': city,
+      'province': relocated ? (_selectedProvinceName ?? _selectedRegionName) : a?['province'],
+      'zip': _zipController.text.trim(),
+      'is_default': _isDefault,
+    };
+
+    setState(() => _isSaving = true);
+    try {
+      final result = _isEdit
+          ? await ApiService.put('/addresses/${a!['id']}', body)
+          : await ApiService.post('/addresses', body: body);
+      final data = ApiService.unwrap(result);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(data['message'] ?? 'Address saved'),
+        backgroundColor: const Color(0xFF059669),
+      ));
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   Future<void> _loadRegions() async {
     try {
       final regions = await PsgcService.getRegions();
+      if (!mounted) return;
       setState(() => _regions = regions);
     } catch (e) {
       print('Error loading regions: $e');
@@ -55,6 +135,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   Future<void> _loadProvinces(String regionCode) async {
     try {
       final provinces = await PsgcService.getProvinces(regionCode);
+      if (!mounted) return;
       setState(() {
         _provinces = provinces;
         _municipalities = [];
@@ -70,6 +151,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   Future<void> _loadMunicipalities(String provinceCode) async {
     try {
       final municipalities = await PsgcService.getMunicipalities(provinceCode);
+      if (!mounted) return;
       setState(() {
         _municipalities = municipalities;
         _barangays = [];
@@ -84,6 +166,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   Future<void> _loadBarangays(String cityCode) async {
     try {
       final barangays = await PsgcService.getBarangays(cityCode);
+      if (!mounted) return;
       setState(() {
         _barangays = barangays;
         _selectedBarangay = null;
@@ -100,7 +183,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFfa4e1c),
         foregroundColor: Colors.white,
-        title: const Text('Add Address'),
+        title: Text(_isEdit ? 'Edit Address' : 'Add Address'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -121,14 +204,56 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   fillColor: context.bc.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                validator: (value) => value?.isEmpty == true ? 'Please enter your full name' : null,
+                validator: (value) => value?.trim().isEmpty == true ? 'Please enter your full name' : null,
+              ),
+              const SizedBox(height: 20),
+
+              // Phone
+              const Text('Phone Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                maxLength: 30,
+                decoration: InputDecoration(
+                  hintText: '09XX XXX XXXX',
+                  counterText: '',
+                  filled: true,
+                  fillColor: context.bc.surface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Label
+              const Text('Label', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final label in _labels)
+                    ChoiceChip(
+                      label: Text(label),
+                      selected: _selectedLabel == label,
+                      selectedColor: const Color(0xFFfa4e1c).withValues(alpha: 0.15),
+                      onSelected: (_) => setState(() => _selectedLabel = label),
+                    ),
+                ],
               ),
               const SizedBox(height: 20),
 
               // Address Section
               const Text('Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              Text('Select your region, province, city/municipality, then barangay', 
+              Text('Select your region, province, city/municipality, then barangay',
                 style: TextStyle(fontSize: 12, color: context.bc.muted)),
+              if (_isEdit && _selectedMunicipalityName == null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Current: ${[widget.address!['barangay'], widget.address!['city'], widget.address!['province']].where((s) => s != null && '$s'.isNotEmpty).join(', ')}'
+                  ' — leave blank to keep it',
+                  style: TextStyle(fontSize: 12, color: context.bc.textSecondary),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // Region Dropdown
@@ -377,26 +502,37 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   contentPadding: const EdgeInsets.all(12),
                 ),
-                validator: (value) => value?.isEmpty == true ? 'Please enter street name' : null,
+                validator: (value) => value?.trim().isEmpty == true ? 'Please enter street name' : null,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Set as default address', style: TextStyle(fontSize: 14)),
+                value: _isDefault,
+                activeThumbColor: const Color(0xFFfa4e1c),
+                onChanged: (v) => setState(() => _isDefault = v),
+              ),
+              const SizedBox(height: 20),
 
               // Save Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Address save functionality will be implemented')),
-                    );
-                  },
+                  onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFfa4e1c),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Save Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        )
+                      : const Text('Save Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
               ),
             ],

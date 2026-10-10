@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/order_progress.dart';
 import '../../../widgets/product_thumb.dart';
 import '../../../models/order.dart';
 import '../../../services/order_service.dart';
@@ -483,6 +484,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
               ),
               const SizedBox(height: 12),
               
+              // Delivery progress
+              OrderProgressBar(stage: order.stage),
+              const SizedBox(height: 12),
+
               // Order Items Summary: photos of the first few items
               Row(
                 children: [

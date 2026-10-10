@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/num_utils.dart';
 import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
@@ -346,7 +347,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with LiveRefr
                             if (hasDiscount) ...[
                               const SizedBox(width: 12),
                               Text(
-                                '₱${(product!['price'] ?? 0).toStringAsFixed(2)}',
+                                '₱${asDouble(product!['price']).toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 16,
                                   decoration: TextDecoration.lineThrough,
@@ -655,7 +656,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with LiveRefr
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '₱${(related['price'] ?? 0).toStringAsFixed(2)}',
+                                  '₱${asDouble(related['price']).toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,

@@ -33,15 +33,16 @@ class NetImage extends StatefulWidget {
   // Small in-memory cache shared by all NetImages (URL -> bytes).
   static final Map<String, Uint8List> _cache = {};
   static final Map<String, Future<Uint8List>> _inFlight = {};
-  static final HttpClient _client = HttpClient()
-    ..autoUncompress = true
-    ..connectionTimeout = const Duration(seconds: 15);
 
   /// Downloads [url], retrying up to [retries] times. Concurrent calls share one download.
   static Future<Uint8List> load(String url, {int retries = 3}) {
     final cached = _cache[url];
     if (cached != null) return Future.value(cached);
-    return _inFlight[url] ??= _download(url, retries).whenComplete(() => _inFlight.remove(url));
+    // Block body on purpose: `=> _inFlight.remove(url)` would return this very
+    // future, and whenComplete waits for a returned future — it would wait on itself forever.
+    return _inFlight[url] ??= _download(url, retries).whenComplete(() {
+      _inFlight.remove(url);
+    });
   }
 
   static Future<Uint8List> _download(String url, int retries) async {
@@ -49,9 +50,12 @@ class NetImage extends StatefulWidget {
     for (var attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) await Future.delayed(Duration(milliseconds: 300 * attempt));
       var received = 0;
+      // A fresh client per attempt: a pooled connection the dev server already
+      // closed can otherwise leave the download stuck.
+      final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
       try {
-        final request = await _client.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 10));
-        request.headers.set(HttpHeaders.connectionHeader, 'close');
+        final request = await client.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 10));
+        request.persistentConnection = false;
         final response = await request.close().timeout(const Duration(seconds: 10));
         if (response.statusCode != HttpStatus.ok) {
           throw HttpException('HTTP ${response.statusCode}', uri: Uri.parse(url));
@@ -72,6 +76,8 @@ class NetImage extends StatefulWidget {
       } catch (e) {
         lastError = e;
         if (kDebugMode) debugPrint('NetImage attempt ${attempt + 1} failed ($received bytes) for $url: $e');
+      } finally {
+        client.close(force: true);
       }
     }
     throw lastError ?? Exception('Failed to load $url');

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/num_utils.dart';
 import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
@@ -72,9 +73,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() {
         _items = response['items'] ?? [];
-        _subtotal = (response['subtotal'] ?? 0).toDouble();
-        _shipping = (response['shipping'] ?? 0).toDouble();
-        _total = (response['total'] ?? 0).toDouble();
+        _subtotal = asDouble(response['subtotal']);
+        _shipping = asDouble(response['shipping']);
+        _total = asDouble(response['total']);
         
         // Pre-fill user data
         final user = response['user'];
@@ -573,7 +574,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '₱${(item['subtotal'] ?? 0).toStringAsFixed(2)}',
+                                          '₱${asDouble(item['subtotal']).toStringAsFixed(2)}',
                                           style: const TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,

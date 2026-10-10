@@ -38,76 +38,14 @@ class _DeliveryMonitorTabState extends State<DeliveryMonitorTab> with AutomaticK
   }
 
   Future<void> _updateStatus(ParcelDelivery delivery) async {
-    final remarksController = TextEditingController(text: delivery.remarks ?? '');
-    String selected = delivery.status;
-
-    final confirmed = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<(String, String)>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: StatefulBuilder(
-          builder: (ctx, setSheetState) => SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Update ${delivery.trackingNumber ?? 'delivery'}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ParcelDelivery.statuses.map((s) {
-                      final isSelected = s == selected;
-                      return ChoiceChip(
-                        label: Text(humanize(s)),
-                        selected: isSelected,
-                        showCheckmark: false,
-                        selectedColor: statusColor(s),
-                        labelStyle: TextStyle(color: isSelected ? Colors.white : LogisticsColors.text),
-                        onSelected: (_) => setSheetState(() => selected = s),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: remarksController,
-                    maxLines: 2,
-                    maxLength: 500,
-                    decoration: const InputDecoration(
-                      labelText: 'Remarks (optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: LogisticsColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Update Status'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+      builder: (_) => _StatusSheet(delivery: delivery),
     );
-
-    final remarks = remarksController.text.trim();
-    remarksController.dispose();
-    if (confirmed != true) return;
+    if (result == null) return;
+    final (selected, remarks) = result;
 
     try {
       final message = await LogisticsService.updateDeliveryStatus(
@@ -213,6 +151,87 @@ class _DeliveryMonitorTabState extends State<DeliveryMonitorTab> with AutomaticK
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Status picker + remarks. Owns its TextEditingController so it is disposed
+/// only after the sheet's closing animation. Pops (status, remarks) or null.
+class _StatusSheet extends StatefulWidget {
+  final ParcelDelivery delivery;
+  const _StatusSheet({required this.delivery});
+
+  @override
+  State<_StatusSheet> createState() => _StatusSheetState();
+}
+
+class _StatusSheetState extends State<_StatusSheet> {
+  late String _selected = widget.delivery.status;
+  late final _remarks = TextEditingController(text: widget.delivery.remarks ?? '');
+
+  @override
+  void dispose() {
+    _remarks.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Update ${widget.delivery.trackingNumber ?? 'delivery'}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ParcelDelivery.statuses.map((s) {
+                  final isSelected = s == _selected;
+                  return ChoiceChip(
+                    label: Text(humanize(s)),
+                    selected: isSelected,
+                    showCheckmark: false,
+                    selectedColor: statusColor(s),
+                    labelStyle: TextStyle(color: isSelected ? Colors.white : LogisticsColors.text),
+                    onSelected: (_) => setState(() => _selected = s),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _remarks,
+                maxLines: 2,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  labelText: 'Remarks (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context, (_selected, _remarks.text.trim())),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: LogisticsColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Update Status'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

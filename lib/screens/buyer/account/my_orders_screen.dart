@@ -13,7 +13,7 @@ class MyOrdersScreen extends StatefulWidget {
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
-  static const _tabs = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  static final _tabs = ['All', ...orderStages.values, 'Cancelled'];
 
   List<Map<String, dynamic>> _orders = [];
   bool _loading = true;
@@ -48,7 +48,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   List<Map<String, dynamic>> _filtered(String tab) {
     if (tab == 'All') return _orders;
-    return _orders.where((o) => (o['status'] ?? '').toString().toLowerCase() == tab.toLowerCase()).toList();
+    return _orders.where((o) => (o['stage_label'] ?? o['status'] ?? '').toString() == tab).toList();
   }
 
   @override
@@ -149,7 +149,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                       style: TextStyle(fontWeight: FontWeight.w700, color: c.text),
                     ),
                   ),
-                  OrderStatusBadge('${order['status'] ?? ''}'),
+                  StageBadge('${order['stage'] ?? ''}', label: order['stage_label']),
                 ],
               ),
               Divider(height: 20, color: c.border),

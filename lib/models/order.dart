@@ -18,6 +18,9 @@ class Order {
   final String paymentMethod;
   final String paymentStatus;
   final String status;
+  /// Progress step from the API: pending, processing, warehouse, delivering, delivered or cancelled.
+  final String stage;
+  final String? stageLabel;
   final String? cancellationReason;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -44,6 +47,8 @@ class Order {
     required this.paymentMethod,
     required this.paymentStatus,
     required this.status,
+    this.stage = 'pending',
+    this.stageLabel,
     this.cancellationReason,
     required this.createdAt,
     required this.updatedAt,
@@ -70,6 +75,8 @@ class Order {
       paymentMethod: json['payment_method'] ?? '',
       paymentStatus: json['payment_status'] ?? '',
       status: json['status'] ?? '',
+      stage: json['stage'] ?? stageFromStatus(json['status']),
+      stageLabel: json['stage_label'],
       cancellationReason: json['cancellation_reason'],
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
@@ -217,5 +224,21 @@ class Delivery {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+}
+
+/// Best-effort progress step when the API response has no `stage` field.
+String stageFromStatus(dynamic status) {
+  switch ('${status ?? ''}'.toLowerCase()) {
+    case 'processing':
+      return 'processing';
+    case 'shipped':
+      return 'warehouse';
+    case 'delivered':
+      return 'delivered';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
   }
 }

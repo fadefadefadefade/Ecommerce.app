@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/seller_product.dart';
 import 'api_service.dart';
 
@@ -27,7 +26,8 @@ class ReportService {
         final data = result['data'];
         return {
           'success': true,
-          'report': SalesReport.fromJson(data),
+          // API wraps the figures: {success: true, report: {...}}
+          'report': SalesReport.fromJson(Map<String, dynamic>.from(data['report'] ?? data)),
         };
       } else {
         return {
@@ -88,14 +88,14 @@ class ReportService {
           .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
           .join('&');
       
-      final result = await ApiService.get('/seller/reports/products?$queryString');
+      final result = await ApiService.get('/seller/reports/product-performance?$queryString');
       
       if (result['success']) {
         final data = result['data'];
         return {
           'success': true,
-          'products': (data['products'] as List)
-              .map((p) => ProductPerformance.fromJson(p))
+          'products': (data['products'] as List? ?? [])
+              .map((p) => ProductPerformance.fromJson(Map<String, dynamic>.from(p)))
               .toList(),
         };
       } else {
@@ -250,23 +250,27 @@ class SalesReport {
   });
 
   factory SalesReport.fromJson(Map<String, dynamic> json) {
+    // Current API keys first (from_date, product_performance, sales_trend), older ones as fallback.
+    final products = json['product_performance'] ?? json['by_product'];
+    final trend = json['sales_trend'] ?? json['by_date'];
     return SalesReport(
-      fromDate: DateTime.tryParse(json['from'] ?? '') ?? DateTime.now(),
-      toDate: DateTime.tryParse(json['to'] ?? '') ?? DateTime.now(),
+      fromDate: DateTime.tryParse('${json['from_date'] ?? json['from'] ?? ''}') ?? DateTime.now(),
+      toDate: DateTime.tryParse('${json['to_date'] ?? json['to'] ?? ''}') ?? DateTime.now(),
       totalRevenue: double.tryParse(json['total_revenue']?.toString() ?? '0') ?? 0.0,
       totalCommission: double.tryParse(json['total_commission']?.toString() ?? '0') ?? 0.0,
       totalEarnings: double.tryParse(json['total_earnings']?.toString() ?? '0') ?? 0.0,
-      totalOrders: json['total_orders'] ?? 0,
+      totalOrders: int.tryParse('${json['total_orders'] ?? 0}') ?? 0,
       commissionRate: double.tryParse(json['commission_rate']?.toString() ?? '10') ?? 10.0,
-      productPerformance: json['by_product'] != null
-          ? (json['by_product'] as List).map((p) => ProductPerformance.fromJson(p)).toList()
+      productPerformance: products is List
+          ? products.map((p) => ProductPerformance.fromJson(Map<String, dynamic>.from(p))).toList()
           : [],
-      salesTrend: json['by_date'] != null
-          ? (json['by_date'] as Map).entries.map((e) => SalesTrend(
-              date: e.key,
-              earnings: double.tryParse(e.value.toString()) ?? 0.0,
-            )).toList()
-          : [],
+      salesTrend: trend is List
+          ? trend.map((t) => SalesTrend.fromJson(Map<String, dynamic>.from(t))).toList()
+          : trend is Map
+              ? trend.entries
+                  .map((e) => SalesTrend(date: '${e.key}', earnings: double.tryParse(e.value.toString()) ?? 0.0))
+                  .toList()
+              : [],
     );
   }
 

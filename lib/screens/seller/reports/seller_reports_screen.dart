@@ -3,7 +3,6 @@ import '../../../widgets/product_thumb.dart';
 import 'package:intl/intl.dart';
 import '../../../services/report_service.dart';
 import '../../../widgets/date_range_picker_widget.dart';
-import 'product_performance_screen.dart';
 
 class SellerReportsScreen extends StatefulWidget {
   const SellerReportsScreen({super.key});

@@ -59,6 +59,18 @@ class Parcel extends Model
         return $this->hasMany(ParcelDelivery::class, 'parcel_id');
     }
 
+    /** Unique tracking number, same format as the web app (ALVY-XXXXXXXXXX). */
+    public static function generateTracking(): string
+    {
+        do {
+            $number = 'ALVY-' . strtoupper(substr(md5(uniqid('', true)), 0, 10));
+        } while (static::where('tracking_number', $number)->exists());
+
+        return $number;
+    }
+
+    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
+
     public function getStatusLabelAttribute(): string
     {
         return self::STATUS_LABELS[$this->status] ?? ucwords(str_replace('_', ' ', (string) $this->status));

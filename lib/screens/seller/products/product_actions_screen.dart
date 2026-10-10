@@ -55,6 +55,7 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
 
     try {
       final updatedProduct = await _apiService.updateStock(_product.id!, newStock);
+      if (!mounted) return;
       setState(() {
         _product = updatedProduct;
       });
@@ -63,12 +64,13 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
         SnackBar(content: Text('Stock updated to $newStock')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating stock: $e')),
       );
       _stockController.text = _product.stock.toString(); // Reset to original
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -77,6 +79,7 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
 
     try {
       final updatedProduct = await _apiService.updateStatus(_product.id!, newStatus);
+      if (!mounted) return;
       setState(() {
         _product = updatedProduct;
       });
@@ -85,11 +88,12 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
         SnackBar(content: Text('Status updated to ${newStatus.toUpperCase()}')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating status: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -119,6 +123,7 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
 
     try {
       final updatedProduct = await _apiService.archiveProduct(_product.id!);
+      if (!mounted) return;
       setState(() {
         _product = updatedProduct;
       });
@@ -127,11 +132,12 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
         SnackBar(content: Text('${_product.title} archived')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error archiving product: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -140,6 +146,7 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
 
     try {
       final updatedProduct = await _apiService.unarchiveProduct(_product.id!);
+      if (!mounted) return;
       setState(() {
         _product = updatedProduct;
       });
@@ -148,11 +155,12 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
         SnackBar(content: Text('${_product.title} restored')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error restoring product: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -190,6 +198,7 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
         Navigator.pop(context, true); // Return true to indicate deletion
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting product: $e')),
       );

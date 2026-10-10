@@ -44,7 +44,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   
   // Form state
   bool _isLoading = false;
-  bool _isDraft = false;
   List<File> _selectedImages = [];
   List<ProductImage> _existingImages = [];
   List<int> _removedImageIds = [];
@@ -128,10 +127,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   Future<void> _loadCategories() async {
     try {
       final categories = await _apiService.getCategories();
+      if (!mounted) return;
       setState(() {
         _categories = categories;
       });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load categories: $e')),
       );
@@ -208,7 +209,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
     setState(() {
       _isLoading = true;
-      _isDraft = asDraft;
     });
 
     try {

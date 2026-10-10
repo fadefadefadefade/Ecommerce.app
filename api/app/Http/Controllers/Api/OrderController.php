@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -15,11 +16,18 @@ class OrderController extends Controller
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
+        $stage = $order->trackingStage();
+
         return response()->json([
             'order' => [
                 'id' => $order->id,
                 'order_number' => str_pad($order->id, 6, '0', STR_PAD_LEFT),
                 'status' => $order->status,
+                'stage' => $stage,
+                'stage_label' => Order::stageLabel($stage),
+                'stages' => Order::STAGES,
+                'can_cancel' => in_array($order->status, Order::CANCELLABLE, true),
+                'cancellation_reason' => $order->cancellation_reason,
                 'payment_status' => $order->payment_status,
                 'payment_method' => $order->payment_method,
                 'subtotal' => $order->subtotal,
@@ -41,10 +49,10 @@ class OrderController extends Controller
                         'price' => $item->price,
                         'subtotal' => $item->quantity * $item->price,
                         'product' => [
-                            'id' => $item->product->id,
-                            'title' => $item->product->title,
-                            'author' => $item->product->author,
-                            'image_url' => $item->product->primaryImage,
+                            'id' => $item->product?->id,
+                            'title' => $item->product?->title ?? 'Removed product',
+                            'author' => $item->product?->author,
+                            'image_url' => $item->product?->primaryImage,
                         ],
                     ];
                 }),
@@ -61,10 +69,14 @@ class OrderController extends Controller
 
         return response()->json([
             'orders' => $orders->map(function ($order) {
+                $stage = $order->trackingStage();
                 return [
                     'id' => $order->id,
                     'order_number' => str_pad($order->id, 6, '0', STR_PAD_LEFT),
                     'status' => $order->status,
+                    'stage' => $stage,
+                    'stage_label' => Order::stageLabel($stage),
+                    'can_cancel' => in_array($order->status, Order::CANCELLABLE, true),
                     'payment_status' => $order->payment_status,
                     'payment_method' => $order->payment_method,
                     'total_price' => $order->total_price,
@@ -76,4 +88,30 @@ class OrderController extends Controller
             }),
         ]);
     }
+
+    /** Buyer cancels an order while it's still Pending or Processing. */
+    public function cancel(Request $request, int $id)
+    {
+        $request->validate([
+            'cancellation_reason' => 'required|string|max:500',
+        ]);
+
+        return DB::transaction(function () use ($request, $id) {
+            $order = Order::with('items')
+                ->where('user_id', $request->user()->id)
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if (! in_array($order->status, Order::CANCELLABLE, true)) {
+                return response()->json([
+                    'message' => 'This order can no longer be cancelled because it has already been shipped.',
+                ], 422);
+            }
+
+            $order->cancelWithRestock($request->cancellation_reason);
+
+            return response()->json(['message' => 'Your order has been cancelled.']);
+        });
+    }
+
 }
