@@ -27,6 +27,9 @@ class ApiConfig {
   static const String adminDashboard = '/admin/dashboard';
   static const String adminUsers = '/admin/users';
   
+  // Logistics endpoints (admin)
+  static const String logistics = '/logistics';
+
   // Sorting Center endpoints
   static const String scDashboard = '/sorting-center/dashboard';
 }

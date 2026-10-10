@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../screens/buyer/home_screen.dart';
 import '../screens/seller/seller_main_screen.dart';
+import '../screens/logistics/logistics_main_screen.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -129,8 +130,8 @@ class AuthProvider with ChangeNotifier {
         return _buildComingSoonScreen('Courier Dashboard');
       
       case 'admin':
-        debugPrint('📱 Routing to AdminDashboard (coming soon)');
-        return _buildComingSoonScreen('Admin Dashboard');
+        debugPrint('📱 Routing to LogisticsMainScreen');
+        return const LogisticsMainScreen();
       
       default:
         debugPrint('❌ Unknown role: $role, routing to unsupported screen');

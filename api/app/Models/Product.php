@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class Product extends Model
 {
-    protected $table = 'books'; // Temporarily use books table until we rename it
+    protected $table = 'products';
 
     protected $fillable = [
         'category_id', 'subcategory', 'seller_id',
@@ -51,12 +51,12 @@ class Product extends Model
 
     public function images(): HasMany
     {
-        return $this->hasMany(ProductImage::class, 'book_id'); // book_id FK still exists in book_images table
+        return $this->hasMany(ProductImage::class, 'product_id');
     }
 
     public function variations(): HasMany
     {
-        return $this->hasMany(ProductVariation::class, 'book_id'); // book_id FK still exists
+        return $this->hasMany(ProductVariation::class, 'product_id');
     }
 
     public function address(): BelongsTo
@@ -66,12 +66,12 @@ class Product extends Model
 
     public function cartItems(): HasMany
     {
-        return $this->hasMany(CartItem::class, 'book_id'); // book_id FK still exists
+        return $this->hasMany(CartItem::class, 'product_id');
     }
 
     public function orderItems(): HasMany
     {
-        return $this->hasMany(OrderItem::class, 'book_id'); // book_id FK still exists
+        return $this->hasMany(OrderItem::class, 'product_id');
     }
 
     // ── Accessors ─────────────────────────────────────────────
