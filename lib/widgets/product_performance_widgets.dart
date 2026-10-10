@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'product_thumb.dart';
 import 'package:intl/intl.dart';
 import '../services/report_service.dart';
 
@@ -62,6 +63,8 @@ class ProductPerformanceCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                   ],
+                  ProductThumb(url: product.product?.primaryImageUrl, size: 48),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

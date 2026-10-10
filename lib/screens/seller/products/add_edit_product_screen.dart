@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
+import '../../../widgets/stock_stepper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/seller_product.dart';
 import '../../../services/seller_api_service.dart';
@@ -33,7 +35,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   final _priceController = TextEditingController();
   final _salePriceController = TextEditingController();
   final _discountController = TextEditingController();
-  final _voucherCodeController = TextEditingController();
   final _stockController = TextEditingController();
   final _skuController = TextEditingController();
   final _weightController = TextEditingController();
@@ -80,7 +81,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _priceController.dispose();
     _salePriceController.dispose();
     _discountController.dispose();
-    _voucherCodeController.dispose();
     _stockController.dispose();
     _skuController.dispose();
     _weightController.dispose();
@@ -106,7 +106,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _priceController.text = product.price.toString();
     _salePriceController.text = product.salePrice?.toString() ?? '';
     _discountController.text = product.discountPercent.toString();
-    _voucherCodeController.text = product.voucherCode ?? '';
     _stockController.text = product.stock.toString();
     _skuController.text = product.sku ?? '';
     _weightController.text = product.weightKg?.toString() ?? '';
@@ -117,7 +116,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _selectedCategoryId = product.categoryId;
     _selectedSubcategory = product.subcategory;
     _status = product.status;
-    _existingImages = product.images ?? [];
+    // Products keep a single photo in the `image` column; show it as the current photo.
+    _existingImages = (product.images?.isNotEmpty ?? false)
+        ? product.images!
+        : [
+            if (product.image != null && product.image!.isNotEmpty)
+              ProductImage(id: 0, productId: product.id ?? 0, path: product.image!, label: 'Main', sortOrder: 0),
+          ];
     _variations = List.from(product.variations ?? []);
   }
   Future<void> _loadCategories() async {
@@ -227,7 +232,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         'sale_price': _salePriceController.text.isNotEmpty 
             ? double.tryParse(_salePriceController.text) : null,
         'discount_percent': double.tryParse(_discountController.text) ?? 0,
-        'voucher_code': _voucherCodeController.text.isNotEmpty ? _voucherCodeController.text : null,
         'stock': int.tryParse(_stockController.text) ?? 0,
         'sku': _skuController.text.isNotEmpty ? _skuController.text : null,
         'weight_kg': _weightController.text.isNotEmpty 
@@ -360,12 +364,16 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             // Existing images (for editing)
             if (_existingImages.isNotEmpty) ...[
               const Text(
-                'Current Photos',
+                'Current Photo',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF6b90aa),
                 ),
+              ),
+              const Text(
+                'Pick a new photo below to replace it.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF8a7a70)),
               ),
               const SizedBox(height: 8),
               SizedBox(
@@ -381,12 +389,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              image.url,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                            ),
+                            child: ProductThumb(url: image.url, size: 80),
                           ),
                           if (index == 0)
                             Positioned(
@@ -408,6 +411,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                                 ),
                               ),
                             ),
+                          // The single `image` column photo is replaced by picking a new one, not removed.
+                          if (image.id > 0)
                           Positioned(
                             top: 2,
                             right: 2,
@@ -729,24 +734,20 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             ),
             const SizedBox(height: 16),
             
+            StockStepper(
+              controller: _stockController,
+              labelText: 'Stock *',
+              suffixText: 'units',
+              validator: (value) {
+                if (value?.isEmpty ?? true) return 'Stock is required';
+                if (int.tryParse(value!) == null) return 'Invalid stock';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
             Row(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _stockController,
-                    decoration: const InputDecoration(
-                      labelText: 'Stock *',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) return 'Stock is required';
-                      if (int.tryParse(value!) == null) return 'Invalid stock';
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
                     controller: _skuController,
@@ -757,12 +758,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            Row(
-              children: [
+                const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
                     controller: _discountController,
@@ -781,17 +777,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                       }
                       return null;
                     },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _voucherCodeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Voucher Code',
-                      hintText: 'e.g. SAVE20',
-                      border: OutlineInputBorder(),
-                    ),
                   ),
                 ),
               ],
@@ -908,29 +893,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                                 },
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextFormField(
-                                initialValue: _variations[index].stock.toString(),
-                                decoration: const InputDecoration(
-                                  labelText: 'Stock',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (value) {
-                                  _variations[index] = ProductVariation(
-                                    id: _variations[index].id,
-                                    productId: _variations[index].productId,
-                                    name: _variations[index].name,
-                                    price: _variations[index].price,
-                                    stock: int.tryParse(value) ?? 0,
-                                    sku: _variations[index].sku,
-                                    sortOrder: _variations[index].sortOrder,
-                                  );
-                                },
-                              ),
-                            ),
                             IconButton(
                               onPressed: () => _removeVariation(index),
                               icon: const Icon(Icons.delete, color: Colors.red),
@@ -938,24 +900,49 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: _variations[index].sku ?? '',
-                          decoration: const InputDecoration(
-                            labelText: 'SKU (Optional)',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onChanged: (value) {
-                            _variations[index] = ProductVariation(
-                              id: _variations[index].id,
-                              productId: _variations[index].productId,
-                              name: _variations[index].name,
-                              price: _variations[index].price,
-                              stock: _variations[index].stock,
-                              sku: value.isNotEmpty ? value : null,
-                              sortOrder: _variations[index].sortOrder,
-                            );
-                          },
+                        Row(
+                          children: [
+                            Expanded(
+                              child: StockStepper(
+                                initialValue: _variations[index].stock,
+                                labelText: 'Stock',
+                                dense: true,
+                                onChanged: (value) {
+                                  _variations[index] = ProductVariation(
+                                    id: _variations[index].id,
+                                    productId: _variations[index].productId,
+                                    name: _variations[index].name,
+                                    price: _variations[index].price,
+                                    stock: value,
+                                    sku: _variations[index].sku,
+                                    sortOrder: _variations[index].sortOrder,
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                initialValue: _variations[index].sku ?? '',
+                                decoration: const InputDecoration(
+                                  labelText: 'SKU (Optional)',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                onChanged: (value) {
+                                  _variations[index] = ProductVariation(
+                                    id: _variations[index].id,
+                                    productId: _variations[index].productId,
+                                    name: _variations[index].name,
+                                    price: _variations[index].price,
+                                    stock: _variations[index].stock,
+                                    sku: value.isNotEmpty ? value : null,
+                                    sortOrder: _variations[index].sortOrder,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

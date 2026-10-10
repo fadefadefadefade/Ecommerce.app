@@ -37,23 +37,51 @@ class SellerController extends Controller
                 ];
             });
 
-        // Mock dashboard stats - replace with real calculations
+        // Line items of this seller's products, excluding cancelled orders
+        $sales = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('products', 'products.id', '=', 'order_items.product_id')
+            ->where('products.seller_id', $sellerId)
+            ->where('orders.status', '!=', 'Cancelled');
+
+        $totals = (clone $sales)->selectRaw('
+                COUNT(DISTINCT order_items.order_id) as orders,
+                COALESCE(SUM(order_items.price * order_items.quantity), 0) as gross,
+                COALESCE(SUM(order_items.commission_amount), 0) as commission,
+                COALESCE(SUM(order_items.seller_earning), 0) as earnings
+            ')->first();
+
+        // Latest orders containing this seller's products; total = this seller's share
+        $recentOrders = (clone $sales)
+            ->groupBy('orders.id', 'orders.full_name', 'orders.status', 'orders.created_at')
+            ->orderByDesc('orders.created_at')
+            ->limit(5)
+            ->get([
+                'orders.id',
+                'orders.full_name',
+                'orders.status',
+                'orders.created_at',
+                DB::raw('SUM(order_items.price * order_items.quantity) as seller_total'),
+                DB::raw('MIN(products.image) as image'),
+            ])
+            ->map(fn ($o) => [
+                'id' => $o->id,
+                'image' => $o->image,
+                'customer' => $o->full_name ?: 'Customer',
+                'total' => (float) $o->seller_total,
+                'status' => $o->status,
+                'date' => \Illuminate\Support\Carbon::parse($o->created_at)->toDateString(),
+            ]);
+
         return response()->json([
-            'totalEarnings' => 15000.00,
-            'totalRevenue' => 18000.00,
-            'totalCommission' => 3000.00,
-            'totalOrders' => 45,
-            'totalProducts' => $products->count(),
+            'totalProducts' => Product::where('seller_id', $sellerId)->where('is_archived', false)->count(),
+            'totalOrders' => (int) $totals->orders,
+            'grossRevenue' => (float) $totals->gross,
+            'totalCommission' => (float) $totals->commission,
+            'totalEarnings' => (float) $totals->earnings,
+            'commissionRate' => (float) config('marketplace.commission_rate', 10),
             'products' => $products,
-            'recentOrders' => [
-                [
-                    'order_id' => 101,
-                    'quantity' => 2,
-                    'seller_earning' => 500.00,
-                    'created_at' => now()->toISOString(),
-                    'product' => ['title' => 'Sample Product'],
-                ],
-            ],
+            'recentOrders' => $recentOrders,
         ]);
     }
 
@@ -371,6 +399,7 @@ class SellerController extends Controller
         $counts = [
             'active' => (clone $allProducts)->where('is_archived', false)->where('status', 'active')->count(),
             'draft' => (clone $allProducts)->where('is_archived', false)->where('status', 'draft')->count(),
+            'inactive' => (clone $allProducts)->where('is_archived', false)->where('status', 'inactive')->count(),
             'low_stock' => (clone $allProducts)->where('is_archived', false)->where('stock', '>', 0)->where('stock', '<=', 5)->count(),
             'out_of_stock' => (clone $allProducts)->where('is_archived', false)->where('stock', 0)->count(),
             'archived' => (clone $allProducts)->where('is_archived', true)->count(),
@@ -403,7 +432,9 @@ class SellerController extends Controller
         if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('order_number', 'like', "%{$search}%")
+                // Order "number" is the zero-padded id (e.g. 000081)
+                $q->where('id', ltrim($search, '#0') === '' ? 0 : (int) ltrim($search, '#0'))
+                  ->orWhere('full_name', 'like', "%{$search}%")
                   ->orWhereHas('user', function ($userQ) use ($search) {
                       $userQ->where('name', 'like', "%{$search}%")
                            ->orWhere('email', 'like', "%{$search}%");

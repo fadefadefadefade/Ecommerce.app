@@ -84,7 +84,7 @@ class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
                     _buildNavItem(icon: Icons.move_to_inbox, label: 'Pickups', index: tabPickups),
                     _buildNavItem(icon: Icons.inventory_2, label: 'Parcels', index: tabParcels),
                     _buildNavItem(icon: Icons.local_shipping, label: 'Deliveries', index: tabDeliveries),
-                    _buildNavItem(icon: Icons.menu, label: 'More', index: tabMore),
+                    _buildNavItem(icon: Icons.person, label: 'Account', index: tabMore),
                   ],
                 ),
               ),

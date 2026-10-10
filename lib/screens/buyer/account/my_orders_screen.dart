@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/net_image.dart';
 import '../../../services/api_service.dart';
 import '../../../theme/buyer_colors.dart';
 import 'account_ui.dart';
@@ -161,7 +162,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                       height: 56,
                       color: c.subtle,
                       child: image != null
-                          ? Image.network(
+                          ? NetImage(
                               image,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, color: c.muted),

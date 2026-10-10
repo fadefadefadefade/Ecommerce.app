@@ -12,11 +12,23 @@ class SellerMainScreen extends StatefulWidget {
   const SellerMainScreen({super.key});
 
   @override
-  State<SellerMainScreen> createState() => _SellerMainScreenState();
+  State<SellerMainScreen> createState() => SellerMainScreenState();
+
+  /// Lets nested screens (e.g. Profile shortcuts) switch tabs.
+  static SellerMainScreenState? of(BuildContext context) =>
+      context.findAncestorStateOfType<SellerMainScreenState>();
 }
 
-class _SellerMainScreenState extends State<SellerMainScreen> {
+class SellerMainScreenState extends State<SellerMainScreen> {
+  static const tabDashboard = 0;
+  static const tabProducts = 1;
+  static const tabOrders = 2;
+  static const tabReports = 3;
+  static const tabProfile = 4;
+
   int _currentIndex = 0;
+
+  void goTo(int index) => setState(() => _currentIndex = index);
   bool _redirecting = false;
   
   final List<Widget> _screens = [

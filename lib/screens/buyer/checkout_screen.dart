@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/psgc_service.dart';
@@ -534,7 +535,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       children: [
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(8),
-                                          child: Image.network(
+                                          child: NetImage(
                                             product['image_url'] ?? '',
                                             width: 50,
                                             height: 60,

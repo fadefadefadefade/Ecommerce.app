@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
+import '../../../widgets/stock_stepper.dart';
 import 'package:flutter/services.dart';
 import '../../../models/seller_product.dart';
 import '../../../services/seller_api_service.dart';
@@ -221,21 +223,7 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        _product.displayImage,
-                        width: 80,
-                        height: 100,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 80,
-                          height: 100,
-                          color: const Color(0xFFF3F4F6),
-                          child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                        ),
-                      ),
-                    ),
+                    ProductThumb(url: _product.primaryImageUrl, size: 88),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -330,15 +318,9 @@ class _ProductActionsScreenState extends State<ProductActionsScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
+                          child: StockStepper(
                             controller: _stockController,
-                            decoration: const InputDecoration(
-                              labelText: 'Current Stock',
-                              border: OutlineInputBorder(),
-                              suffixText: 'units',
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            labelText: 'Current Stock',
                           ),
                         ),
                         const SizedBox(width: 16),

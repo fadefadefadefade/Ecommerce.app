@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
 import '../../widgets/buyer_product_card.dart';
+import '../../widgets/live_refresh.dart';
+import 'buyer_main_screen.dart';
 
 class ShopScreen extends StatefulWidget {
   final String? initialSearch;
@@ -14,7 +16,7 @@ class ShopScreen extends StatefulWidget {
   State<ShopScreen> createState() => _ShopScreenState();
 }
 
-class _ShopScreenState extends State<ShopScreen> {
+class _ShopScreenState extends State<ShopScreen> with LiveRefresh {
   List<dynamic> products = [];
   bool isLoading = true;
   String searchQuery = '';
@@ -42,9 +44,15 @@ class _ShopScreenState extends State<ShopScreen> {
     super.dispose();
   }
 
-  Future<void> _loadProducts() async {
-    setState(() => isLoading = true);
-    
+  @override
+  int? get liveTab => BuyerMainScreenState.tabShop;
+
+  @override
+  Future<void> onLiveRefresh() => _loadProducts(silent: true);
+
+  Future<void> _loadProducts({bool silent = false}) async {
+    if (!silent) setState(() => isLoading = true);
+
     try {
       final queryParams = <String, String>{
         if (searchQuery.isNotEmpty) 'search': searchQuery,
@@ -58,19 +66,18 @@ class _ShopScreenState extends State<ShopScreen> {
           .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
           .join('&');
       
-      final result = await ApiService.get(
+      final data = ApiService.unwrap(await ApiService.get(
         '/products${queryString.isNotEmpty ? '?$queryString' : ''}'
-      );
-      
-      if (result['success']) {
-        setState(() {
-          products = result['data']['products'] ?? [];
-          isLoading = false;
-        });
-      }
+      ));
+      if (!mounted) return;
+      setState(() {
+        products = data['products'] ?? [];
+        isLoading = false;
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
-      if (mounted) {
+      if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading products: $e')),
         );
@@ -304,10 +311,14 @@ class _ShopScreenState extends State<ShopScreen> {
                       color: Color(0xFFfa4e1c),
                     ),
                   )
-                : products.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                : RefreshIndicator(
+                    color: const Color(0xFFfa4e1c),
+                    onRefresh: () => _loadProducts(silent: true),
+                    child: products.isEmpty
+                    ? ListView(
+                        children: [
+                          const SizedBox(height: 80),
+                          Column(
                           children: [
                             const Text('🔍', style: TextStyle(fontSize: 60)),
                             const SizedBox(height: 20),
@@ -330,9 +341,11 @@ class _ShopScreenState extends State<ShopScreen> {
                               ),
                             ),
                           ],
-                        ),
+                          ),
+                        ],
                       )
                     : GridView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
@@ -344,6 +357,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         itemBuilder: (context, index) =>
                             BuyerProductCard(product: Map<String, dynamic>.from(products[index])),
                       ),
+                  ),
           ),
         ],
       ),

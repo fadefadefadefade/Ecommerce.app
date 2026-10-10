@@ -66,7 +66,16 @@ class CartController extends Controller
         ]);
 
         // Increment if already in cart, otherwise set the requested qty
-        $item->quantity = $item->exists ? $item->quantity + $qty : $qty;
+        $newQty = $item->exists ? $item->quantity + $qty : $qty;
+        if ($newQty > $product->stock) {
+            $inCart = $item->exists ? " You already have {$item->quantity} in your cart." : '';
+            return response()->json([
+                'message' => "Only {$product->stock} left in stock.{$inCart}",
+                'stock' => $product->stock,
+            ], 400);
+        }
+
+        $item->quantity = $newQty;
         $item->save();
 
         return response()->json([
@@ -87,6 +96,14 @@ class CartController extends Controller
         $item = CartItem::where('id', $cartItemId)
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
+
+        $stock = (int) $item->product?->stock;
+        if ($request->quantity > $stock) {
+            return response()->json([
+                'message' => $stock > 0 ? "Only {$stock} left in stock." : 'This item is now out of stock.',
+                'stock' => $stock,
+            ], 400);
+        }
 
         $item->update(['quantity' => $request->quantity]);
 

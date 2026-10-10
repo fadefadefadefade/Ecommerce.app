@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
+import '../../widgets/live_refresh.dart';
 import 'checkout_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -12,7 +14,7 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends State<ProductDetailScreen> with LiveRefresh {
   Map<String, dynamic>? product;
   List<dynamic> relatedProducts = [];
   bool isLoading = true;
@@ -26,7 +28,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _loadProduct();
   }
 
-  Future<void> _loadProduct() async {
+  @override
+  Future<void> onLiveRefresh() => _loadProduct(silent: true);
+
+  Future<void> _loadProduct({bool silent = false}) async {
     try {
       final result = ApiService.unwrap(await ApiService.get('/products/${widget.productId}'));
       if (!mounted) return;
@@ -34,10 +39,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         product = result['product'];
         relatedProducts = result['related'] ?? [];
         isLoading = false;
+        // Stock may have dropped since the quantity was picked
+        final stock = (product?['stock'] as num?)?.toInt() ?? 0;
+        if (stock > 0 && quantity > stock) quantity = stock;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
-      if (mounted) {
+      if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading product: $e')),
         );
@@ -82,8 +91,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFC62828),
+          ),
         );
+        // Usually means the stock changed; show the current count.
+        _loadProduct(silent: true);
       }
     }
   }
@@ -160,7 +174,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         itemBuilder: (context, index) {
                           return Container(
                             color: context.bc.subtle,
-                            child: Image.network(
+                            child: NetImage(
                               allImages[index],
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Center(
@@ -625,7 +639,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: related['image_url'] != null
-                                        ? Image.network(
+                                        ? NetImage(
                                             related['image_url'],
                                             fit: BoxFit.cover,
                                           )

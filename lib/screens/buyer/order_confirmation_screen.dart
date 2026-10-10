@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
 import 'buyer_main_screen.dart';
@@ -208,7 +209,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                           children: [
                                             ClipRRect(
                                               borderRadius: BorderRadius.circular(6),
-                                              child: Image.network(
+                                              child: NetImage(
                                                 item['product']['image_url'] ?? '',
                                                 width: 40,
                                                 height: 50,

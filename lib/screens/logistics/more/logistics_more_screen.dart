@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../widgets/profile_kit.dart';
+import '../../buyer/account/notifications_screen.dart';
+import '../../buyer/account/security_screen.dart';
 import '../account/logistics_account_screen.dart';
 import '../chat/chat_contacts_screen.dart';
 import '../reports/logistics_reports_screen.dart';
 import '../riders/riders_screen.dart';
-import '../widgets/logistics_ui.dart';
 
+/// Logistics admin profile ("More" tab), same layout as the buyer's My Account.
 class LogisticsMoreScreen extends StatelessWidget {
   const LogisticsMoreScreen({super.key});
 
@@ -14,93 +17,65 @@ class LogisticsMoreScreen extends StatelessWidget {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
-  Future<void> _logout(BuildContext context) async {
-    final ok = await confirmAction(
-      context,
-      title: 'Log out',
-      message: 'Are you sure you want to log out?',
-      confirmLabel: 'Log out',
-      destructive: true,
-    );
-    if (ok && context.mounted) {
-      await context.read<AuthProvider>().logout();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
 
-    return Scaffold(
-      backgroundColor: LogisticsColors.background,
-      appBar: logisticsAppBar('More'),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SectionCard(
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: LogisticsColors.primary,
-                  child: Text(
-                    (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'A',
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.name ?? 'Admin',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                      ),
-                      Text(user?.email ?? '', style: const TextStyle(color: LogisticsColors.muted)),
-                      const SizedBox(height: 4),
-                      const StatusBadge(status: 'info', label: 'Logistics Admin'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+    return ProfileScaffold(
+      title: 'My Account',
+      children: [
+        ProfileHeaderCard(
+          name: user?.name ?? '',
+          email: user?.email ?? '',
+          roleLabel: 'Logistics Admin',
+          roleIcon: Icons.local_shipping,
+        ),
+        const SizedBox(height: 24),
+        ProfileInfoCard(
+          title: 'Account Information',
+          items: [
+            ('Full Name', user?.name ?? ''),
+            ('Email Address', user?.email ?? ''),
+            ('Role', 'Administrator · Logistics'),
+            ('Member Since', memberSince(user?.createdAt)),
+          ],
+          onEdit: () => _push(context, const LogisticsAccountScreen()),
+        ),
+        const SizedBox(height: 16),
+        ProfileActionGrid(actions: [
+          ProfileAction(
+            icon: Icons.two_wheeler,
+            label: 'Rider Management',
+            color: const Color(0xFF3B82F6),
+            onTap: () => _push(context, const RidersScreen()),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              children: [
-                _tile(context, Icons.two_wheeler, 'Rider Management', () => _push(context, const RidersScreen())),
-                const Divider(height: 1),
-                _tile(context, Icons.analytics, 'Reports', () => _push(context, const LogisticsReportsScreen())),
-                const Divider(height: 1),
-                _tile(context, Icons.chat, 'Chat / Messaging', () => _push(context, const ChatContactsScreen())),
-                const Divider(height: 1),
-                _tile(context, Icons.person, 'Account', () => _push(context, const LogisticsAccountScreen())),
-              ],
-            ),
+          ProfileAction(
+            icon: Icons.analytics_outlined,
+            label: 'Reports',
+            color: const Color(0xFF8B5CF6),
+            onTap: () => _push(context, const LogisticsReportsScreen()),
           ),
-          const SizedBox(height: 16),
-          SectionCard(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: LogisticsColors.danger),
-              title: const Text('Log out', style: TextStyle(color: LogisticsColors.danger, fontWeight: FontWeight.w600)),
-              onTap: () => _logout(context),
-            ),
+          ProfileAction(
+            icon: Icons.chat_bubble_outline,
+            label: 'Chat',
+            color: const Color(0xFF10B981),
+            onTap: () => _push(context, const ChatContactsScreen()),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tile(BuildContext context, IconData icon, String label, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: LogisticsColors.primary),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.chevron_right, color: LogisticsColors.muted),
-      onTap: onTap,
+          ProfileAction(
+            icon: Icons.notifications_outlined,
+            label: 'Notifications',
+            color: const Color(0xFFFFA500),
+            onTap: () => _push(context, const NotificationsScreen()),
+          ),
+          ProfileAction(
+            icon: Icons.lock_outline,
+            label: 'Security',
+            color: const Color(0xFFDC2626),
+            onTap: () => _push(context, const SecurityScreen()),
+          ),
+          ProfileAction.logout(context),
+        ]),
+      ],
     );
   }
 }

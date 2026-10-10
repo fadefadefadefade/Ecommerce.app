@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
 import '../../../services/report_service.dart';
 import '../../../widgets/product_performance_widgets.dart';
 import '../../../widgets/date_range_picker_widget.dart';
@@ -527,6 +528,8 @@ class _ProductPerformanceScreenState extends State<ProductPerformanceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Product header
+                      Center(child: ProductThumb(url: product.product?.primaryImageUrl, size: 120, radius: 12)),
+                      const SizedBox(height: 12),
                       Text(
                         product.title,
                         style: const TextStyle(

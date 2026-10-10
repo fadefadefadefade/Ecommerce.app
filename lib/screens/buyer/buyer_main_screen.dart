@@ -30,6 +30,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   static const tabAccount = 3;
 
   late int _currentIndex = widget.initialIndex;
+  int get currentIndex => _currentIndex;
   bool _redirecting = false;
   int _cartCount = 0;
   // Bumped each time the Cart tab opens so it reloads items added elsewhere.

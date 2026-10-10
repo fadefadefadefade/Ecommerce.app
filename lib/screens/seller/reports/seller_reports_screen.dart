@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
 import 'package:intl/intl.dart';
 import '../../../services/report_service.dart';
 import '../../../widgets/date_range_picker_widget.dart';
@@ -37,6 +38,7 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
         to: _toDate,
       );
       
+      if (!mounted) return;
       if (result['success']) {
         setState(() {
           _salesReport = result['report'];
@@ -49,6 +51,7 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load sales report: $e';
         _isLoading = false;
@@ -688,7 +691,9 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
+          ProductThumb(url: product.product?.primaryImageUrl, size: 40, radius: 6),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

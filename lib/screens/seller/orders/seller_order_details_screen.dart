@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
 import 'package:intl/intl.dart';
 import '../../../models/order.dart';
 import '../../../models/order_item.dart';
@@ -640,11 +641,17 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
         color: const Color(0xFFFBEEE8).withOpacity(0.3),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ProductThumb(url: item.product?.primaryImageUrl, size: 56),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            item.book?.title ?? 'Product #${item.bookId}',
+            item.product?.title ?? 'Product #${item.productId}',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -713,6 +720,9 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+            ),
           ),
         ],
       ),

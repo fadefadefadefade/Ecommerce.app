@@ -22,10 +22,11 @@ class HomeController extends Controller
             ];
         });
 
+        // Out-of-stock products stay visible (labelled in the app), listed after in-stock ones
         $available = fn () => Product::with(['category', 'seller'])
             ->where('is_archived', false)
             ->where('status', 'active')
-            ->where('stock', '>', 0);
+            ->orderByRaw('stock > 0 DESC');
 
         $featured = $available()->latest()->take(6)->get()->map(fn ($p) => $this->card($p));
 
@@ -62,10 +63,11 @@ class HomeController extends Controller
     public function products(Request $request)
     {
         // Build query with search and filters
+        // Out-of-stock products stay visible (labelled in the app), listed after in-stock ones
         $query = Product::with(['category', 'seller'])
             ->where('is_archived', false)
             ->where('status', 'active')
-            ->where('stock', '>', 0);
+            ->orderByRaw('stock > 0 DESC');
 
         // Search
         if ($request->filled('search')) {
@@ -137,7 +139,7 @@ class HomeController extends Controller
             ->where('id', '!=', $product->id)
             ->where('is_archived', false)
             ->where('status', 'active')
-            ->where('stock', '>', 0)
+            ->orderByRaw('stock > 0 DESC')
             ->take(4)
             ->get()
             ->map(function ($item) {

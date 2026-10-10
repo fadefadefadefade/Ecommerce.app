@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/net_image.dart';
 import '../../../models/logistics.dart';
 import '../../../services/logistics_service.dart';
 import '../widgets/logistics_ui.dart';
@@ -155,7 +156,7 @@ class _RiderDetailScreenState extends State<RiderDetailScreen> {
               title: 'ID Document',
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.network(
+                child: NetImage(
                   rider.idDocumentUrl!,
                   height: 200,
                   fit: BoxFit.contain,

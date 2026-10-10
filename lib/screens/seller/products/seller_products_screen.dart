@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
 import '../../../models/seller_product.dart';
 import '../../../services/seller_api_service.dart';
 import 'add_edit_product_screen.dart';
@@ -19,6 +20,7 @@ class _SellerProductsScreenState extends State<SellerProductsScreen> {
   Map<String, int> _counts = {
     'active': 0,
     'draft': 0,
+    'inactive': 0,
     'low_stock': 0,
     'out_of_stock': 0,
     'archived': 0,
@@ -177,6 +179,8 @@ class _SellerProductsScreenState extends State<SellerProductsScreen> {
                   _buildStatusTab('active', 'Active', _counts['active'] ?? 0),
                   const SizedBox(width: 8),
                   _buildStatusTab('draft', 'Drafts', _counts['draft'] ?? 0),
+                  const SizedBox(width: 8),
+                  _buildStatusTab('inactive', 'Inactive', _counts['inactive'] ?? 0),
                   const SizedBox(width: 8),
                   _buildStatusTab('low_stock', 'Low Stock', _counts['low_stock'] ?? 0),
                   const SizedBox(width: 8),
@@ -406,6 +410,7 @@ class _SellerProductsScreenState extends State<SellerProductsScreen> {
       case 'low_stock': return Icons.warning_outlined;
       case 'out_of_stock': return Icons.block;
       case 'draft': return Icons.drafts;
+      case 'inactive': return Icons.visibility_off_outlined;
       default: return Icons.inventory_2_outlined;
     }
   }
@@ -416,6 +421,7 @@ class _SellerProductsScreenState extends State<SellerProductsScreen> {
       case 'low_stock': return 'No low-stock products';
       case 'out_of_stock': return 'All products are in stock';
       case 'draft': return 'No draft products';
+      case 'inactive': return 'No inactive products';
       default: return 'No products listed yet';
     }
   }
@@ -426,6 +432,7 @@ class _SellerProductsScreenState extends State<SellerProductsScreen> {
       case 'low_stock': return 'Products with low stock will appear here';
       case 'out_of_stock': return 'Out of stock products will appear here';
       case 'draft': return 'Save products as drafts to find them here';
+      case 'inactive': return 'Products you hide from buyers will appear here';
       default: return 'Add your first product to get started';
     }
   }
@@ -535,21 +542,7 @@ class _ProductCard extends StatelessWidget {
           child: Row(
             children: [
               // Product image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.network(
-                  product.displayImage,
-                  width: 60,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 60,
-                    height: 80,
-                    color: const Color(0xFFF3F4F6),
-                    child: const Icon(Icons.image_not_supported, color: Colors.grey),
-                  ),
-                ),
-              ),
+              ProductThumb(url: product.primaryImageUrl, size: 64, radius: 6),
               const SizedBox(width: 12),
               
               // Product details

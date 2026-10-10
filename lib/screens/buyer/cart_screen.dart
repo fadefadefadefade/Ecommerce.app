@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../widgets/net_image.dart';
 import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
+import '../../widgets/live_refresh.dart';
+import 'buyer_main_screen.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -16,7 +19,7 @@ class CartScreen extends StatefulWidget {
   State<CartScreen> createState() => _CartScreenState();
 }
 
-class _CartScreenState extends State<CartScreen> {
+class _CartScreenState extends State<CartScreen> with LiveRefresh {
   List<dynamic> _cartItems = [];
   double _subtotal = 0;
   bool _isLoading = true;
@@ -27,8 +30,20 @@ class _CartScreenState extends State<CartScreen> {
     _loadCart();
   }
 
-  Future<void> _loadCart() async {
-    setState(() => _isLoading = true);
+  @override
+  int? get liveTab => BuyerMainScreenState.tabCart;
+
+  @override
+  Future<void> onLiveRefresh() => _loadCart(silent: true);
+
+  int _stockOf(dynamic item) => ((item['product']?['stock']) as num?)?.toInt() ?? 0;
+
+  /// Items whose quantity is more than what's left (or that sold out).
+  List<dynamic> get _stockProblems =>
+      _cartItems.where((i) => (i['quantity'] as num).toInt() > _stockOf(i)).toList();
+
+  Future<void> _loadCart({bool silent = false}) async {
+    if (!silent) setState(() => _isLoading = true);
     try {
       final response = ApiService.unwrap(await ApiService.get('/cart'));
       if (!mounted) return;
@@ -41,7 +56,7 @@ class _CartScreenState extends State<CartScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
+      if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading cart: $e')),
         );
@@ -56,12 +71,16 @@ class _CartScreenState extends State<CartScreen> {
       ApiService.unwrap(await ApiService.patch('/cart/$cartItemId', {
         'quantity': newQuantity,
       }));
-      _loadCart();
+      _loadCart(silent: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating cart: $e')),
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: const Color(0xFFC62828),
+          ),
         );
+        _loadCart(silent: true);
       }
     }
   }
@@ -252,6 +271,23 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  /// Live stock line under the price: sold out / not enough / few left / in stock.
+  Widget _buildStockNote(int quantity, int stock) {
+    const red = Color(0xFFC62828);
+    const orange = Color(0xFFEF6C00);
+    final (String text, Color color, bool bold) = stock <= 0
+        ? ('Out of stock — please remove', red, true)
+        : quantity > stock
+            ? ('Only $stock left — lower the quantity', red, true)
+            : stock <= 5
+                ? ('Only $stock left in stock', orange, true)
+                : ('$stock in stock', context.bc.muted, false);
+    return Text(
+      text,
+      style: TextStyle(fontSize: 11, color: color, fontWeight: bold ? FontWeight.w700 : FontWeight.normal),
+    );
+  }
+
   Widget _buildCartItem(Map<String, dynamic> item) {
     final product = item['product'];
     final quantity = item['quantity'] as int;
@@ -278,7 +314,7 @@ class _CartScreenState extends State<CartScreen> {
             // Product image
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
+              child: NetImage(
                 product['image_url'] ?? 'https://placehold.co/80x100/FF6300/FFFFFF?text=Product',
                 width: 80,
                 height: 100,
@@ -333,6 +369,8 @@ class _CartScreenState extends State<CartScreen> {
                                 color: Color(0xFFFA4E1C),
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            _buildStockNote(quantity, _stockOf(item)),
                           ],
                         ),
                       ),
@@ -385,7 +423,7 @@ class _CartScreenState extends State<CartScreen> {
                               ),
                             ),
                             IconButton(
-                              onPressed: quantity < 99
+                              onPressed: quantity < 99 && quantity < _stockOf(item)
                                   ? () => _updateQuantity(item['id'], quantity + 1)
                                   : null,
                               icon: const Icon(Icons.add, size: 16),
@@ -454,11 +492,34 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ],
             ),
+            if (_stockProblems.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC62828).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber, color: Color(0xFFC62828), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Some items no longer have enough stock. Lower the quantity or remove them to continue.',
+                        style: TextStyle(fontSize: 12, color: context.bc.text),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _cartItems.isEmpty
+                onPressed: _cartItems.isEmpty || _stockProblems.isNotEmpty
                     ? null
                     : () {
                         Navigator.push(

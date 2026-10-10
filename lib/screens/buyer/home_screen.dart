@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../config/api_config.dart';
 import '../../widgets/buyer_product_card.dart';
+import '../../widgets/live_refresh.dart';
 import 'buyer_main_screen.dart';
 import 'shop_screen.dart';
 
@@ -16,7 +17,13 @@ class BuyerHomeScreen extends StatefulWidget {
   State<BuyerHomeScreen> createState() => _BuyerHomeScreenState();
 }
 
-class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
+class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
+  @override
+  int? get liveTab => BuyerMainScreenState.tabHome;
+
+  @override
+  Future<void> onLiveRefresh() => _loadHomeData(silent: true);
+
   static const _primary = Color(0xFFfa4e1c);
 
   final _searchController = TextEditingController();
@@ -38,11 +45,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     super.dispose();
   }
 
-  Future<void> _loadHomeData() async {
-    setState(() {
-      isLoading = true;
-      error = null;
-    });
+  Future<void> _loadHomeData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        isLoading = true;
+        error = null;
+      });
+    }
     try {
       final data = ApiService.unwrap(await ApiService.get(ApiConfig.home));
       if (!mounted) return;

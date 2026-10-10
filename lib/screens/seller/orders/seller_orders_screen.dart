@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
 import '../../../models/order.dart';
 import '../../../services/order_service.dart';
 import 'seller_order_details_screen.dart';
@@ -91,6 +92,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
         search: _searchQuery.isEmpty ? null : _searchQuery,
       );
 
+      if (!mounted) return;
       if (result['success']) {
         final List<Order> newOrders = result['orders'];
         setState(() {
@@ -110,6 +112,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load orders: $e';
         _isLoading = false;
@@ -132,6 +135,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
         search: _searchQuery.isEmpty ? null : _searchQuery,
       );
 
+      if (!mounted) return;
       if (result['success']) {
         final List<Order> newOrders = result['orders'];
         setState(() {
@@ -146,6 +150,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _currentPage--; // Revert page increment
         _isLoadingMore = false;
@@ -478,13 +483,30 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTick
               ),
               const SizedBox(height: 12),
               
-              // Order Items Summary
-              Text(
-                '${order.sellerItems.length} item${order.sellerItems.length != 1 ? 's' : ''}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF8a7a70),
-                ),
+              // Order Items Summary: photos of the first few items
+              Row(
+                children: [
+                  ...order.sellerItems.take(4).map((item) => Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ProductThumb(url: item.product?.primaryImageUrl, size: 44, radius: 6),
+                      )),
+                  if (order.sellerItems.length > 4)
+                    Text(
+                      '+${order.sellerItems.length - 4}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF8a7a70)),
+                    ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      order.sellerItems.length == 1
+                          ? (order.sellerItems.first.product?.title ?? '1 item')
+                          : '${order.sellerItems.length} items',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF8a7a70)),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               

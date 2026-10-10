@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/product_thumb.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
@@ -24,42 +25,11 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     try {
       setState(() => _isLoading = true);
       
-      // TODO: Create API endpoint for seller dashboard data
-      // For now, using mock data based on the Laravel controller structure
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulate API call
-      
+      final data = ApiService.unwrap(await ApiService.get('/seller/dashboard'));
+      if (!mounted) return;
+
       setState(() {
-        _dashboardData = {
-          'totalProducts': 12,
-          'totalOrders': 48,
-          'grossRevenue': 2450.75,
-          'totalEarnings': 2205.68,
-          'totalCommission': 245.07,
-          'commissionRate': 10.0,
-          'recentOrders': [
-            {
-              'id': 1001,
-              'customer': 'John Doe',
-              'total': 89.99,
-              'status': 'Processing',
-              'date': '2026-10-04',
-            },
-            {
-              'id': 1002,
-              'customer': 'Jane Smith', 
-              'total': 156.50,
-              'status': 'Shipped',
-              'date': '2026-10-03',
-            },
-            {
-              'id': 1003,
-              'customer': 'Mike Johnson',
-              'total': 67.25,
-              'status': 'Delivered',
-              'date': '2026-10-02',
-            },
-          ]
-        };
+        _dashboardData = data;
         _isLoading = false;
       });
     } catch (e) {
@@ -175,7 +145,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       },
       {
         'title': 'Gross Revenue',
-        'value': '\$${(_dashboardData['grossRevenue'] ?? 0.0).toStringAsFixed(2)}',
+        'value': '₱${(_dashboardData['grossRevenue'] ?? 0.0).toStringAsFixed(2)}',
         'subtitle': 'Before ${_dashboardData['commissionRate']?.toStringAsFixed(0) ?? '10'}% commission',
         'gradient': const LinearGradient(
           colors: [Color(0xFF002b4d), Color(0xFF004a80)],
@@ -185,8 +155,8 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       },
       {
         'title': 'My Earnings',
-        'value': '\$${(_dashboardData['totalEarnings'] ?? 0.0).toStringAsFixed(2)}',
-        'subtitle': 'After deducting \$${(_dashboardData['totalCommission'] ?? 0.0).toStringAsFixed(2)} commission',
+        'value': '₱${(_dashboardData['totalEarnings'] ?? 0.0).toStringAsFixed(2)}',
+        'subtitle': 'After deducting ₱${(_dashboardData['totalCommission'] ?? 0.0).toStringAsFixed(2)} commission',
         'gradient': const LinearGradient(
           colors: [Color(0xFF059669), Color(0xFF34D399)],
           begin: Alignment.topLeft,
@@ -351,19 +321,22 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(order['status']).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    if (order['image'] != null)
+                      ProductThumb(url: order['image'], size: 40)
+                    else
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(order['status']).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          _getStatusIcon(order['status']),
+                          color: _getStatusColor(order['status']),
+                          size: 20,
+                        ),
                       ),
-                      child: Icon(
-                        _getStatusIcon(order['status']),
-                        color: _getStatusColor(order['status']),
-                        size: 20,
-                      ),
-                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -392,7 +365,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '\$${order['total'].toStringAsFixed(2)}',
+                          '₱${(order['total'] as num? ?? 0).toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

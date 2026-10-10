@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'net_image.dart';
 import '../theme/buyer_colors.dart';
 import '../screens/buyer/product_detail_screen.dart';
 
@@ -42,7 +43,7 @@ class BuyerProductCard extends StatelessWidget {
                       borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
                     ),
                     child: product['image_url'] != null
-                        ? Image.network(
+                        ? NetImage(
                             product['image_url'],
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const _NoImage(),
@@ -50,6 +51,29 @@ class BuyerProductCard extends StatelessWidget {
                         : const _NoImage(),
                   ),
                 ),
+                if (stock <= 0)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      alignment: Alignment.center,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'OUT OF STOCK',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (hasDiscount)
                   Positioned(
                     left: 0,
@@ -109,8 +133,20 @@ class BuyerProductCard extends StatelessWidget {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      stock > 0 ? '$stock in stock' : 'Out of stock',
-                      style: TextStyle(fontSize: 10, color: context.bc.muted),
+                      stock <= 0
+                          ? 'Out of stock'
+                          : stock <= 5
+                              ? 'Only $stock left!'
+                              : '$stock in stock',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: stock <= 5 ? FontWeight.w700 : FontWeight.normal,
+                        color: stock <= 0
+                            ? const Color(0xFFC62828)
+                            : stock <= 5
+                                ? const Color(0xFFEF6C00)
+                                : context.bc.muted,
+                      ),
                     ),
                   ],
                 ),
