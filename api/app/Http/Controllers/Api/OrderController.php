@@ -10,7 +10,7 @@ class OrderController extends Controller
 {
     public function show(Request $request, int $id)
     {
-        $order = Order::with(['items.product.images'])
+        $order = Order::with(['items.product'])
             ->where('id', $id)
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
@@ -71,6 +71,7 @@ class OrderController extends Controller
                     'created_at' => $order->created_at->toIso8601String(),
                     'items_count' => $order->items->count(),
                     'first_item_image' => $order->items->first()?->product?->primaryImage,
+                    'first_item_title' => $order->items->first()?->product?->title,
                 ];
             }),
         ]);

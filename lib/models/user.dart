@@ -19,6 +19,18 @@ class User {
     required this.createdAt,
   });
 
+  // Role checking methods
+  bool get isSeller => role == 'seller';
+  bool get isBuyer => role == 'buyer' || role == 'customer';
+  bool get isCustomer => role == 'customer' || role == 'buyer';
+  bool get isCourier => role == 'courier';
+  bool get isAdmin => role == 'admin';
+  
+  // Seller status checking
+  bool get isApprovedSeller => isSeller && approvalStatus == 'approved';
+  bool get isPendingSeller => isSeller && approvalStatus == 'pending';
+  bool get isRejectedSeller => isSeller && approvalStatus == 'rejected';
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'],

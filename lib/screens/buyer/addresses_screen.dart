@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
 import 'add_address_screen.dart';
 
@@ -115,7 +116,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('My Addresses'),
         backgroundColor: const Color(0xFFFA4E1C),
@@ -133,12 +134,12 @@ class _AddressesScreenState extends State<AddressesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'My Addresses',
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF002B4D),
+                                color: context.bc.text,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -146,7 +147,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                               'Manage your saved delivery addresses.',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[600],
+                                color: context.bc.muted,
                               ),
                             ),
                           ],
@@ -205,8 +206,8 @@ class _AddressesScreenState extends State<AddressesScreen> {
             Container(
               width: 100,
               height: 100,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F0F6),
+              decoration: BoxDecoration(
+                color: context.bc.subtle,
                 shape: BoxShape.circle,
               ),
               child: const Center(
@@ -217,12 +218,12 @@ class _AddressesScreenState extends State<AddressesScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'No addresses saved yet',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF002B4D),
+                color: context.bc.text,
               ),
             ),
             const SizedBox(height: 8),
@@ -230,7 +231,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
               'Add an address to speed up checkout.',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: context.bc.muted,
               ),
               textAlign: TextAlign.center,
             ),
@@ -266,10 +267,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.bc.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDefault ? const Color(0xFFFA4E1C) : const Color(0xFFCFDCE8),
+          color: isDefault ? const Color(0xFFFA4E1C) : context.bc.border,
           width: isDefault ? 2 : 1,
         ),
         boxShadow: [
@@ -300,10 +301,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
                         children: [
                           Text(
                             address['label'] ?? '',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF002B4D),
+                              color: context.bc.text,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -311,7 +312,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                             '· ${address['full_name'] ?? ''}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: context.bc.muted,
                             ),
                           ),
                         ],
@@ -323,7 +324,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                             '📞 ${address['phone']}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: context.bc.muted,
                             ),
                           ),
                         ),
@@ -352,9 +353,9 @@ class _AddressesScreenState extends State<AddressesScreen> {
             const SizedBox(height: 12),
             Text(
               address['full_address'] ?? '',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF1A4D6E),
+                color: context.bc.textSecondary,
               ),
             ),
             const SizedBox(height: 12),
@@ -390,8 +391,8 @@ class _AddressesScreenState extends State<AddressesScreen> {
                     }
                   },
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1A4D6E),
-                    side: const BorderSide(color: Color(0xFFCFDCE8)),
+                    foregroundColor: context.bc.textSecondary,
+                    side: BorderSide(color: context.bc.border),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -24,10 +24,10 @@ Ecommerce.app/
 
 ```bash
 cd api
-php artisan serve --port=8001
+php artisan serve --port=8000
 ```
 
-The API will run at: `http://127.0.0.1:8001`
+The API will run at: `http://127.0.0.1:8000`
 
 ### Step 2: Run the Flutter App
 
@@ -84,9 +84,9 @@ Use any existing user from your web application database!
 
 The API URL is configured in `lib/config/api_config.dart`:
 
-- **For Web/iOS Simulator**: `http://127.0.0.1:8001/api`
-- **For Android Emulator**: `http://10.0.2.2:8001/api`
-- **For Physical Device**: Use your computer's local IP (e.g., `http://192.168.1.100:8001/api`)
+- **For Web/iOS Simulator**: `http://127.0.0.1:8000/api`
+- **For Android Emulator**: `http://10.0.2.2:8000/api`
+- **For Physical Device**: Use your computer's local IP (e.g., `http://192.168.1.100:8000/api`)
 
 ---
 
@@ -156,7 +156,7 @@ The API URL is configured in `lib/config/api_config.dart`:
 
 6. **Start the API Server**
    ```bash
-   php artisan serve --port=8001
+   php artisan serve --port=8000
    ```
 
 ---
@@ -190,14 +190,14 @@ The API URL is configured in `lib/config/api_config.dart`:
 
 **Login:**
 ```bash
-curl -X POST http://127.0.0.1:8001/api/login \
+curl -X POST http://127.0.0.1:8000/api/login \
   -H "Content-Type: application/json" \
   -d '{"email":"buyer@test.com","password":"password"}'
 ```
 
 **Get Home Data (requires authentication):**
 ```bash
-curl -X GET http://127.0.0.1:8001/api/home \
+curl -X GET http://127.0.0.1:8000/api/home \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
@@ -209,14 +209,14 @@ curl -X GET http://127.0.0.1:8001/api/home \
 
 1. **Check API is running:**
    ```bash
-   curl http://127.0.0.1:8001/api
+   curl http://127.0.0.1:8000/api
    ```
 
 2. **For Android Emulator**, use `10.0.2.2` instead of `127.0.0.1`
    
    Update `lib/config/api_config.dart`:
    ```dart
-   static const String baseUrl = 'http://10.0.2.2:8001/api';
+   static const String baseUrl = 'http://10.0.2.2:8000/api';
    ```
 
 3. **For Physical Device**, find your computer's IP:
@@ -264,7 +264,7 @@ See main `README.md` for Flutter app architecture and structure.
 1. **Start API Backend:**
    ```bash
    cd api
-   php artisan serve --port=8001
+   php artisan serve --port=8000
    ```
 
 2. **Start Flutter App:**

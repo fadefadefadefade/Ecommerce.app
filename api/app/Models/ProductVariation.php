@@ -8,24 +8,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProductVariation extends Model
 {
     protected $fillable = [
-        'book_id', // Still using book_id FK until we rename tables
+        'product_id',
         'name',
-        'value',
-        'price_adjustment',
+        'price',
         'stock',
+        'sku',
         'sort_order',
-        'is_active',
     ];
 
     protected $casts = [
-        'price_adjustment' => 'float',
+        'price' => 'float',
         'stock' => 'integer',
         'sort_order' => 'integer',
-        'is_active' => 'boolean',
     ];
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class, 'book_id');
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }

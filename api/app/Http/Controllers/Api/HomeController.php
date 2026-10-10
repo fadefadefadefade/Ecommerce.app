@@ -22,62 +22,52 @@ class HomeController extends Controller
             ];
         });
 
-        // Get featured products
-        $featured = Product::with(['category', 'seller'])
+        // Out-of-stock products stay visible (labelled in the app), listed after in-stock ones
+        $available = fn () => Product::with(['category', 'seller'])
             ->where('is_archived', false)
             ->where('status', 'active')
-            ->where('stock', '>', 0)
-            ->latest()
-            ->take(6)
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'author' => $product->author,
-                    'price' => $product->price,
-                    'effective_price' => $product->effective_price,
-                    'stock' => $product->stock,
-                    'image_url' => $product->primaryImage,
-                    'category' => $product->category ? ['name' => $product->category->name] : null,
-                ];
-            });
+            ->orderByRaw('stock > 0 DESC');
 
-        // Get best sellers (products with most sales - mock for now)
-        $bestSellers = Product::with(['category', 'seller'])
-            ->where('is_archived', false)
-            ->where('status', 'active')
-            ->where('stock', '>', 0)
-            ->orderByDesc('id') // Mock ordering - replace with actual sales count
-            ->take(6)
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'author' => $product->author,
-                    'price' => $product->price,
-                    'effective_price' => $product->effective_price,
-                    'stock' => $product->stock,
-                    'image_url' => $product->primaryImage,
-                    'category' => $product->category ? ['name' => $product->category->name] : null,
-                ];
-            });
+        $featured = $available()->latest()->take(6)->get()->map(fn ($p) => $this->card($p));
+
+        // Best sellers (mock ordering - replace with actual sales count)
+        $bestSellers = $available()->orderByDesc('id')->take(6)->get()->map(fn ($p) => $this->card($p));
+
+        // "Suggested for you" grid on the mobile home screen
+        $suggested = $available()->inRandomOrder()->take(10)->get()->map(fn ($p) => $this->card($p));
 
         return response()->json([
             'categories' => $categories,
             'featured' => $featured,
             'bestSellers' => $bestSellers,
+            'suggested' => $suggested,
         ]);
+    }
+
+    /** Product fields shown on a product card. */
+    private function card(Product $product): array
+    {
+        return [
+            'id' => $product->id,
+            'title' => $product->title,
+            'author' => $product->author,
+            'price' => $product->price,
+            'effective_price' => $product->effective_price,
+            'discount_percent' => $product->discount_percent ?? 0,
+            'stock' => $product->stock,
+            'image_url' => $product->primaryImage,
+            'category' => $product->category ? ['name' => $product->category->name] : null,
+        ];
     }
 
     public function products(Request $request)
     {
         // Build query with search and filters
+        // Out-of-stock products stay visible (labelled in the app), listed after in-stock ones
         $query = Product::with(['category', 'seller'])
             ->where('is_archived', false)
             ->where('status', 'active')
-            ->where('stock', '>', 0);
+            ->orderByRaw('stock > 0 DESC');
 
         // Search
         if ($request->filled('search')) {
@@ -139,17 +129,17 @@ class HomeController extends Controller
 
     public function productDetail($id)
     {
-        $product = Product::with(['category', 'seller', 'images', 'variations', 'address'])
+        $product = Product::with(['category', 'seller', 'variations', 'address'])
             ->where('is_archived', false)
             ->findOrFail($id);
 
         // Get related products
-        $related = Product::with(['category', 'images'])
+        $related = Product::with(['category'])
             ->where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
             ->where('is_archived', false)
             ->where('status', 'active')
-            ->where('stock', '>', 0)
+            ->orderByRaw('stock > 0 DESC')
             ->take(4)
             ->get()
             ->map(function ($item) {
@@ -192,13 +182,10 @@ class HomeController extends Controller
                 'width_cm' => $product->width_cm,
                 'height_cm' => $product->height_cm,
                 'primary_image' => $product->primaryImage,
-                'images' => $product->images->map(function ($img) {
-                    return [
-                        'id' => $img->id,
-                        'url' => asset('storage/' . $img->path),
-                        'alt_text' => $img->alt_text,
-                    ];
-                })->toArray(),
+                // Products have a single image; keep the list shape the app expects.
+                'images' => $product->primaryImage
+                    ? [['id' => 0, 'url' => $product->primaryImage, 'alt_text' => $product->title]]
+                    : [],
                 'variations' => $product->variations->map(function ($var) {
                     return [
                         'id' => $var->id,

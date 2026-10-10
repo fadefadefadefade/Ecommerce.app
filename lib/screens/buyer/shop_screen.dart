@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
-import 'product_detail_screen.dart';
+import '../../widgets/buyer_product_card.dart';
+import '../../widgets/live_refresh.dart';
+import 'buyer_main_screen.dart';
 
 class ShopScreen extends StatefulWidget {
   final String? initialSearch;
-  
-  const ShopScreen({super.key, this.initialSearch});
+  final int? categoryId;
+  final String? categoryName;
+
+  const ShopScreen({super.key, this.initialSearch, this.categoryId, this.categoryName});
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
 }
 
-class _ShopScreenState extends State<ShopScreen> {
+class _ShopScreenState extends State<ShopScreen> with LiveRefresh {
   List<dynamic> products = [];
   bool isLoading = true;
   String searchQuery = '';
   String sortBy = 'newest';
+  late int? categoryId = widget.categoryId;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _minPriceController = TextEditingController();
   final TextEditingController _maxPriceController = TextEditingController();
@@ -38,13 +44,20 @@ class _ShopScreenState extends State<ShopScreen> {
     super.dispose();
   }
 
-  Future<void> _loadProducts() async {
-    setState(() => isLoading = true);
-    
+  @override
+  int? get liveTab => BuyerMainScreenState.tabShop;
+
+  @override
+  Future<void> onLiveRefresh() => _loadProducts(silent: true);
+
+  Future<void> _loadProducts({bool silent = false}) async {
+    if (!silent) setState(() => isLoading = true);
+
     try {
       final queryParams = <String, String>{
         if (searchQuery.isNotEmpty) 'search': searchQuery,
         if (sortBy.isNotEmpty) 'sort': sortBy,
+        if (categoryId != null) 'category_id': '$categoryId',
         if (_minPriceController.text.isNotEmpty) 'min_price': _minPriceController.text,
         if (_maxPriceController.text.isNotEmpty) 'max_price': _maxPriceController.text,
       };
@@ -53,19 +66,18 @@ class _ShopScreenState extends State<ShopScreen> {
           .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
           .join('&');
       
-      final result = await ApiService.get(
+      final data = ApiService.unwrap(await ApiService.get(
         '/products${queryString.isNotEmpty ? '?$queryString' : ''}'
-      );
-      
-      if (result['success']) {
-        setState(() {
-          products = result['data']['products'] ?? [];
-          isLoading = false;
-        });
-      }
+      ));
+      if (!mounted) return;
+      setState(() {
+        products = data['products'] ?? [];
+        isLoading = false;
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
-      if (mounted) {
+      if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading products: $e')),
         );
@@ -87,22 +99,22 @@ class _ShopScreenState extends State<ShopScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: context.bc.surface,
         elevation: 0,
         title: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
+            color: context.bc.subtle,
             borderRadius: BorderRadius.circular(8),
           ),
           child: TextField(
             controller: _searchController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Search products...',
-              hintStyle: TextStyle(color: Color(0xFF999999), fontSize: 14),
-              prefixIcon: Icon(Icons.search, color: Color(0xFF757575), size: 20),
+              hintStyle: TextStyle(color: context.bc.muted, fontSize: 14),
+              prefixIcon: Icon(Icons.search, color: context.bc.textSecondary, size: 20),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
@@ -118,20 +130,42 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
       body: Column(
         children: [
+          // Active category filter (opened from a Home category)
+          if (categoryId != null)
+            Container(
+              width: double.infinity,
+              color: context.bc.surface,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  label: Text('Category: ${widget.categoryName ?? categoryId}'),
+                  labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  backgroundColor: const Color(0xFFfa4e1c),
+                  deleteIconColor: Colors.white,
+                  side: BorderSide.none,
+                  onDeleted: () {
+                    setState(() => categoryId = null);
+                    _loadProducts();
+                  },
+                ),
+              ),
+            ),
+
           // Search results header
           if (searchQuery.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: context.bc.surface,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFEFEFEF)),
+                  bottom: BorderSide(color: context.bc.border),
                 ),
               ),
               child: RichText(
                 text: TextSpan(
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
+                  style: TextStyle(fontSize: 13, color: context.bc.textSecondary),
                   children: [
                     const TextSpan(text: 'Search results for '),
                     TextSpan(
@@ -144,7 +178,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     const TextSpan(text: ' — '),
                     TextSpan(
                       text: '${products.length} item${products.length != 1 ? 's' : ''} found',
-                      style: const TextStyle(color: Color(0xFF222222)),
+                      style: TextStyle(color: context.bc.text),
                     ),
                   ],
                 ),
@@ -156,9 +190,9 @@ class _ShopScreenState extends State<ShopScreen> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAFA),
+              color: context.bc.subtle,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFFEFEFEF)),
+              border: Border.all(color: context.bc.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,12 +202,12 @@ class _ShopScreenState extends State<ShopScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    const Text(
+                    Text(
                       'Sort By',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF555555),
+                        color: context.bc.textSecondary,
                       ),
                     ),
                     _buildSortButton('Relevance', 'newest'),
@@ -185,9 +219,9 @@ class _ShopScreenState extends State<ShopScreen> {
                 // Price range
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       'Price',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                      style: TextStyle(fontSize: 12, color: context.bc.muted),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -198,14 +232,14 @@ class _ShopScreenState extends State<ShopScreen> {
                           hintText: 'Min',
                           prefixText: '₱ ',
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: context.bc.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                            borderSide: BorderSide(color: context.bc.border),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                            borderSide: BorderSide(color: context.bc.border),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -216,9 +250,9 @@ class _ShopScreenState extends State<ShopScreen> {
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('–', style: TextStyle(color: Color(0xFF999999))),
+                      child: Text('–', style: TextStyle(color: context.bc.muted)),
                     ),
                     Expanded(
                       child: TextField(
@@ -228,14 +262,14 @@ class _ShopScreenState extends State<ShopScreen> {
                           hintText: 'Max',
                           prefixText: '₱ ',
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: context.bc.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                            borderSide: BorderSide(color: context.bc.border),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(4),
-                            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                            borderSide: BorderSide(color: context.bc.border),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -277,10 +311,14 @@ class _ShopScreenState extends State<ShopScreen> {
                       color: Color(0xFFfa4e1c),
                     ),
                   )
-                : products.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                : RefreshIndicator(
+                    color: const Color(0xFFfa4e1c),
+                    onRefresh: () => _loadProducts(silent: true),
+                    child: products.isEmpty
+                    ? ListView(
+                        children: [
+                          const SizedBox(height: 80),
+                          Column(
                           children: [
                             const Text('🔍', style: TextStyle(fontSize: 60)),
                             const SizedBox(height: 20),
@@ -288,24 +326,26 @@ class _ShopScreenState extends State<ShopScreen> {
                               searchQuery.isNotEmpty
                                   ? 'No results for "$searchQuery"'
                                   : 'No products found',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF222222),
+                                color: context.bc.text,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Try checking your spelling or use more general terms',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF999999),
+                                color: context.bc.muted,
                               ),
                             ),
                           ],
-                        ),
+                          ),
+                        ],
                       )
                     : GridView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
@@ -315,8 +355,9 @@ class _ShopScreenState extends State<ShopScreen> {
                         ),
                         itemCount: products.length,
                         itemBuilder: (context, index) =>
-                            _buildProductCard(products[index]),
+                            BuyerProductCard(product: Map<String, dynamic>.from(products[index])),
                       ),
+                  ),
           ),
         ],
       ),
@@ -336,146 +377,15 @@ class _ShopScreenState extends State<ShopScreen> {
           color: isSelected ? const Color(0xFFfa4e1c) : Colors.white,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? const Color(0xFFfa4e1c) : const Color(0xFFE0E0E0),
+            color: isSelected ? const Color(0xFFfa4e1c) : context.bc.border,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            color: isSelected ? Colors.white : const Color(0xFF555555),
+            color: isSelected ? Colors.white : context.bc.textSecondary,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductCard(dynamic product) {
-    final hasDiscount = product['discount_percent'] != null &&
-        product['discount_percent'] > 0;
-    final stock = product['stock'] ?? 0;
-
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(productId: product['id']),
-          ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: const Color(0xFFEFEFEF)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product image
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(4),
-                      ),
-                    ),
-                    child: product['image_url'] != null
-                        ? Image.network(
-                            product['image_url'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.image_not_supported,
-                                  size: 40, color: Color(0xFFCCCCCC)),
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(Icons.image_not_supported,
-                                size: 40, color: Color(0xFFCCCCCC)),
-                          ),
-                  ),
-                ),
-                if (hasDiscount)
-                  Positioned(
-                    left: 0,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF002b4d),
-                        borderRadius: BorderRadius.only(
-                          topRight: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        '-${product['discount_percent']}%',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            // Product info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product['title'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF222222),
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-                    Text(
-                      '₱${(product['effective_price'] ?? product['price'] ?? 0).toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFfa4e1c),
-                      ),
-                    ),
-                    if (hasDiscount)
-                      Text(
-                        '₱${(product['price'] ?? 0).toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          decoration: TextDecoration.lineThrough,
-                          color: Color(0xFFBBBBBB),
-                        ),
-                      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      stock > 0 ? '$stock in stock' : 'Out of stock',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF999999),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

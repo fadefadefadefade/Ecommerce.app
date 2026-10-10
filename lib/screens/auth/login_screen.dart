@@ -19,15 +19,64 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Add listener to AuthProvider for direct navigation handling
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.addListener(_handleAuthStateChange);
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    // Remove listener to prevent memory leaks - but only if widget is still mounted
+    try {
+      if (mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        authProvider.removeListener(_handleAuthStateChange);
+      }
+    } catch (e) {
+      // Ignore errors during dispose - widget may already be unmounted
+      debugPrint('⚠️  Error removing listener in dispose: $e');
+    }
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+  
+  void _handleAuthStateChange() {
+    if (!mounted) return; // Guard against calling on unmounted widget
+    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    debugPrint('🔔 AuthProvider listener triggered - isAuthenticated: ${authProvider.isAuthenticated}');
+    
+    if (authProvider.isAuthenticated && authProvider.user != null) {
+      debugPrint('🚀 Direct navigation triggered by AuthProvider listener');
+      _navigateToMainScreen(authProvider);
+    }
+  }
+  
+  void _navigateToMainScreen(AuthProvider authProvider) {
+    if (!mounted) return; // Guard against navigation on unmounted widget
+    
+    final targetScreen = authProvider.getMainScreenForRole();
+    debugPrint('🎯 Direct listener navigation to: ${targetScreen.runtimeType}');
+    
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => targetScreen),
+      (route) => false,
+    );
   }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
+    debugPrint('🚀 Login button pressed');
+    if (!mounted) return;
+    
     setState(() => _isLoading = true);
 
     final authProvider = context.read<AuthProvider>();
@@ -37,16 +86,51 @@ class _LoginScreenState extends State<LoginScreen> {
       remember: _rememberMe,
     );
 
+    debugPrint('🔄 Login result received: ${result['success']}');
+
     if (mounted) {
       setState(() => _isLoading = false);
 
-      if (!result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Login failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (result['success']) {
+        debugPrint('✅ Login screen received success result');
+        
+        // Wait a moment for Consumer to potentially trigger
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Check if we're still on this screen (Consumer didn't trigger navigation)
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          debugPrint('⚠️  Consumer didn\'t trigger navigation, using manual fallback');
+          
+          // Manual navigation as backup if Consumer doesn't work
+          final user = authProvider.user;
+          if (user != null) {
+            debugPrint('🎯 Manual navigation for role: ${user.role}');
+            
+            final targetScreen = authProvider.getMainScreenForRole();
+            debugPrint('📱 Manually navigating to: ${targetScreen.runtimeType}');
+            
+            if (mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => targetScreen),
+                (route) => false,
+              );
+            }
+          } else {
+            debugPrint('❌ User is null after successful login - this shouldn\'t happen');
+          }
+        } else {
+          debugPrint('✅ Navigation appears to have been handled by Consumer or listener');
+        }
+      } else {
+        debugPrint('❌ Login screen received error: ${result['message']}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Login failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -319,6 +403,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Additional help text
+                    const Text(
+                      'Login with your email and password.\nAll user types use the same login.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8a7a70),
+                      ),
                     ),
                   ],
                 ),

@@ -33,7 +33,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Off: its signed /storage/{path} route would shadow the public-file
+            // route in routes/web.php, and the app never serves private files.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

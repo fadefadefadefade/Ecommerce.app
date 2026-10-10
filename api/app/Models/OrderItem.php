@@ -9,9 +9,12 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id',
-        'book_id', // Still using book_id FK until we rename tables
+        'product_id',
         'quantity',
         'price',
+        'commission_rate',
+        'commission_amount',
+        'seller_earning',
         'selected_variation',
     ];
 
@@ -28,6 +31,6 @@ class OrderItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class, 'book_id');
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }

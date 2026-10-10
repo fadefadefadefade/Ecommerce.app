@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class Product extends Model
 {
-    protected $table = 'books'; // Temporarily use books table until we rename it
+    protected $table = 'products';
 
     protected $fillable = [
         'category_id', 'subcategory', 'seller_id',
@@ -49,14 +49,9 @@ class Product extends Model
         return $this->belongsTo(User::class, 'seller_id');
     }
 
-    public function images(): HasMany
-    {
-        return $this->hasMany(ProductImage::class, 'book_id'); // book_id FK still exists in book_images table
-    }
-
     public function variations(): HasMany
     {
-        return $this->hasMany(ProductVariation::class, 'book_id'); // book_id FK still exists
+        return $this->hasMany(ProductVariation::class, 'product_id');
     }
 
     public function address(): BelongsTo
@@ -66,12 +61,12 @@ class Product extends Model
 
     public function cartItems(): HasMany
     {
-        return $this->hasMany(CartItem::class, 'book_id'); // book_id FK still exists
+        return $this->hasMany(CartItem::class, 'product_id');
     }
 
     public function orderItems(): HasMany
     {
-        return $this->hasMany(OrderItem::class, 'book_id'); // book_id FK still exists
+        return $this->hasMany(OrderItem::class, 'product_id');
     }
 
     // ── Accessors ─────────────────────────────────────────────
@@ -80,11 +75,9 @@ class Product extends Model
         return Str::slug($this->title) . '-' . $this->id;
     }
 
-    /** Primary display image — first gallery image or fallback single image */
+    /** Primary display image (products have a single image since book_images was dropped). */
     public function getPrimaryImageAttribute(): ?string
     {
-        $first = $this->images->first();
-        if ($first) return asset('storage/' . $first->path);
         if ($this->image) return asset('storage/' . $this->image);
         return null;
     }

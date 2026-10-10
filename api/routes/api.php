@@ -13,6 +13,9 @@ use App\Http\Controllers\Api\SellerController;
 use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PsgcController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\Logistics;
+use App\Http\Middleware\EnsureLogisticsAdmin;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -52,6 +55,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::post('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+
+    // Notification routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
     
     // Address routes
     Route::get('/addresses', [AddressController::class, 'index']);
@@ -63,8 +72,29 @@ Route::middleware('auth:sanctum')->group(function () {
     // Seller routes
     Route::prefix('seller')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard']);
+        
+        // Product management routes
+        Route::get('/products/counts', [SellerController::class, 'getProductCounts']);
         Route::get('/products', [SellerController::class, 'products']);
+        Route::get('/products/{id}', [SellerController::class, 'getProduct']);
+        Route::post('/products', [SellerController::class, 'createProduct']);
+        Route::put('/products/{id}', [SellerController::class, 'updateProduct']);
+        Route::delete('/products/{id}', [SellerController::class, 'deleteProduct']);
+        Route::patch('/products/{id}/archive', [SellerController::class, 'archiveProduct']);
+        Route::patch('/products/{id}/unarchive', [SellerController::class, 'unarchiveProduct']);
+        Route::patch('/products/{id}/stock', [SellerController::class, 'updateStock']);
+        Route::patch('/products/{id}/status', [SellerController::class, 'updateStatus']);
+        
         Route::get('/orders', [SellerController::class, 'orders']);
+        Route::get('/orders/counts', [SellerController::class, 'getOrderCounts']);
+        Route::get('/orders/{id}', [SellerController::class, 'getOrderDetails']);
+        Route::patch('/orders/{id}', [SellerController::class, 'updateOrderStatus']);
+        Route::post('/orders/{id}/handover', [SellerController::class, 'schedulePickup']);
+        Route::post('/orders/{id}/handed-over', [SellerController::class, 'markHandedOver']);
+        
+        // Reports and Analytics routes
+        Route::get('/reports', [SellerController::class, 'getSalesReport']);
+        Route::get('/reports/product-performance', [SellerController::class, 'getProductPerformance']);
     });
     
     // Courier routes
@@ -76,6 +106,41 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/deliveries/{id}/deliver', [CourierController::class, 'markAsDelivered']);
     });
     
+    // Logistics routes (admin only, mirrors the web logistics panel)
+    Route::prefix('logistics')->middleware(EnsureLogisticsAdmin::class)->group(function () {
+        Route::get('/dashboard', [Logistics\DashboardController::class, 'index']);
+
+        Route::get('/riders',                         [Logistics\RiderController::class, 'index']);
+        Route::get('/riders/{rider}',                 [Logistics\RiderController::class, 'show']);
+        Route::post('/riders/{rider}/approve',        [Logistics\RiderController::class, 'approve']);
+        Route::post('/riders/{rider}/disapprove',     [Logistics\RiderController::class, 'disapprove']);
+        Route::post('/riders/{rider}/toggle-active',  [Logistics\RiderController::class, 'toggleActive']);
+
+        Route::get('/pickup-requests',                   [Logistics\PickupRequestController::class, 'index']);
+        Route::post('/pickup-requests/{parcel}/approve', [Logistics\PickupRequestController::class, 'approve']);
+        Route::post('/pickup-requests/{parcel}/reject',  [Logistics\PickupRequestController::class, 'reject']);
+
+        Route::get('/areas',                            [Logistics\ParcelController::class, 'areas']);
+        Route::get('/parcels',                          [Logistics\ParcelController::class, 'index']);
+        Route::get('/parcels/{parcel}',                 [Logistics\ParcelController::class, 'show']);
+        Route::post('/parcels/{parcel}/mark-picked-up', [Logistics\ParcelController::class, 'markPickedUp']);
+        Route::post('/parcels/{parcel}/sort',           [Logistics\ParcelController::class, 'sort']);
+
+        Route::get('/deliveries/assign',             [Logistics\DeliveryController::class, 'assignmentIndex']);
+        Route::post('/deliveries/{parcel}/assign',   [Logistics\DeliveryController::class, 'assign']);
+        Route::get('/deliveries/monitor',            [Logistics\DeliveryController::class, 'monitor']);
+        Route::post('/deliveries/{delivery}/status', [Logistics\DeliveryController::class, 'updateStatus']);
+
+        Route::get('/reports', [Logistics\ReportController::class, 'index']);
+
+        Route::get('/chat/contacts',             [Logistics\ChatController::class, 'contacts']);
+        Route::get('/chat/{contact}/messages',   [Logistics\ChatController::class, 'messages']);
+        Route::post('/chat/send',                [Logistics\ChatController::class, 'send']);
+
+        Route::put('/account',          [Logistics\AccountController::class, 'update']);
+        Route::put('/account/password', [Logistics\AccountController::class, 'updatePassword']);
+    });
+
     // Admin routes
     Route::prefix('admin')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);

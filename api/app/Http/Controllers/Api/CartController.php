@@ -12,7 +12,7 @@ class CartController extends Controller
     public function index(Request $request)
     {
         $items = CartItem::where('user_id', $request->user()->id)
-            ->with('product.category', 'product.images')
+            ->with('product.category')
             ->get();
 
         $cartItems = $items->map(function ($item) {
@@ -46,7 +46,7 @@ class CartController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'product_id' => 'required|exists:books,id', // Still using books table for FK validation
+            'product_id' => 'required|exists:products,id',
             'quantity' => 'nullable|integer|min:1|max:99',
         ]);
 
@@ -62,11 +62,20 @@ class CartController extends Controller
 
         $item = CartItem::firstOrNew([
             'user_id' => $request->user()->id,
-            'book_id' => $product->id, // Still using book_id column name
+            'product_id' => $product->id,
         ]);
 
         // Increment if already in cart, otherwise set the requested qty
-        $item->quantity = $item->exists ? $item->quantity + $qty : $qty;
+        $newQty = $item->exists ? $item->quantity + $qty : $qty;
+        if ($newQty > $product->stock) {
+            $inCart = $item->exists ? " You already have {$item->quantity} in your cart." : '';
+            return response()->json([
+                'message' => "Only {$product->stock} left in stock.{$inCart}",
+                'stock' => $product->stock,
+            ], 400);
+        }
+
+        $item->quantity = $newQty;
         $item->save();
 
         return response()->json([
@@ -87,6 +96,14 @@ class CartController extends Controller
         $item = CartItem::where('id', $cartItemId)
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
+
+        $stock = (int) $item->product?->stock;
+        if ($request->quantity > $stock) {
+            return response()->json([
+                'message' => $stock > 0 ? "Only {$stock} left in stock." : 'This item is now out of stock.',
+                'stock' => $stock,
+            ], 400);
+        }
 
         $item->update(['quantity' => $request->quantity]);
 

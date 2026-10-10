@@ -8,6 +8,7 @@ use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CheckoutController extends Controller
 {
@@ -107,6 +108,31 @@ class CheckoutController extends Controller
             $request->region,
         ])));
 
+        // Lock the products so two buyers can't both take the last unit; nothing is
+        // written until every item is confirmed in stock.
+        return DB::transaction(function () use ($request, $items, $subtotal, $shipping, $total, $commissionRate, $addressLine) {
+            $stock = Product::whereIn('id', $items->pluck('product_id'))
+                ->lockForUpdate()
+                ->pluck('stock', 'id');
+
+            foreach ($items as $item) {
+                $available = (int) ($stock[$item->product_id] ?? 0);
+                if ($item->quantity > $available) {
+                    $title = $item->product->title ?? 'An item';
+                    return response()->json([
+                        'message' => $available > 0
+                            ? "\"{$title}\" only has {$available} left. Please update your cart."
+                            : "\"{$title}\" is now out of stock. Please remove it from your cart.",
+                    ], 422);
+                }
+            }
+
+            return $this->placeOrder($request, $items, $subtotal, $shipping, $total, $commissionRate, $addressLine);
+        });
+    }
+
+    private function placeOrder(Request $request, $items, $subtotal, $shipping, $total, $commissionRate, $addressLine)
+    {
         $order = Order::create([
             'user_id'          => $request->user()->id,
             'full_name'        => $request->full_name,
@@ -132,7 +158,7 @@ class CheckoutController extends Controller
 
             OrderItem::create([
                 'order_id'          => $order->id,
-                'book_id'           => $item->book_id, // Still using book_id column name
+                'product_id'        => $item->product_id,
                 'quantity'          => $item->quantity,
                 'price'             => $item->product->effective_price,
                 'commission_rate'   => $commissionRate,
@@ -141,7 +167,7 @@ class CheckoutController extends Controller
             ]);
 
             // Reduce stock
-            Product::where('id', $item->book_id)->decrement('stock', $item->quantity);
+            Product::where('id', $item->product_id)->decrement('stock', $item->quantity);
         }
 
         // Clear cart

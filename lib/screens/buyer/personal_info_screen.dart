@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../theme/buyer_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -48,9 +49,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.get('/profile');
+      final response = ApiService.unwrap(await ApiService.get('/profile'));
       final user = response['user'];
-      
+      if (!mounted) return;
+
       setState(() {
         _nameController.text = user['name'] ?? '';
         _emailController.text = user['email'] ?? '';
@@ -144,7 +146,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         // TODO: Implement multipart/form-data support in ApiService
       }
 
-      final response = await ApiService.post('/profile', body: data);
+      final response = ApiService.unwrap(await ApiService.post('/profile', body: data));
 
       if (mounted) {
         // Update auth provider with new user data
@@ -172,7 +174,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('Edit Profile'),
         backgroundColor: const Color(0xFFFA4E1C),
@@ -249,7 +251,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                       'Tap to change photo',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: context.bc.muted,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -258,7 +260,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.bc.surface,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -390,8 +392,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                                     : '',
                                 style: TextStyle(
                                   color: _selectedBirthday != null
-                                      ? Colors.black87
-                                      : Colors.grey[600],
+                                      ? context.bc.text
+                                      : context.bc.muted,
                                 ),
                               ),
                             ),
@@ -431,8 +433,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           child: OutlinedButton(
                             onPressed: _isSaving ? null : () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF6B90AA),
-                              side: const BorderSide(color: Color(0xFFDCE8F0)),
+                              foregroundColor: context.bc.muted,
+                              side: BorderSide(color: context.bc.subtle),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
