@@ -26,6 +26,11 @@ class User extends Authenticatable
         'role',
         'approval_status',
         'last_login_at',
+        'phone',
+        'bio',
+        'sex',
+        'birthday',
+        'profile_photo_path',
     ];
 
     /**
@@ -49,7 +54,13 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
+            'birthday' => 'date',
         ];
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(UserNotification::class);
     }
 
     /**

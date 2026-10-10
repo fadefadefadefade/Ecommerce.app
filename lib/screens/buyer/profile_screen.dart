@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'personal_info_screen.dart';
 import 'addresses_screen.dart';
+import 'account/my_orders_screen.dart';
+import 'account/notifications_screen.dart';
+import 'account/security_screen.dart';
+import 'account/settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -12,7 +17,7 @@ class ProfileScreen extends StatelessWidget {
     final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('My Account'),
         backgroundColor: const Color(0xFFFA4E1C),
@@ -26,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.bc.surface,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -67,10 +72,10 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         Text(
                           user?.name ?? 'User',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF002B4D),
+                            color: context.bc.text,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -98,9 +103,9 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           user?.email ?? '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF6B90AA),
+                            color: context.bc.muted,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -114,7 +119,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
             
             // Personal Information Card
-            _buildInfoCard(
+            _buildInfoCard(context, 
               title: 'Personal Information',
               items: [
                 _InfoItem(
@@ -153,7 +158,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard({
+  Widget _buildInfoCard(BuildContext context, {
     required String title,
     required List<_InfoItem> items,
     VoidCallback? onEdit,
@@ -161,7 +166,7 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.bc.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -179,10 +184,10 @@ class ProfileScreen extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF002B4D),
+                  color: context.bc.text,
                 ),
               ),
               if (onEdit != null)
@@ -205,18 +210,18 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       item.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF9DB3C4),
+                        color: context.bc.muted,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       item.value,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF002B4D),
+                        color: context.bc.text,
                       ),
                     ),
                   ],
@@ -234,9 +239,9 @@ class ProfileScreen extends StatelessWidget {
         label: 'My Orders',
         color: const Color(0xFF3B82F6),
         onTap: () {
-          // TODO: Navigate to orders screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Orders screen coming soon...')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MyOrdersScreen()),
           );
         },
       ),
@@ -245,9 +250,9 @@ class ProfileScreen extends StatelessWidget {
         label: 'Notifications',
         color: const Color(0xFFFFA500),
         onTap: () {
-          // TODO: Navigate to notifications screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Notifications screen coming soon...')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NotificationsScreen()),
           );
         },
       ),
@@ -269,20 +274,20 @@ class ProfileScreen extends StatelessWidget {
         label: 'Security',
         color: const Color(0xFFDC2626),
         onTap: () {
-          // TODO: Navigate to security screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Security screen coming soon...')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SecurityScreen()),
           );
         },
       ),
       _ActionItem(
         icon: Icons.settings_outlined,
         label: 'Settings',
-        color: const Color(0xFF6B90AA),
+        color: context.bc.muted,
         onTap: () {
-          // TODO: Navigate to settings screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Settings coming soon...')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen()),
           );
         },
       ),
@@ -308,18 +313,18 @@ class ProfileScreen extends StatelessWidget {
       itemCount: actions.length,
       itemBuilder: (context, index) {
         final action = actions[index];
-        return _buildActionCard(action);
+        return _buildActionCard(context, action);
       },
     );
   }
 
-  Widget _buildActionCard(_ActionItem action) {
+  Widget _buildActionCard(BuildContext context, _ActionItem action) {
     return InkWell(
       onTap: action.onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.bc.surface,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -347,10 +352,10 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               action.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF002B4D),
+                color: context.bc.text,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,

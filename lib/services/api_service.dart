@@ -1,10 +1,25 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
 
 class ApiService {
   static const _storage = FlutterSecureStorage();
+
+  // Without a timeout an unreachable server leaves the app stuck loading.
+  static const _timeout = Duration(seconds: 15);
+
+  static Exception _networkError(Object e) {
+    if (e is TimeoutException || e is SocketException) {
+      return Exception(
+        'Cannot reach the server at ${ApiConfig.baseUrl}. '
+        'Make sure the API is running and the address is correct.',
+      );
+    }
+    return Exception('Network error: $e');
+  }
   
   static Future<String?> _getToken() async {
     return await _storage.read(key: 'auth_token');
@@ -37,11 +52,11 @@ class ApiService {
         Uri.parse('${ApiConfig.baseUrl}$endpoint'),
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
-      );
+      ).timeout(_timeout);
       
       return _handleResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      throw _networkError(e);
     }
   }
   
@@ -51,11 +66,11 @@ class ApiService {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}$endpoint'),
         headers: headers,
-      );
+      ).timeout(_timeout);
       
       return _handleResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      throw _networkError(e);
     }
   }
   
@@ -69,11 +84,11 @@ class ApiService {
         Uri.parse('${ApiConfig.baseUrl}$endpoint'),
         headers: headers,
         body: jsonEncode(body),
-      );
+      ).timeout(_timeout);
       
       return _handleResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      throw _networkError(e);
     }
   }
   
@@ -87,11 +102,11 @@ class ApiService {
         Uri.parse('${ApiConfig.baseUrl}$endpoint'),
         headers: headers,
         body: jsonEncode(body),
-      );
+      ).timeout(_timeout);
       
       return _handleResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      throw _networkError(e);
     }
   }
   
@@ -101,11 +116,11 @@ class ApiService {
       final response = await http.delete(
         Uri.parse('${ApiConfig.baseUrl}$endpoint'),
         headers: headers,
-      );
+      ).timeout(_timeout);
       
       return _handleResponse(response);
     } catch (e) {
-      throw Exception('Network error: $e');
+      throw _networkError(e);
     }
   }
   
@@ -123,6 +138,16 @@ class ApiService {
     }
   }
   
+  /// Returns the response body of a successful call, or throws with the API's message.
+  /// get/post/put/patch/delete wrap the body as {'success': .., 'data': ..}.
+  static Map<String, dynamic> unwrap(Map<String, dynamic> result) {
+    if (result['success'] == true) {
+      final data = result['data'];
+      return data is Map<String, dynamic> ? data : <String, dynamic>{};
+    }
+    throw Exception(result['message'] ?? 'Something went wrong');
+  }
+
   static Future<Map<String, dynamic>> login(
     String email,
     String password, {

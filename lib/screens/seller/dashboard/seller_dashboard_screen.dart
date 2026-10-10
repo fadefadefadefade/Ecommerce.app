@@ -63,6 +63,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

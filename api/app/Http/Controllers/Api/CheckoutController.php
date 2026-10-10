@@ -132,7 +132,7 @@ class CheckoutController extends Controller
 
             OrderItem::create([
                 'order_id'          => $order->id,
-                'book_id'           => $item->book_id, // Still using book_id column name
+                'product_id'        => $item->product_id,
                 'quantity'          => $item->quantity,
                 'price'             => $item->product->effective_price,
                 'commission_rate'   => $commissionRate,
@@ -141,7 +141,7 @@ class CheckoutController extends Controller
             ]);
 
             // Reduce stock
-            Product::where('id', $item->book_id)->decrement('stock', $item->quantity);
+            Product::where('id', $item->product_id)->decrement('stock', $item->quantity);
         }
 
         // Clear cart

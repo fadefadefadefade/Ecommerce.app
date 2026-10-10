@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'providers/auth_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 
 void main() {
@@ -19,21 +20,39 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
-      child: MaterialApp(
-        title: 'ALVY',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFfa4e1c),
-            primary: const Color(0xFFfa4e1c),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: Consumer2<AuthProvider, ThemeProvider>(
+        builder: (context, auth, theme, _) => MaterialApp(
+          title: 'ALVY',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFFfa4e1c),
+              primary: const Color(0xFFfa4e1c),
+            ),
+            scaffoldBackgroundColor: const Color(0xFFfbeee8),
+            textTheme: GoogleFonts.interTextTheme(),
           ),
-          scaffoldBackgroundColor: const Color(0xFFfbeee8),
-          textTheme: GoogleFonts.interTextTheme(),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFFfa4e1c),
+              primary: const Color(0xFFfa4e1c),
+              brightness: Brightness.dark,
+            ),
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+          ),
+          // Only buyer screens are theme-aware so far; other roles stay light.
+          themeMode: auth.user?.isBuyer == true ? theme.mode : ThemeMode.light,
+          home: const AuthWrapper(),
         ),
-        home: const AuthWrapper(),
       ),
     );
   }

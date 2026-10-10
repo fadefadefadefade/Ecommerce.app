@@ -1,3 +1,4 @@
+import '../config/api_config.dart';
 class SellerProduct {
   final int? id;
   final int? categoryId;
@@ -224,7 +225,7 @@ class SellerProduct {
     if (image != null) {
       return image!.startsWith('http') 
           ? image 
-          : 'http://127.0.0.1:8001/storage/$image';
+          : '${ApiConfig.storageUrl}/$image';
     }
     return null;
   }
@@ -362,7 +363,7 @@ class ProductImage {
   String get url {
     return path.startsWith('http') 
         ? path 
-        : 'http://127.0.0.1:8001/storage/$path';
+        : '${ApiConfig.storageUrl}/$path';
   }
 }
 

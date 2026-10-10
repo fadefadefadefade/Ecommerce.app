@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/psgc_service.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -95,7 +96,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBEEE8),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
         backgroundColor: const Color(0xFFfa4e1c),
         foregroundColor: Colors.white,
@@ -117,7 +118,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 decoration: InputDecoration(
                   hintText: 'Enter full name',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: context.bc.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 validator: (value) => value?.isEmpty == true ? 'Please enter your full name' : null,
@@ -126,8 +127,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
               // Address Section
               const Text('Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const Text('Select your region, province, city/municipality, then barangay', 
-                style: TextStyle(fontSize: 12, color: Color(0xFF8a7a70))),
+              Text('Select your region, province, city/municipality, then barangay', 
+                style: TextStyle(fontSize: 12, color: context.bc.muted)),
               const SizedBox(height: 16),
 
               // Region Dropdown
@@ -137,9 +138,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.bc.surface,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE6D9CF)),
+                  border: Border.all(color: context.bc.border),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -182,9 +183,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.bc.surface,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE6D9CF)),
+                            border: Border.all(color: context.bc.border),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
@@ -230,9 +231,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.bc.surface,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE6D9CF)),
+                            border: Border.all(color: context.bc.border),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
@@ -284,9 +285,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.bc.surface,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE6D9CF)),
+                            border: Border.all(color: context.bc.border),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
@@ -333,7 +334,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                             hintText: 'ZIP',
                             hintStyle: const TextStyle(fontSize: 11),
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: context.bc.surface,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             contentPadding: const EdgeInsets.all(10),
                           ),
@@ -355,7 +356,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   hintText: 'Enter house/unit number',
                   hintStyle: const TextStyle(fontSize: 12),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: context.bc.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   contentPadding: const EdgeInsets.all(12),
                 ),
@@ -372,7 +373,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   hintText: 'Enter street name or subdivision',
                   hintStyle: const TextStyle(fontSize: 12),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: context.bc.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   contentPadding: const EdgeInsets.all(12),
                 ),

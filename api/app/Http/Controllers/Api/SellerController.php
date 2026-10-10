@@ -7,7 +7,6 @@ use App\Models\Product;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Category;
-use App\Models\ProductImage;
 use App\Models\ProductVariation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,7 +62,7 @@ class SellerController extends Controller
         $sellerId = $request->user()->id;
         
         $query = Product::where('seller_id', $sellerId)
-            ->with(['category', 'images']);
+            ->with(['category']);
 
         // Filter by status
         if ($request->has('status')) {
@@ -109,7 +108,7 @@ class SellerController extends Controller
         $sellerId = $request->user()->id;
         
         $product = Product::where('seller_id', $sellerId)
-            ->with(['category', 'images', 'variations'])
+            ->with(['category', 'variations'])
             ->findOrFail($id);
 
         return response()->json([
@@ -153,10 +152,8 @@ class SellerController extends Controller
             $product->product_code = 'ALVY-' . str_pad($product->id, 6, '0', STR_PAD_LEFT);
             $product->save();
 
-            // Handle additional images
-            if ($request->hasFile('images')) {
-                $this->handleImages($request, $product);
-            }
+            // Products have a single image; use the first gallery upload if no cover was sent
+            $this->useFirstUploadAsImage($request, $product);
 
             // Handle variations
             if ($request->has('variations')) {
@@ -165,7 +162,7 @@ class SellerController extends Controller
 
             DB::commit();
 
-            $product->load(['category', 'images', 'variations']);
+            $product->load(['category', 'variations']);
 
             return response()->json([
                 'message' => 'Product created successfully',
@@ -220,25 +217,8 @@ class SellerController extends Controller
             // Update the product
             $product->update($data);
 
-            // Handle image removal
-            if ($request->has('removed_images')) {
-                $removedIds = $request->removed_images;
-                $imagesToDelete = $product->images()->whereIn('id', $removedIds)->get();
-                foreach ($imagesToDelete as $image) {
-                    Storage::disk('public')->delete($image->path);
-                    $image->delete();
-                }
-            }
-
-            // Handle new images
-            if ($request->hasFile('images')) {
-                $this->handleImages($request, $product);
-            }
-
-            // Handle image reordering
-            if ($request->has('image_order')) {
-                $this->reorderImages($request, $product);
-            }
+            // Products have a single image; use the first gallery upload if no cover was sent
+            $this->useFirstUploadAsImage($request, $product);
 
             // Handle variations
             if ($request->has('variations')) {
@@ -248,7 +228,7 @@ class SellerController extends Controller
 
             DB::commit();
 
-            $product->load(['category', 'images', 'variations']);
+            $product->load(['category', 'variations']);
 
             return response()->json([
                 'message' => 'Product updated successfully',
@@ -271,11 +251,6 @@ class SellerController extends Controller
         $product = Product::where('seller_id', $sellerId)->findOrFail($id);
 
         try {
-            // Delete associated images
-            foreach ($product->images as $image) {
-                Storage::disk('public')->delete($image->path);
-            }
-            
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
@@ -894,31 +869,25 @@ class SellerController extends Controller
         ]);
     }
 
-    private function handleImages(Request $request, Product $product)
+    /**
+     * The book_images gallery table was dropped (same as the web app), so a product
+     * keeps one image. When only gallery photos are uploaded, the first becomes it.
+     */
+    private function useFirstUploadAsImage(Request $request, Product $product)
     {
-        if ($request->hasFile('images')) {
-            $position = $product->images()->max('sort_order') ?? -1;
-            
-            foreach ($request->file('images') as $file) {
-                if ($file && $file->isValid()) {
-                    $position++;
-                    $path = $file->store('products/gallery', 'public');
-                    
-                    ProductImage::create([
-                        'product_id' => $product->id,
-                        'path' => $path,
-                        'label' => $position === 0 ? 'Main' : 'Photo ' . ($position + 1),
-                        'sort_order' => $position,
-                    ]);
-                }
-            }
-
-            // Update main image if this is the first image
-            if ($product->images()->count() > 0 && !$product->image) {
-                $firstImage = $product->images()->orderBy('sort_order')->first();
-                $product->update(['image' => $firstImage->path]);
-            }
+        if ($request->hasFile('cover_image') || ! $request->hasFile('images')) {
+            return;
         }
+
+        $first = collect($request->file('images'))->first(fn ($file) => $file && $file->isValid());
+        if (! $first) {
+            return;
+        }
+
+        if ($product->image) {
+            Storage::disk('public')->delete($product->image);
+        }
+        $product->update(['image' => $first->store('products', 'public')]);
     }
 
     private function handleVariations(Request $request, Product $product)
@@ -955,31 +924,6 @@ class SellerController extends Controller
                     'stock' => $totalStock,
                     'availability' => $totalStock > 0 ? 'in_stock' : 'out_of_stock',
                 ]);
-            }
-        }
-    }
-
-    private function reorderImages(Request $request, Product $product)
-    {
-        if ($request->has('image_order')) {
-            $order = $request->input('image_order');
-            
-            if (is_string($order)) {
-                $order = json_decode($order, true);
-            }
-            
-            foreach ($order as $position => $imageId) {
-                $image = $product->images()->where('id', $imageId)->first();
-                if ($image) {
-                    $image->update(['sort_order' => $position]);
-                }
-            }
-
-            // Update main product image to first in order
-            $product->load('images');
-            $firstImage = $product->images->first();
-            if ($firstImage && $product->image !== $firstImage->path) {
-                $product->update(['image' => $firstImage->path]);
             }
         }
     }

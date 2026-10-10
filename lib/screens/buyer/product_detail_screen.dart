@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
+import 'checkout_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final int productId;
@@ -26,7 +28,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _loadProduct() async {
     try {
-      final result = await ApiService.get('/products/${widget.productId}');
+      final result = ApiService.unwrap(await ApiService.get('/products/${widget.productId}'));
+      if (!mounted) return;
       setState(() {
         product = result['product'];
         relatedProducts = result['related'] ?? [];
@@ -55,15 +58,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     try {
-      await ApiService.post('/cart', body: {
+      ApiService.unwrap(await ApiService.post('/cart', body: {
         'product_id': widget.productId,
         'quantity': quantity,
-      });
+      }));
 
       if (mounted) {
         if (buyNow) {
           // Navigate to checkout
-          Navigator.pushNamed(context, '/checkout');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -111,12 +117,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         product!['discount_percent'] > 0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.bc.background,
       body: CustomScrollView(
         slivers: [
           // App Bar
           SliverAppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: context.bc.surface,
             foregroundColor: const Color(0xFF002b4d),
             elevation: 0,
             pinned: true,
@@ -153,13 +159,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         },
                         itemBuilder: (context, index) {
                           return Container(
-                            color: const Color(0xFFF3EDE4),
+                            color: context.bc.subtle,
                             child: Image.network(
                               allImages[index],
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Center(
+                              errorBuilder: (_, __, ___) => Center(
                                 child: Icon(Icons.image_not_supported,
-                                    size: 60, color: Color(0xFFCCCCCC)),
+                                    size: 60, color: context.bc.muted),
                               ),
                             ),
                           );
@@ -255,15 +261,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF3EDE4),
+                              color: context.bc.subtle,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               product!['format'] ?? 'Paperback',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1a4d6e),
+                                color: context.bc.textSecondary,
                               ),
                             ),
                           ),
@@ -274,10 +280,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       // Title
                       Text(
                         product!['title'] ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF002b4d),
+                          color: context.bc.text,
                           height: 1.2,
                         ),
                       ),
@@ -287,9 +293,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       if (product!['author'] != null)
                         Text(
                           product!['author'],
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF1a4d6e),
+                            color: context.bc.textSecondary,
                           ),
                         ),
                       const SizedBox(height: 16),
@@ -299,7 +305,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFF6EE),
+                          color: context.bc.subtle,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -327,10 +333,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const SizedBox(width: 12),
                               Text(
                                 '₱${(product!['price'] ?? 0).toStringAsFixed(2)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   decoration: TextDecoration.lineThrough,
-                                  color: Color(0xFF6b90aa),
+                                  color: context.bc.muted,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -387,9 +393,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       if (product!['description'] != null) ...[
                         Text(
                           product!['description'],
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
-                            color: Color(0xFF1a4d6e),
+                            color: context.bc.textSecondary,
                             height: 1.6,
                           ),
                         ),
@@ -398,12 +404,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                       // Variations
                       if ((product!['variations'] as List?)?.isNotEmpty == true) ...[
-                        const Text(
+                        Text(
                           'Variation',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF002b4d),
+                            color: context.bc.text,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -436,7 +442,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   border: Border.all(
                                     color: isSelected
                                         ? const Color(0xFFfa4e1c)
-                                        : const Color(0xFFcfdce8),
+                                        : context.bc.border,
                                     width: isSelected ? 2 : 1,
                                   ),
                                   borderRadius: BorderRadius.circular(8),
@@ -449,7 +455,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     color: available
                                         ? (isSelected
                                             ? const Color(0xFFfa4e1c)
-                                            : const Color(0xFF1a4d6e))
+                                            : context.bc.textSecondary)
                                         : const Color(0xFFDC2626),
                                   ),
                                 ),
@@ -466,8 +472,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           // Quantity selector
                           Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFBF7F2),
-                              border: Border.all(color: const Color(0xFFcfdce8)),
+                              color: context.bc.subtle,
+                              border: Border.all(color: context.bc.border),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -477,17 +483,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   onPressed: quantity > 1
                                       ? () => setState(() => quantity--)
                                       : null,
-                                  color: const Color(0xFF1a4d6e),
+                                  color: context.bc.textSecondary,
                                 ),
                                 Container(
                                   width: 40,
                                   alignment: Alignment.center,
                                   child: Text(
                                     quantity.toString(),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF002b4d),
+                                      color: context.bc.text,
                                     ),
                                   ),
                                 ),
@@ -496,7 +502,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   onPressed: quantity < stock
                                       ? () => setState(() => quantity++)
                                       : null,
-                                  color: const Color(0xFF1a4d6e),
+                                  color: context.bc.textSecondary,
                                 ),
                               ],
                             ),
@@ -575,14 +581,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                 // Related Products
                 if (relatedProducts.isNotEmpty) ...[
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'You May Also Like',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF002b4d),
+                        color: context.bc.text,
                       ),
                     ),
                   ),
@@ -615,7 +621,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   aspectRatio: 1,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF5F5F5),
+                                      color: context.bc.subtle,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: related['image_url'] != null
@@ -664,7 +670,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFcfdce8)),
+          border: Border.all(color: context.bc.border),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -673,18 +679,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(height: 4),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1a4d6e),
+                color: context.bc.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
             Text(
               subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
-                color: Color(0xFF6b90aa),
+                color: context.bc.muted,
               ),
               textAlign: TextAlign.center,
             ),
@@ -710,19 +716,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDFAF7),
-        border: Border.all(color: const Color(0xFFcfdce8)),
+        color: context.bc.subtle,
+        border: Border.all(color: context.bc.border),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'PRODUCT DETAILS',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF002b4d),
+              color: context.bc.text,
               letterSpacing: 1.5,
             ),
           ),
@@ -734,17 +740,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   children: [
                     Text(
                       entry.key,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF6b90aa),
+                        color: context.bc.muted,
                       ),
                     ),
                     Text(
                       entry.value.toString(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF002b4d),
+                        color: context.bc.text,
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -760,7 +766,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFcfdce8)),
+        border: Border.all(color: context.bc.border),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -780,19 +786,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Sold by',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF6b90aa),
+                    color: context.bc.muted,
                   ),
                 ),
                 Text(
                   product!['seller']['name'],
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF002b4d),
+                    color: context.bc.text,
                   ),
                 ),
               ],

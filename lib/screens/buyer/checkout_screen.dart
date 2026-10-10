@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/psgc_service.dart';
 import 'order_confirmation_screen.dart';
@@ -66,7 +67,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _loadCheckoutData() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.get('/checkout');
+      final response = ApiService.unwrap(await ApiService.get('/checkout'));
+      if (!mounted) return;
       setState(() {
         _items = response['items'] ?? [];
         _subtotal = (response['subtotal'] ?? 0).toDouble();
@@ -151,7 +153,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final response = await ApiService.post('/checkout', body: {
+      final response = ApiService.unwrap(await ApiService.post('/checkout', body: {
         'full_name': _fullNameController.text,
         'phone': _phoneController.text,
         'email': _emailController.text,
@@ -163,7 +165,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'street': _streetController.text,
         'zip_code': _zipCodeController.text,
         'payment_method': 'cod',
-      });
+      }));
 
       if (mounted) {
         // Navigate to confirmation screen with order ID
@@ -189,7 +191,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('Checkout'),
         backgroundColor: const Color(0xFFFA4E1C),
@@ -408,7 +410,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF8F4),
+                                    color: context.bc.subtle,
                                     border: Border.all(
                                       color: const Color(0xFFFA4E1C),
                                       width: 2,
@@ -432,7 +434,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      const Expanded(
+                                      Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -441,7 +443,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.bold,
-                                                color: Color(0xFF222222),
+                                                color: context.bc.text,
                                               ),
                                             ),
                                             SizedBox(height: 2),
@@ -449,7 +451,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               'Pay in cash when your order arrives',
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: Color(0xFF757575),
+                                                color: context.bc.textSecondary,
                                               ),
                                             ),
                                           ],
@@ -480,7 +482,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF1EE),
+                                    color: context.bc.subtle,
                                     border: Border.all(color: const Color(0xFFFDB49E)),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -491,9 +493,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       Expanded(
                                         child: RichText(
                                           text: TextSpan(
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 13,
-                                              color: Color(0xFF555555),
+                                              color: context.bc.textSecondary,
                                             ),
                                             children: [
                                               const TextSpan(text: 'Please prepare '),
@@ -540,7 +542,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             errorBuilder: (_, __, ___) => Container(
                                               width: 50,
                                               height: 60,
-                                              color: const Color(0xFFE8F0F6),
+                                              color: context.bc.subtle,
                                               child: const Icon(Icons.shopping_bag, size: 24),
                                             ),
                                           ),
@@ -561,9 +563,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               ),
                                               Text(
                                                 'Qty: ${item['quantity']}',
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Color(0xFF6B90AA),
+                                                  color: context.bc.muted,
                                                 ),
                                               ),
                                             ],
@@ -603,7 +605,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           : Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.bc.surface,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
@@ -648,7 +650,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildProgressSteps() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      color: Colors.white,
+      color: context.bc.surface,
       child: Row(
         children: [
           _buildStep(1, 'Cart', false),
@@ -668,14 +670,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: active ? const Color(0xFFFA4E1C) : const Color(0xFFF5F5F5),
+            color: active ? const Color(0xFFFA4E1C) : context.bc.subtle,
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Text(
               '$number',
               style: TextStyle(
-                color: active ? Colors.white : const Color(0xFF6B90AA),
+                color: active ? Colors.white : context.bc.muted,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -686,7 +688,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Text(
           label,
           style: TextStyle(
-            color: active ? const Color(0xFFFA4E1C) : const Color(0xFF6B90AA),
+            color: active ? const Color(0xFFFA4E1C) : context.bc.muted,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -699,7 +701,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Expanded(
       child: Container(
         height: 1,
-        color: const Color(0xFFDCE8F0),
+        color: context.bc.subtle,
       ),
     );
   }
@@ -708,7 +710,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.bc.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -723,10 +725,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF222222),
+              color: context.bc.text,
             ),
           ),
           const SizedBox(height: 16),
@@ -745,7 +747,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           style: TextStyle(
             fontSize: isBold ? 16 : 14,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: isBold ? const Color(0xFF222222) : const Color(0xFF6B90AA),
+            color: isBold ? context.bc.text : context.bc.muted,
           ),
         ),
         Text(
@@ -753,7 +755,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           style: TextStyle(
             fontSize: isBold ? 18 : 14,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: const Color(0xFF222222),
+            color: context.bc.text,
           ),
         ),
       ],

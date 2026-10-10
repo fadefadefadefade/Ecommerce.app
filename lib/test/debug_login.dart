@@ -11,7 +11,7 @@ void main() async {
   try {
     print('1. Testing API login directly...');
     final response = await http.post(
-      Uri.parse('http://127.0.0.1:8001/api/login'),
+      Uri.parse('http://127.0.0.1:8000/api/login'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'email': email, 'password': password}),
     );

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class ProfileController extends Controller
 {
@@ -70,10 +71,40 @@ class ProfileController extends Controller
                 'sex' => $user->sex,
                 'birthday' => $user->birthday?->format('Y-m-d'),
                 'role' => $user->role,
-                'profile_photo_path' => $user->profile_photo_path 
-                    ? asset('storage/' . $user->profile_photo_path) 
+                'profile_photo_path' => $user->profile_photo_path
+                    ? asset('storage/' . $user->profile_photo_path)
                     : null,
+                // The app rebuilds its stored user from this payload.
+                'approval_status' => $user->approval_status ?? 'approved',
+                'created_at' => $user->created_at,
             ],
         ]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'password'         => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'The current password is incorrect.',
+                'errors'  => ['current_password' => ['The current password is incorrect.']],
+            ], 422);
+        }
+
+        $user->update(['password' => Hash::make($request->password)]);
+
+        // Sign out other devices; keep the token used for this request.
+        $current = $user->currentAccessToken();
+        if ($current instanceof PersonalAccessToken) {
+            $user->tokens()->where('id', '!=', $current->id)->delete();
+        }
+
+        return response()->json(['message' => 'Password changed successfully.']);
     }
 }

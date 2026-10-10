@@ -12,7 +12,7 @@ class CartController extends Controller
     public function index(Request $request)
     {
         $items = CartItem::where('user_id', $request->user()->id)
-            ->with('product.category', 'product.images')
+            ->with('product.category')
             ->get();
 
         $cartItems = $items->map(function ($item) {
@@ -46,7 +46,7 @@ class CartController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'product_id' => 'required|exists:books,id', // Still using books table for FK validation
+            'product_id' => 'required|exists:products,id',
             'quantity' => 'nullable|integer|min:1|max:99',
         ]);
 
@@ -62,7 +62,7 @@ class CartController extends Controller
 
         $item = CartItem::firstOrNew([
             'user_id' => $request->user()->id,
-            'book_id' => $product->id, // Still using book_id column name
+            'product_id' => $product->id,
         ]);
 
         // Increment if already in cart, otherwise set the requested qty

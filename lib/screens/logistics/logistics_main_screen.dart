@@ -19,6 +19,7 @@ class LogisticsMainScreen extends StatefulWidget {
 
 class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
   int _currentIndex = 0;
+  bool _redirecting = false;
 
   static const tabDashboard = 0;
   static const tabPickups = 1;
@@ -33,11 +34,16 @@ class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         if (!authProvider.isAuthenticated || authProvider.user?.isAdmin != true) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            );
-          });
+          if (!_redirecting) {
+            _redirecting = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            });
+          }
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );

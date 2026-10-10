@@ -9,7 +9,7 @@ class CartItem extends Model
 {
     protected $fillable = [
         'user_id',
-        'book_id', // Still using book_id FK until we rename tables
+        'product_id',
         'quantity',
         'selected_variation',
     ];
@@ -26,6 +26,6 @@ class CartItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class, 'book_id');
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }

@@ -8,7 +8,7 @@ void main() async {
 }
 
 Future<void> testUnifiedLogin() async {
-  const baseUrl = 'http://127.0.0.1:8001/api';
+  const baseUrl = 'http://127.0.0.1:8000/api';
   
   print('🧪 Testing Unified Login System...\n');
   

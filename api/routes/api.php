@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\SellerController;
 use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PsgcController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Logistics;
 use App\Http\Middleware\EnsureLogisticsAdmin;
 
@@ -54,6 +55,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::post('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+
+    // Notification routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
     
     // Address routes
     Route::get('/addresses', [AddressController::class, 'index']);

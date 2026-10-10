@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../screens/buyer/home_screen.dart';
+import '../screens/buyer/buyer_main_screen.dart';
 import '../screens/seller/seller_main_screen.dart';
 import '../screens/logistics/logistics_main_screen.dart';
 
@@ -91,7 +91,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return {
         'success': false,
-        'message': 'An error occurred: $e',
+        'message': e.toString().replaceFirst('Exception: ', ''),
       };
     }
   }
@@ -114,7 +114,7 @@ class AuthProvider with ChangeNotifier {
       case 'customer':
       case 'buyer':
         debugPrint('📱 Routing to BuyerHomeScreen');
-        return const BuyerHomeScreen();
+        return const BuyerMainScreen();
       
       case 'seller':
         if (_user!.isApprovedSeller) {
@@ -295,6 +295,9 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     try {
       await ApiService.logout();
+    } catch (e) {
+      // Server unreachable or token already invalid — still log out locally.
+      debugPrint('⚠️  Logout API failed, clearing local session anyway: $e');
     } finally {
       _user = null;
       await _storage.delete(key: 'user_data');

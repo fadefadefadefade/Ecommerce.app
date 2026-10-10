@@ -17,6 +17,7 @@ class SellerMainScreen extends StatefulWidget {
 
 class _SellerMainScreenState extends State<SellerMainScreen> {
   int _currentIndex = 0;
+  bool _redirecting = false;
   
   final List<Widget> _screens = [
     const SellerDashboardScreen(),
@@ -34,11 +35,16 @@ class _SellerMainScreenState extends State<SellerMainScreen> {
         if (!authProvider.isAuthenticated || 
             authProvider.user?.isSeller != true ||
             !authProvider.user!.isApprovedSeller) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            );
-          });
+          if (!_redirecting) {
+            _redirecting = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            });
+          }
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );

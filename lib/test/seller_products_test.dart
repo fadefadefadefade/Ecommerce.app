@@ -9,7 +9,7 @@ void main() async {
 }
 
 Future<void> testSellerProductsIntegration() async {
-  const baseUrl = 'http://127.0.0.1:8001/api';
+  const baseUrl = 'http://127.0.0.1:8000/api';
   
   print('🧪 Testing Seller Products API Integration...\n');
   

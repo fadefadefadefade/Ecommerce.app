@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
-import 'home_screen.dart';
+import 'buyer_main_screen.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
   final int orderId;
@@ -24,7 +25,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   Future<void> _loadOrder() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.get('/orders/${widget.orderId}');
+      final response = ApiService.unwrap(await ApiService.get('/orders/${widget.orderId}'));
+      if (!mounted) return;
       setState(() {
         _order = response['order'];
         _isLoading = false;
@@ -56,7 +58,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       case 'failed':
         return const Color(0xFFDC2626);
       default:
-        return const Color(0xFF6B90AA);
+        return context.bc.muted;
     }
   }
 
@@ -68,7 +70,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
         return false;
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: context.bc.background,
         appBar: AppBar(
           title: const Text('Order Confirmation'),
           backgroundColor: const Color(0xFFFA4E1C),
@@ -99,12 +101,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         ),
                         const SizedBox(height: 20),
                         // Title
-                        const Text(
+                        Text(
                           'Order Placed!',
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF222222),
+                            color: context.bc.text,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -114,9 +116,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                           child: RichText(
                             textAlign: TextAlign.center,
                             text: TextSpan(
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 15,
-                                color: Color(0xFF555555),
+                                color: context.bc.textSecondary,
                               ),
                               children: [
                                 const TextSpan(
@@ -140,9 +142,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         // Order Number
                         Text(
                           'Order #${_order!['order_number']}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF6B90AA),
+                            color: context.bc.muted,
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -162,7 +164,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                             ),
                             _buildStatusBadge(
                               '💵 Cash on Delivery',
-                              const Color(0xFF666666),
+                              context.bc.textSecondary,
                             ),
                           ],
                         ),
@@ -171,7 +173,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                         Container(
                           margin: const EdgeInsets.symmetric(horizontal: 16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.bc.surface,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -190,12 +192,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Items Ordered',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF222222),
+                                        color: context.bc.text,
                                       ),
                                     ),
                                     const SizedBox(height: 16),
@@ -214,7 +216,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                                 errorBuilder: (_, __, ___) => Container(
                                                   width: 40,
                                                   height: 50,
-                                                  color: const Color(0xFFE8F0F6),
+                                                  color: context.bc.subtle,
                                                   child: const Icon(
                                                     Icons.shopping_bag,
                                                     size: 20,
@@ -229,10 +231,10 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                                 children: [
                                                   Text(
                                                     item['product']['title'] ?? '',
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 14,
                                                       fontWeight: FontWeight.w600,
-                                                      color: Color(0xFF222222),
+                                                      color: context.bc.text,
                                                     ),
                                                     maxLines: 2,
                                                     overflow: TextOverflow.ellipsis,
@@ -240,9 +242,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                                   const SizedBox(height: 2),
                                                   Text(
                                                     'Qty: ${item['quantity']} × ₱${(item['price'] ?? 0).toStringAsFixed(2)}',
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 12,
-                                                      color: Color(0xFF6B90AA),
+                                                      color: context.bc.muted,
                                                     ),
                                                   ),
                                                 ],
@@ -284,8 +286,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                               // Shipping Info
                               Container(
                                 padding: const EdgeInsets.all(20),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFE8F0F6),
+                                decoration: BoxDecoration(
+                                  color: context.bc.subtle,
                                   borderRadius: BorderRadius.only(
                                     bottomLeft: Radius.circular(12),
                                     bottomRight: Radius.circular(12),
@@ -294,37 +296,37 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Shipping To',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF222222),
+                                        color: context.bc.text,
                                       ),
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
                                       _order!['full_name'] ?? '',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF222222),
+                                        color: context.bc.text,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '${_order!['phone']} · ${_order!['email']}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF555555),
+                                        color: context.bc.textSecondary,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       _order!['shipping_address'] ?? '',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF555555),
+                                        color: context.bc.textSecondary,
                                       ),
                                     ),
                                   ],
@@ -343,12 +345,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                             border: Border.all(color: const Color(0xFFFDB49E)),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Track your order anytime from My Profile → Order History',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF555555),
+                              color: context.bc.textSecondary,
                             ),
                           ),
                         ),
@@ -365,7 +367,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                                     // Navigate to home and clear all previous routes
                                     Navigator.of(context).pushAndRemoveUntil(
                                       MaterialPageRoute(
-                                        builder: (context) => const BuyerHomeScreen(),
+                                        builder: (context) => const BuyerMainScreen(),
                                       ),
                                       (route) => false,
                                     );
@@ -458,7 +460,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
           style: TextStyle(
             fontSize: isLarge ? 16 : 14,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: isBold ? const Color(0xFF222222) : const Color(0xFF555555),
+            color: isBold ? context.bc.text : context.bc.textSecondary,
           ),
         ),
         Text(
@@ -466,7 +468,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
           style: TextStyle(
             fontSize: isLarge ? 18 : 14,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: isBold ? const Color(0xFFFA4E1C) : const Color(0xFF222222),
+            color: isBold ? const Color(0xFFFA4E1C) : context.bc.text,
           ),
         ),
       ],

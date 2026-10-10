@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../theme/buyer_colors.dart';
 import '../../services/api_service.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  /// "Browse Items" action; defaults to popping back when the cart was pushed.
+  final VoidCallback? onBrowse;
+
+  /// Called after the cart contents load or change (used for the nav badge).
+  final VoidCallback? onChanged;
+
+  const CartScreen({super.key, this.onBrowse, this.onChanged});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -23,15 +30,16 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _loadCart() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.get('/cart');
-      if (response['items'] != null) {
-        setState(() {
-          _cartItems = response['items'];
-          _subtotal = (response['subtotal'] ?? 0).toDouble();
-          _isLoading = false;
-        });
-      }
+      final response = ApiService.unwrap(await ApiService.get('/cart'));
+      if (!mounted) return;
+      setState(() {
+        _cartItems = response['items'] ?? [];
+        _subtotal = (response['subtotal'] ?? 0).toDouble();
+        _isLoading = false;
+      });
+      widget.onChanged?.call();
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -45,9 +53,9 @@ class _CartScreenState extends State<CartScreen> {
     if (newQuantity < 1) return;
 
     try {
-      await ApiService.patch('/cart/$cartItemId', {
+      ApiService.unwrap(await ApiService.patch('/cart/$cartItemId', {
         'quantity': newQuantity,
-      });
+      }));
       _loadCart();
     } catch (e) {
       if (mounted) {
@@ -80,7 +88,7 @@ class _CartScreenState extends State<CartScreen> {
 
     if (confirmed == true) {
       try {
-        await ApiService.delete('/cart/$cartItemId');
+        ApiService.unwrap(await ApiService.delete('/cart/$cartItemId'));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Item removed from cart')),
@@ -100,7 +108,7 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('Shopping Cart'),
         backgroundColor: const Color(0xFFFA4E1C),
@@ -135,7 +143,7 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildProgressSteps() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      color: Colors.white,
+      color: context.bc.surface,
       child: Row(
         children: [
           _buildStep(1, 'Cart', true),
@@ -155,14 +163,14 @@ class _CartScreenState extends State<CartScreen> {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: active ? const Color(0xFFFA4E1C) : const Color(0xFFF5F5F5),
+            color: active ? const Color(0xFFFA4E1C) : context.bc.subtle,
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Text(
               '$number',
               style: TextStyle(
-                color: active ? Colors.white : const Color(0xFF6B90AA),
+                color: active ? Colors.white : context.bc.muted,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -173,7 +181,7 @@ class _CartScreenState extends State<CartScreen> {
         Text(
           label,
           style: TextStyle(
-            color: active ? const Color(0xFFFA4E1C) : const Color(0xFF6B90AA),
+            color: active ? const Color(0xFFFA4E1C) : context.bc.muted,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -186,7 +194,7 @@ class _CartScreenState extends State<CartScreen> {
     return Expanded(
       child: Container(
         height: 1,
-        color: const Color(0xFFDCE8F0),
+        color: context.bc.subtle,
       ),
     );
   }
@@ -201,8 +209,8 @@ class _CartScreenState extends State<CartScreen> {
             Container(
               width: 80,
               height: 80,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F0F6),
+              decoration: BoxDecoration(
+                color: context.bc.subtle,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -212,25 +220,25 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Your cart is empty',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF222222),
+                color: context.bc.text,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Looks like you haven\'t added anything yet.',
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF6B90AA),
+                color: context.bc.muted,
               ),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: widget.onBrowse ?? () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFA4E1C),
                 foregroundColor: Colors.white,
@@ -252,7 +260,7 @@ class _CartScreenState extends State<CartScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.bc.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -279,7 +287,7 @@ class _CartScreenState extends State<CartScreen> {
                   return Container(
                     width: 80,
                     height: 100,
-                    color: const Color(0xFFE8F0F6),
+                    color: context.bc.subtle,
                     child: const Icon(Icons.shopping_bag, color: Color(0xFFFA4E1C)),
                   );
                 },
@@ -300,10 +308,10 @@ class _CartScreenState extends State<CartScreen> {
                           children: [
                             Text(
                               product['title'] ?? '',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF222222),
+                                color: context.bc.text,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -311,9 +319,9 @@ class _CartScreenState extends State<CartScreen> {
                             const SizedBox(height: 4),
                             Text(
                               'by ${product['author'] ?? ''}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF6B90AA),
+                                color: context.bc.muted,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -347,7 +355,7 @@ class _CartScreenState extends State<CartScreen> {
                       // Quantity stepper
                       Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE8F0F6),
+                          color: context.bc.subtle,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: const Color(0xFFFFDCC2)),
                         ),
@@ -361,7 +369,7 @@ class _CartScreenState extends State<CartScreen> {
                               icon: const Icon(Icons.remove, size: 16),
                               style: IconButton.styleFrom(
                                 foregroundColor: const Color(0xFFFA4E1C),
-                                disabledForegroundColor: const Color(0xFF6B90AA),
+                                disabledForegroundColor: context.bc.muted,
                                 padding: const EdgeInsets.all(8),
                               ),
                             ),
@@ -369,10 +377,10 @@ class _CartScreenState extends State<CartScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                               child: Text(
                                 '$quantity',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF222222),
+                                  color: context.bc.text,
                                 ),
                               ),
                             ),
@@ -383,7 +391,7 @@ class _CartScreenState extends State<CartScreen> {
                               icon: const Icon(Icons.add, size: 16),
                               style: IconButton.styleFrom(
                                 foregroundColor: const Color(0xFFFA4E1C),
-                                disabledForegroundColor: const Color(0xFF6B90AA),
+                                disabledForegroundColor: context.bc.muted,
                                 padding: const EdgeInsets.all(8),
                               ),
                             ),
@@ -393,10 +401,10 @@ class _CartScreenState extends State<CartScreen> {
                       // Line total
                       Text(
                         '₱${subtotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF222222),
+                          color: context.bc.text,
                         ),
                       ),
                     ],
@@ -414,7 +422,7 @@ class _CartScreenState extends State<CartScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.bc.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -429,19 +437,19 @@ class _CartScreenState extends State<CartScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Subtotal:',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Color(0xFF6B90AA),
+                    color: context.bc.muted,
                   ),
                 ),
                 Text(
                   '₱${_subtotal.toStringAsFixed(2)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF222222),
+                    color: context.bc.text,
                   ),
                 ),
               ],
