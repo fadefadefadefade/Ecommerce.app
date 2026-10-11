@@ -14,14 +14,19 @@ class DeliveryController extends Controller
 {
     public function assignmentIndex(Request $request)
     {
+        $center = (int) $request->user()->id;
+
+        // "Unassigned": sorted parcels at this sorting center (or not routed yet), for its own riders.
         $parcels = Parcel::with('area:id,name')
             ->where('status', 'sorted')
+            ->where(fn ($q) => $q->where('current_sorting_center_id', $center)->orWhereNull('current_sorting_center_id'))
             ->when($request->area_id, fn ($q) => $q->where('area_id', $request->area_id))
             ->latest()
             ->paginate(15);
 
         $riders = Rider::where('application_status', 'approved')
             ->where('is_active', true)
+            ->where('sorting_center_id', $center)
             ->when($request->area_id, fn ($q) => $q->where('area_id', $request->area_id))
             ->with('area:id,name')
             ->get();
@@ -37,7 +42,18 @@ class DeliveryController extends Controller
     {
         $request->validate(['rider_id' => 'required|exists:riders,id']);
 
+        $center = (int) $request->user()->id;
         $rider = Rider::findOrFail($request->rider_id);
+
+        if ((int) $rider->sorting_center_id !== $center) {
+            return response()->json(['message' => 'Choose a rider from your sorting center.'], 422);
+        }
+        if ($parcel->status !== 'sorted') {
+            return response()->json(['message' => "{$parcel->tracking_number} is not waiting for a delivery rider."], 422);
+        }
+        if ($parcel->current_sorting_center_id && (int) $parcel->current_sorting_center_id !== $center) {
+            return response()->json(['message' => "{$parcel->tracking_number} belongs to another sorting center."], 403);
+        }
 
         ParcelDelivery::create([
             'parcel_id'   => $parcel->id,
@@ -47,7 +63,7 @@ class DeliveryController extends Controller
             'status'      => 'assigned',
         ]);
 
-        $parcel->update(['status' => 'assigned']);
+        $parcel->update(['status' => 'assigned', 'current_sorting_center_id' => $parcel->current_sorting_center_id ?? $center]);
 
         return response()->json(['message' => "{$parcel->tracking_number} assigned to {$rider->full_name}."]);
     }

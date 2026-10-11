@@ -22,7 +22,7 @@ class _PickupAssignScreenState extends State<PickupAssignScreen> {
   final Set<int> _busy = {};
 
   static const _tabs = {
-    'to_assign': 'To Assign',
+    'to_assign': 'Unassigned',
     'with_rider': 'With Rider',
     'received': 'Received',
   };

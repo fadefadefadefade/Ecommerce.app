@@ -20,7 +20,7 @@ class DeliveriesScreen extends StatelessWidget {
             unselectedLabelColor: Colors.white70,
             labelStyle: TextStyle(fontWeight: FontWeight.w600),
             tabs: [
-              Tab(text: 'Assignment'),
+              Tab(text: 'Unassigned'),
               Tab(text: 'Monitoring'),
             ],
           ),

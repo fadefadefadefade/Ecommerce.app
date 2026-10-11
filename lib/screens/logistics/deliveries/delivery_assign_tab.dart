@@ -3,7 +3,7 @@ import '../../../models/logistics.dart';
 import '../../../services/logistics_service.dart';
 import '../widgets/logistics_ui.dart';
 
-/// Sorted parcels ready to be handed to a rider.
+/// "Unassigned": sorted parcels at this sorting center waiting for a delivery rider.
 class DeliveryAssignTab extends StatefulWidget {
   const DeliveryAssignTab({super.key});
 
@@ -69,7 +69,7 @@ class _DeliveryAssignTabState extends State<DeliveryAssignTab> with AutomaticKee
               const Divider(height: 1),
               Flexible(
                 child: riders.isEmpty
-                    ? const EmptyState(message: 'No active riders available.')
+                    ? const EmptyState(message: 'No active riders in your sorting center yet.')
                     : ListView(
                         shrinkWrap: true,
                         children: riders.map((r) {
@@ -139,7 +139,7 @@ class _DeliveryAssignTabState extends State<DeliveryAssignTab> with AutomaticKee
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Sorted parcels ready for assignment ($_total)',
+              'Unassigned parcels ready for delivery ($_total)',
               style: const TextStyle(fontWeight: FontWeight.w600, color: LogisticsColors.muted),
             ),
           ),
@@ -148,7 +148,7 @@ class _DeliveryAssignTabState extends State<DeliveryAssignTab> with AutomaticKee
           child: PagedList<Parcel>(
             key: ValueKey('$_areaId|$_reloadToken'),
             fetch: _fetch,
-            emptyMessage: 'No sorted parcels waiting for assignment.',
+            emptyMessage: 'No unassigned parcels right now.',
             itemBuilder: (context, parcel, reload) {
               final busy = _busy.contains(parcel.id);
               return ListCard(
