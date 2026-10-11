@@ -18,30 +18,24 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
+  AuthProvider? _authProvider;
+
   @override
   void initState() {
     super.initState();
     // Add listener to AuthProvider for direct navigation handling
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        authProvider.addListener(_handleAuthStateChange);
+        _authProvider = Provider.of<AuthProvider>(context, listen: false)
+          ..addListener(_handleAuthStateChange);
       }
     });
   }
 
   @override
   void dispose() {
-    // Remove listener to prevent memory leaks - but only if widget is still mounted
-    try {
-      if (mounted) {
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        authProvider.removeListener(_handleAuthStateChange);
-      }
-    } catch (e) {
-      // Ignore errors during dispose - widget may already be unmounted
-      debugPrint('⚠️  Error removing listener in dispose: $e');
-    }
+    // Uses the saved reference: looking up context in dispose() is unsafe.
+    _authProvider?.removeListener(_handleAuthStateChange);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../models/logistics.dart';
@@ -20,6 +22,35 @@ class _LogisticsReportsScreenState extends State<LogisticsReportsScreen> {
   );
   Map<String, int> _summary = {};
   int _reloadToken = 0;
+  bool _exporting = false;
+
+  Future<void> _export() async {
+    setState(() => _exporting = true);
+    try {
+      final data = await LogisticsService.exportReport(
+        from: _apiDate.format(_range.start),
+        to: _apiDate.format(_range.end),
+      );
+      if (!mounted) return;
+      if ((data['rows'] as num? ?? 0) == 0) {
+        showSnack(context, 'No deliveries to export in this period.');
+        return;
+      }
+      final path = await FilePicker.saveFile(
+        dialogTitle: 'Save delivery report',
+        fileName: data['filename'] as String? ?? 'delivery-report.csv',
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: utf8.encode(data['csv'] as String? ?? ''),
+      );
+      if (!mounted) return;
+      if (path != null) showSnack(context, 'Exported ${data['rows']} deliveries');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Export failed: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
 
   Future<PagedResult<ParcelDelivery>> _fetch(int page) async {
     final data = await LogisticsService.getReport(
@@ -60,7 +91,19 @@ class _LogisticsReportsScreenState extends State<LogisticsReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: LogisticsColors.background,
-      appBar: logisticsAppBar('Reports'),
+      appBar: logisticsAppBar('Reports', actions: [
+        IconButton(
+          tooltip: 'Export CSV',
+          onPressed: _exporting ? null : _export,
+          icon: _exporting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.download_rounded),
+        ),
+      ]),
       body: PagedList<ParcelDelivery>(
         key: ValueKey('${_range.start}|${_range.end}|$_reloadToken'),
         fetch: _fetch,

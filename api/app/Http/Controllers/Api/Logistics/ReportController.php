@@ -37,4 +37,39 @@ class ReportController extends Controller
             'deliveries' => $deliveries,
         ]);
     }
+
+    /** Same columns as the web's CSV export; returned as text so the app can save it. */
+    public function export(Request $request)
+    {
+        $from = $request->from ? Carbon::parse($request->from)           : now()->subDays(30)->startOfDay();
+        $to   = $request->to   ? Carbon::parse($request->to)->endOfDay() : now()->endOfDay();
+
+        $deliveries = ParcelDelivery::with(['parcel', 'rider', 'area'])
+            ->whereBetween('created_at', [$from, $to])
+            ->get();
+
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, ['Tracking #', 'Rider', 'Area', 'Status', 'Assigned At', 'Delivered At']);
+
+        foreach ($deliveries as $d) {
+            fputcsv($handle, [
+                $d->parcel->tracking_number ?? '-',
+                $d->rider->full_name        ?? '-',
+                $d->area->name              ?? '-',
+                $d->status,
+                $d->created_at,
+                $d->delivered_at,
+            ]);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response()->json([
+            'filename' => 'delivery-report-' . now()->format('Y-m-d') . '.csv',
+            'rows'     => $deliveries->count(),
+            'csv'      => $csv,
+        ]);
+    }
 }

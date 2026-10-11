@@ -143,6 +143,10 @@ class LogisticsService {
   static Future<Map<String, dynamic>> getReport({int page = 1, String? from, String? to}) =>
       _get('/reports', {'page': page, 'from': from, 'to': to});
 
+  /// CSV of deliveries in the range (same columns as the web export): {filename, rows, csv}.
+  static Future<Map<String, dynamic>> exportReport({String? from, String? to}) =>
+      _get('/reports/export', {'from': from, 'to': to});
+
   // ── Chat ──────────────────────────────────────────────────
 
   static Future<List<ChatContact>> getContacts({String? search}) async {

@@ -133,7 +133,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deliveries/monitor',            [Logistics\DeliveryController::class, 'monitor']);
         Route::post('/deliveries/{delivery}/status', [Logistics\DeliveryController::class, 'updateStatus']);
 
-        Route::get('/reports', [Logistics\ReportController::class, 'index']);
+        Route::get('/reports',        [Logistics\ReportController::class, 'index']);
+        Route::get('/reports/export', [Logistics\ReportController::class, 'export']);
 
         Route::get('/chat/contacts',             [Logistics\ChatController::class, 'contacts']);
         Route::get('/chat/{contact}/messages',   [Logistics\ChatController::class, 'messages']);

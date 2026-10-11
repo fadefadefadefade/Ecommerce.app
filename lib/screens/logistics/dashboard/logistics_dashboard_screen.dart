@@ -43,6 +43,7 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
     try {
       final data = await LogisticsService.getDashboard();
       final byStatus = data['parcels_by_status'];
+      if (!mounted) return;
       setState(() {
         _stats = (data['stats'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
         _byStatus = byStatus is Map
@@ -53,7 +54,7 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
             .toList();
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }

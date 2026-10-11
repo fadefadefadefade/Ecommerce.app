@@ -47,9 +47,9 @@ class AuthProvider with ChangeNotifier {
     bool remember = false,
   }) async {
     debugPrint('🔑 Starting login for: $email');
-    _isLoading = true;
-    notifyListeners();
-    
+    // isLoading stays false here: it makes AuthWrapper swap LoginScreen for a
+    // spinner, which wipes the form and the error message. LoginScreen shows its own spinner.
+
     try {
       final result = await ApiService.login(email, password, remember: remember);
       debugPrint('🔄 API response received: ${result['success']}');
@@ -63,7 +63,6 @@ class AuthProvider with ChangeNotifier {
           value: jsonEncode(_user!.toJson()),
         );
         
-        _isLoading = false;
         debugPrint('📢 About to call notifyListeners() after successful login');
         notifyListeners();
         
@@ -77,7 +76,6 @@ class AuthProvider with ChangeNotifier {
         return {'success': true, 'user': _user};
       } else {
         _user = null;
-        _isLoading = false;
         debugPrint('❌ Login failed: ${result['message']}');
         notifyListeners();
         return {
@@ -87,7 +85,6 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       _user = null;
-      _isLoading = false;
       debugPrint('💥 Login exception: $e');
       notifyListeners();
       return {
@@ -130,13 +127,15 @@ class AuthProvider with ChangeNotifier {
         debugPrint('📱 Routing to CourierMainScreen');
         return const CourierMainScreen();
 
+      // logistics@alvy.trade ("Logistics Manager") is a sorting_center account.
       case 'sorting_center':
-        // Sorting centers work from the web panel for now.
-        return _buildComingSoonScreen('Sorting Center');
-      
-      case 'admin':
+      case 'logistics':
         debugPrint('📱 Routing to LogisticsMainScreen');
         return const LogisticsMainScreen();
+
+      case 'admin':
+        debugPrint('📱 Routing to AdminDashboard (coming soon)');
+        return _buildComingSoonScreen('Admin Dashboard');
       
       default:
         debugPrint('❌ Unknown role: $role, routing to unsupported screen');
