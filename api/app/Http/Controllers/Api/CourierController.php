@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\ParcelDelivery;
+use App\Models\ParcelPickup;
 use App\Models\Rider;
 use App\Models\UserNotification;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class CourierController extends Controller
                 'is_active' => $rider->is_active,
             ],
             'stats' => [
+                'to_pick_up' => ParcelPickup::where('rider_id', $rider->id)->whereIn('status', ParcelPickup::OPEN)->count(),
                 'to_deliver' => $active->where('status', 'assigned')->count(),
                 'delivering' => $active->where('status', 'out_for_delivery')->count(),
                 'delivered_today' => $mine()->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
@@ -135,6 +137,76 @@ class CourierController extends Controller
                 'delivery' => $this->present($delivery->fresh()),
             ]);
         });
+    }
+
+    // ── Pickups (seller → sorting center) ────────────────────
+
+    /** ?tab=active (default: to pick up / picked up) or history */
+    public function pickups(Request $request)
+    {
+        $rider = $this->rider($request);
+        $history = $request->get('tab') === 'history';
+
+        $pickups = ParcelPickup::where('rider_id', $rider->id)
+            ->when($history,
+                fn ($q) => $q->whereIn('status', ['received', 'cancelled'])->latest('updated_at'),
+                fn ($q) => $q->whereIn('status', ParcelPickup::OPEN)->orderByRaw("status = 'assigned' DESC")->oldest())
+            ->with(['parcel.seller:id,name,contact_no', 'parcel.order.items.product', 'sortingCenter'])
+            ->limit(100)
+            ->get();
+
+        return response()->json(['pickups' => $pickups->map(fn ($p) => $this->presentPickup($p))->values()]);
+    }
+
+    /** Rider collected the parcel from the seller; the sorting center checks it in on arrival. */
+    public function pickedUp(Request $request, int $id)
+    {
+        return DB::transaction(function () use ($request, $id) {
+            $rider = $this->rider($request);
+            $pickup = ParcelPickup::where('rider_id', $rider->id)->lockForUpdate()->findOrFail($id);
+
+            if ($pickup->status !== 'assigned') {
+                return response()->json(['message' => 'This pickup is already ' . strtolower($pickup->statusLabel()) . '.'], 422);
+            }
+
+            $pickup->update(['status' => 'picked_up', 'picked_up_at' => now()]);
+
+            return response()->json([
+                'message' => 'Picked up. Bring it to the sorting center so they can check it in.',
+                'pickup' => $this->presentPickup($pickup->fresh(['parcel.seller', 'parcel.order.items.product', 'sortingCenter'])),
+            ]);
+        });
+    }
+
+    private function presentPickup(ParcelPickup $p): array
+    {
+        $parcel = $p->parcel;
+        $center = $p->sortingCenter;
+        $order = $parcel?->order;
+
+        return [
+            'id' => $p->id,
+            'status' => $p->status,
+            'status_label' => $p->statusLabel(),
+            'assigned_at' => $p->created_at,
+            'picked_up_at' => $p->picked_up_at,
+            'received_at' => $p->received_at,
+            'remarks' => $p->remarks,
+            'tracking_number' => $parcel?->tracking_number,
+            'seller_name' => $parcel?->seller?->name,
+            'seller_phone' => $parcel?->seller?->contact_no,
+            'pickup_address' => $parcel?->pickup_address,
+            'sorting_center' => $center ? [
+                'name' => $center->name,
+                'address' => collect([$center->house_number, $center->street, $center->barangay, $center->municipality, $center->province])
+                    ->filter()->implode(', '),
+            ] : null,
+            'items' => $order ? $order->items->map(fn ($i) => [
+                'title' => $i->product?->title ?? 'Item',
+                'quantity' => $i->quantity,
+                'image_url' => $i->product?->primaryImage,
+            ])->values() : [],
+        ];
     }
 
     // ── helpers ──────────────────────────────────────────────

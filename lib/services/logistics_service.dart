@@ -107,6 +107,35 @@ class LogisticsService {
   static Future<String> sortParcel(int parcelId, int areaId) =>
       _post('/parcels/$parcelId/sort', {'area_id': areaId});
 
+  // ── Pickups (seller → sorting center) ─────────────────────
+
+  /// tab: to_assign | with_rider | received. Also returns the count per tab.
+  static Future<({PagedResult<PickupParcel> parcels, Map<String, int> counts})> getPickups({
+    int page = 1,
+    String tab = 'to_assign',
+    String? search,
+  }) async {
+    final data = await _get('/pickups', {'page': page, 'tab': tab, 'search': search});
+    return (
+      parcels: PagedResult.fromJson(Map<String, dynamic>.from(data['parcels']), PickupParcel.fromJson),
+      counts: (data['counts'] as Map? ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toInt())),
+    );
+  }
+
+  /// Active riders of the logged-in sorting center.
+  static Future<List<PickupRider>> getPickupRiders() async {
+    final data = await _get('/pickups/riders');
+    return (data['riders'] as List).map((e) => PickupRider.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  static Future<String> assignPickup(int parcelId, int riderId) =>
+      _post('/pickups/$parcelId/assign', {'rider_id': riderId});
+
+  static Future<String> receivePickup(int pickupId, {String? remarks}) =>
+      _post('/pickups/$pickupId/receive', {if (remarks != null && remarks.isNotEmpty) 'remarks': remarks});
+
+  static Future<String> unassignPickup(int pickupId) => _post('/pickups/$pickupId/unassign');
+
   // ── Deliveries ────────────────────────────────────────────
 
   /// Sorted parcels waiting for a rider, plus the riders/areas to pick from.

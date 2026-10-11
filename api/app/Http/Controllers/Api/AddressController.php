@@ -46,7 +46,7 @@ class AddressController extends Controller
             'barangay'     => 'nullable|string|max:120',
             'city'         => 'required|string|max:120',
             'province'     => 'nullable|string|max:120',
-            'zip'          => 'nullable|string|max:20',
+            'zip'          => 'required|digits:4',
             'country'      => 'nullable|string|max:100',
             'is_default'   => 'boolean',
         ]);
@@ -100,7 +100,7 @@ class AddressController extends Controller
             'barangay'     => 'nullable|string|max:120',
             'city'         => 'required|string|max:120',
             'province'     => 'nullable|string|max:120',
-            'zip'          => 'nullable|string|max:20',
+            'zip'          => 'required|digits:4',
             'country'      => 'nullable|string|max:100',
             'is_default'   => 'boolean',
         ]);

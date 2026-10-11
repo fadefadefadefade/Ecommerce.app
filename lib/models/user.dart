@@ -25,6 +25,8 @@ class User {
   bool get isCustomer => role == 'customer' || role == 'buyer';
   bool get isCourier => role == 'courier';
   bool get isAdmin => role == 'admin';
+  /// Logistics panel accounts (logistics@alvy.trade is a sorting_center account).
+  bool get isLogistics => role == 'sorting_center' || role == 'logistics';
   
   // Seller status checking
   bool get isApprovedSeller => isSeller && approvalStatus == 'approved';

@@ -3,13 +3,13 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'dashboard/logistics_dashboard_screen.dart';
-import 'pickups/pickup_requests_screen.dart';
+import 'pickups/pickup_assign_screen.dart';
 import 'parcels/parcels_screen.dart';
 import 'deliveries/deliveries_screen.dart';
 import 'more/logistics_more_screen.dart';
 import 'widgets/logistics_ui.dart';
 
-/// Mobile version of the web "ParcelOps" logistics panel (admin role).
+/// Mobile version of the web "ParcelOps" logistics panel (sorting center accounts).
 class LogisticsMainScreen extends StatefulWidget {
   const LogisticsMainScreen({super.key});
 
@@ -33,7 +33,7 @@ class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        if (!authProvider.isAuthenticated || authProvider.user?.isAdmin != true) {
+        if (!authProvider.isAuthenticated || authProvider.user?.isLogistics != true) {
           if (!_redirecting) {
             _redirecting = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,7 +55,7 @@ class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
             onOpenParcels: () => _goTo(tabParcels),
             onOpenDeliveries: () => _goTo(tabDeliveries),
           ),
-          const PickupRequestsScreen(),
+          const PickupAssignScreen(),
           const ParcelsScreen(),
           const DeliveriesScreen(),
           const LogisticsMoreScreen(),

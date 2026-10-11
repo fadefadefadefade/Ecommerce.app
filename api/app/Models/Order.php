@@ -75,6 +75,14 @@ class Order extends Model
     /** Statuses in which the order can still be cancelled (buyer or seller). */
     public const CANCELLABLE = ['Pending', 'Processing'];
 
+    /** Cancellable, unless a pickup rider already has the item. */
+    public function canCancel(): bool
+    {
+        return in_array($this->status, self::CANCELLABLE, true)
+            && ! ParcelPickup::whereIn('parcel_id', Parcel::where('order_id', $this->id)->select('id'))
+                ->where('status', 'picked_up')->exists();
+    }
+
     /**
      * Cancel the order: put items back in stock and stop logistics work that
      * hasn't started. Call inside a DB transaction.
@@ -87,9 +95,13 @@ class Order extends Model
             Product::where('id', $item->product_id)->increment('stock', $item->quantity);
         }
 
-        Parcel::where('order_id', $this->id)
+        $parcelIds = Parcel::where('order_id', $this->id)
             ->whereIn('status', ['pending_pickup', 'pickup_approved', 'picked_up', 'sorted'])
-            ->update(['status' => 'cancelled']);
+            ->pluck('id');
+        Parcel::whereIn('id', $parcelIds)->update(['status' => 'cancelled']);
+        ParcelPickup::whereIn('parcel_id', $parcelIds)
+            ->whereIn('status', ParcelPickup::OPEN)
+            ->update(['status' => 'cancelled', 'remarks' => 'Order cancelled.']);
         DB::table('deliveries')
             ->where('order_id', $this->id)
             ->whereIn('status', ['available', 'accepted'])
@@ -97,15 +109,15 @@ class Order extends Model
     }
 
     /**
-     * Seller hands the order to logistics ("Shipped to Warehouse"): one parcel per
-     * seller, already at the sorting center, ready for logistics to sort and
-     * assign to a rider.
+     * Seller marks the order ready: one parcel per seller waits for the
+     * sorting center that covers the buyer's area to send a pickup rider.
+     * The order stays Processing until that sorting center receives it.
      */
-    public function shipToWarehouse(User $seller): Parcel
+    public function requestPickup(User $seller): Parcel
     {
         $parcel = Parcel::where('order_id', $this->id)
             ->where('seller_id', $seller->id)
-            ->whereNotIn('status', ['cancelled', 'failed', 'returned'])
+            ->whereNotIn('status', ['cancelled', 'failed', 'returned', 'pickup_rejected'])
             ->first();
 
         if (! $parcel) {
@@ -122,14 +134,20 @@ class Order extends Model
                 'destination_province' => $this->province,
                 'receiver_name' => $this->full_name,
                 'receiver_phone' => $this->phone,
-                'status' => 'picked_up',
-                'received_at' => now(),
+                'status' => 'pending_pickup',
+                'current_sorting_center_id' => Parcel::sortingCenterFor($this->city, $this->province),
             ]);
         }
 
-        $this->update(['status' => 'Shipped']);
-
         return $parcel;
+    }
+
+    /** The sorting center checked the parcel in: the buyer now sees "Shipped to Warehouse". */
+    public function markShippedToWarehouse(): void
+    {
+        if ($this->status === 'Processing') {
+            $this->update(['status' => 'Shipped']);
+        }
     }
 
     /** Once every parcel of the order is delivered, the order is Delivered (and COD is paid). */

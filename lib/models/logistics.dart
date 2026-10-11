@@ -282,3 +282,114 @@ class ChatMessage {
         createdAt: _date(json['created_at']),
       );
 }
+
+/// First-mile trip: a rider brings a parcel from the seller to the sorting center.
+class PickupInfo {
+  final int id;
+  final String status; // assigned | picked_up | received
+  final String statusLabel;
+  final String? riderName;
+  final String? riderPhone;
+  final DateTime? assignedAt;
+  final DateTime? pickedUpAt;
+  final DateTime? receivedAt;
+  final String? remarks;
+
+  PickupInfo({
+    required this.id,
+    required this.status,
+    required this.statusLabel,
+    this.riderName,
+    this.riderPhone,
+    this.assignedAt,
+    this.pickedUpAt,
+    this.receivedAt,
+    this.remarks,
+  });
+
+  factory PickupInfo.fromJson(Map<String, dynamic> json) => PickupInfo(
+        id: json['id'],
+        status: json['status'] ?? 'assigned',
+        statusLabel: json['status_label'] ?? _humanize(json['status'] ?? ''),
+        riderName: json['rider_name'],
+        riderPhone: json['rider_phone'],
+        assignedAt: _date(json['assigned_at']),
+        pickedUpAt: _date(json['picked_up_at']),
+        receivedAt: _date(json['received_at']),
+        remarks: json['remarks'],
+      );
+}
+
+/// A parcel on the sorting center's Pickup page (/logistics/pickups).
+class PickupParcel {
+  final int id;
+  final String trackingNumber;
+  final String status;
+  final String statusLabel;
+  final int? orderId;
+  final String? sellerName;
+  final String? sellerPhone;
+  final String? pickupAddress;
+  final String? receiverName;
+  final String? destination;
+  final DateTime? createdAt;
+  final PickupInfo? pickup;
+
+  PickupParcel({
+    required this.id,
+    required this.trackingNumber,
+    required this.status,
+    required this.statusLabel,
+    this.orderId,
+    this.sellerName,
+    this.sellerPhone,
+    this.pickupAddress,
+    this.receiverName,
+    this.destination,
+    this.createdAt,
+    this.pickup,
+  });
+
+  factory PickupParcel.fromJson(Map<String, dynamic> json) => PickupParcel(
+        id: json['id'],
+        trackingNumber: json['tracking_number'] ?? '—',
+        status: json['status'] ?? '',
+        statusLabel: json['status_label'] ?? _humanize(json['status'] ?? ''),
+        orderId: _int(json['order_id']),
+        sellerName: json['seller_name'],
+        sellerPhone: json['seller_phone'],
+        pickupAddress: json['pickup_address'],
+        receiverName: json['receiver_name'],
+        destination: json['destination'],
+        createdAt: _date(json['created_at']),
+        pickup: json['pickup'] is Map ? PickupInfo.fromJson(Map<String, dynamic>.from(json['pickup'])) : null,
+      );
+}
+
+/// A rider of the logged-in sorting center, for the pickup picker.
+class PickupRider {
+  final int id;
+  final String fullName;
+  final String? phone;
+  final String? vehicleType;
+  final String? area;
+  final int openPickups;
+
+  PickupRider({
+    required this.id,
+    required this.fullName,
+    this.phone,
+    this.vehicleType,
+    this.area,
+    this.openPickups = 0,
+  });
+
+  factory PickupRider.fromJson(Map<String, dynamic> json) => PickupRider(
+        id: json['id'],
+        fullName: json['full_name'] ?? '—',
+        phone: json['phone'],
+        vehicleType: json['vehicle_type'],
+        area: json['area'],
+        openPickups: _int(json['open_pickups']) ?? 0,
+      );
+}

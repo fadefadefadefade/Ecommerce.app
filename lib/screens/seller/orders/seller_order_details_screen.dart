@@ -84,6 +84,8 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        // Picks up the new parcel / pickup info
+        _loadOrderDetails();
       } else {
         setState(() {
           _isUpdatingStatus = false;
@@ -111,27 +113,31 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
     }
   }
 
-  Future<void> _confirmShipToWarehouse() async {
+  Future<void> _confirmReadyForPickup() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ship to warehouse?'),
+        title: const Text('Ready for pickup?'),
         content: const Text(
-          'A parcel will be created and sent to the sorting center. '
-          'Logistics will assign a courier, who will deliver it to the buyer.',
+          'The sorting center will send a rider to pick up the package. '
+          'Once they check it in, the buyer will see it as Shipped to Warehouse.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: stageColor('warehouse'), foregroundColor: Colors.white),
-            child: const Text('Ship to Warehouse'),
+            child: const Text('Ready for Pickup'),
           ),
         ],
       ),
     );
-    if (ok == true) _updateOrderStatus('Shipped');
+    if (ok == true) _updateOrderStatus('Ready for Pickup');
   }
+
+  /// Parcel waiting for / with a pickup rider (order is still Processing).
+  bool get _awaitingPickup =>
+      const ['pending_pickup', 'pickup_approved'].contains(_parcel?['status']);
 
   Future<void> _confirmCancel() async {
     final reason = await showReasonDialog(
@@ -180,15 +186,32 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
           cancelButton(),
         ]);
       case 'processing':
+        if (_awaitingPickup) {
+          final pickup = _parcel!['pickup'] is Map ? Map<String, dynamic>.from(_parcel!['pickup']) : null;
+          final rider = pickup?['rider_name'] ?? 'A rider';
+          final phone = (pickup?['rider_phone'] ?? '').toString();
+          return Column(children: [
+            _note(
+              pickup == null ? Icons.hourglass_top : Icons.two_wheeler,
+              switch (pickup?['status']) {
+                'assigned' => '$rider is coming to pick up the package${phone.isEmpty ? '' : ' ($phone)'}. Please have it ready.',
+                'picked_up' => '$rider picked it up. Waiting for the sorting center to check it in.',
+                _ => 'Ready for pickup. Waiting for the sorting center to send a rider'
+                    '${_parcel!['sorting_center'] != null ? ' (${_parcel!['sorting_center']})' : ''}.',
+              },
+            ),
+            if (pickup?['status'] != 'picked_up') cancelButton(),
+          ]);
+        }
         return Column(children: [
-          primary('Ship to Warehouse', Icons.warehouse_outlined, 'warehouse', _confirmShipToWarehouse),
+          primary('Ready for Pickup', Icons.inventory_outlined, 'warehouse', _confirmReadyForPickup),
           cancelButton(),
         ]);
       case 'warehouse':
       case 'delivering':
         return _note(Icons.local_shipping_outlined,
             stage == 'warehouse'
-                ? 'With logistics. A courier will be assigned and will update the delivery.'
+                ? 'At the sorting center. A rider will be assigned to deliver it to the buyer.'
                 : 'Out for delivery. The courier will mark it delivered.');
       default:
         return const SizedBox.shrink();
@@ -761,9 +784,13 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
           const SizedBox(height: 12),
           if (_parcel!['tracking_number'] != null)
             _buildInfoRow(Icons.qr_code, 'Parcel ID', _parcel!['tracking_number']),
-          if (_parcel!['currentSortingCenter'] != null)
-            _buildInfoRow(Icons.business, 'Sorting Center', _parcel!['currentSortingCenter']['name']),
+          if (_parcel!['sorting_center'] != null)
+            _buildInfoRow(Icons.business, 'Sorting Center', '${_parcel!['sorting_center']}'),
           _buildInfoRow(Icons.info_outline, 'Parcel Status', _parcel!['status_label'] ?? _parcel!['status'] ?? 'Unknown'),
+          if (_parcel!['pickup'] is Map) ...[
+            _buildInfoRow(Icons.two_wheeler, 'Pickup Rider', '${_parcel!['pickup']['rider_name'] ?? '—'}'),
+            _buildInfoRow(Icons.flag_outlined, 'Pickup Status', '${_parcel!['pickup']['status_label'] ?? '—'}'),
+          ],
         ],
       ),
     );

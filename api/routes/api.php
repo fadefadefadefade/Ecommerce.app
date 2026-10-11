@@ -106,6 +106,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/deliveries/{id}/start', [CourierController::class, 'start']);
         Route::post('/deliveries/{id}/deliver', [CourierController::class, 'deliver']);
         Route::post('/deliveries/{id}/fail', [CourierController::class, 'fail']);
+        Route::get('/pickups', [CourierController::class, 'pickups']);
+        Route::post('/pickups/{id}/picked-up', [CourierController::class, 'pickedUp']);
     });
     
     // Logistics routes (admin only, mirrors the web logistics panel)
@@ -121,6 +123,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/pickup-requests',                   [Logistics\PickupRequestController::class, 'index']);
         Route::post('/pickup-requests/{parcel}/approve', [Logistics\PickupRequestController::class, 'approve']);
         Route::post('/pickup-requests/{parcel}/reject',  [Logistics\PickupRequestController::class, 'reject']);
+
+        // First mile: send a rider to the seller, receive the parcel at the sorting center
+        Route::get('/pickups',                    [Logistics\PickupAssignController::class, 'index']);
+        Route::get('/pickups/riders',             [Logistics\PickupAssignController::class, 'riders']);
+        Route::post('/pickups/{parcel}/assign',   [Logistics\PickupAssignController::class, 'assign']);
+        Route::post('/pickups/{pickup}/receive',  [Logistics\PickupAssignController::class, 'receive']);
+        Route::post('/pickups/{pickup}/unassign', [Logistics\PickupAssignController::class, 'cancel']);
 
         Route::get('/areas',                            [Logistics\ParcelController::class, 'areas']);
         Route::get('/parcels',                          [Logistics\ParcelController::class, 'index']);

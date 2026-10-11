@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Parcel;
 use App\Models\Category;
 use App\Models\ProductVariation;
 use Illuminate\Http\Request;
@@ -571,7 +572,9 @@ class SellerController extends Controller
         $order->commission_amount = $commissionAmount;
         $order->withTrackingStage();
 
-        $parcel = \App\Models\Parcel::where('order_id', $order->id)->latest('id')->first();
+        $parcel = Parcel::with(['pickup.rider', 'sortingCenter'])->where('order_id', $order->id)->latest('id')->first();
+        $pickup = $parcel?->pickup;
+        $order->setAttribute('can_cancel', $order->canCancel());
 
         return response()->json([
             'order' => $order,
@@ -580,6 +583,15 @@ class SellerController extends Controller
                 'status' => $parcel->status,
                 'status_label' => $parcel->status_label,
                 'updated_at' => $parcel->updated_at,
+                'sorting_center' => $parcel->sortingCenter?->name,
+                'pickup' => $pickup ? [
+                    'status' => $pickup->status,
+                    'status_label' => $pickup->statusLabel(),
+                    'rider_name' => $pickup->rider?->full_name,
+                    'rider_phone' => $pickup->rider?->phone,
+                    'picked_up_at' => $pickup->picked_up_at,
+                    'received_at' => $pickup->received_at,
+                ] : null,
             ] : null,
         ]);
     }
@@ -588,10 +600,11 @@ class SellerController extends Controller
     {
         $sellerId = $request->user()->id;
         
-        // Sellers move an order Pending → Processing → Shipped (to warehouse), or
-        // cancel it before shipping. Delivering/Delivered belong to the courier.
+        // Sellers move an order Pending → Processing → Ready for Pickup, or cancel
+        // it. The sorting center sends a rider and marks it Shipped to Warehouse
+        // when it arrives; Delivering/Delivered belong to the delivery rider.
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:Processing,Shipped,Cancelled',
+            'status' => 'required|in:Processing,Ready for Pickup,Cancelled',
             'cancellation_reason' => 'required_if:status,Cancelled|nullable|string|max:500',
         ]);
 
@@ -607,22 +620,34 @@ class SellerController extends Controller
                 $q->where('seller_id', $sellerId);
             })->lockForUpdate()->findOrFail($id);
 
+            $current = Order::stageLabel($order->trackingStage());
+
+            if ($request->status === 'Cancelled' && ! $order->canCancel()) {
+                return response()->json([
+                    'message' => "Can't cancel a {$current} order" . ($order->status === 'Processing' ? ' — a rider already picked it up.' : '.'),
+                ], 422);
+            }
+
             $allowedFrom = [
                 'Processing' => ['Pending'],
-                'Shipped' => ['Processing'],
+                'Ready for Pickup' => ['Processing'],
                 'Cancelled' => Order::CANCELLABLE,
             ][$request->status];
 
             if (! in_array($order->status, $allowedFrom, true)) {
-                $current = Order::stageLabel($order->trackingStage());
                 return response()->json([
-                    'message' => "Can't change a {$current} order to " . ($request->status === 'Shipped' ? 'Shipped to Warehouse' : $request->status) . '.',
+                    'message' => "Can't change a {$current} order to {$request->status}.",
                 ], 422);
             }
 
             $parcel = null;
-            if ($request->status === 'Shipped') {
-                $parcel = $order->shipToWarehouse($request->user());
+            if ($request->status === 'Ready for Pickup') {
+                $existing = Parcel::where('order_id', $order->id)->where('seller_id', $sellerId)
+                    ->whereNotIn('status', ['cancelled', 'failed', 'returned', 'pickup_rejected'])->exists();
+                if ($existing) {
+                    return response()->json(['message' => 'This order is already waiting for pickup.'], 422);
+                }
+                $parcel = $order->requestPickup($request->user());
             } elseif ($request->status === 'Cancelled') {
                 $order->cancelWithRestock('Cancelled by seller: ' . $request->cancellation_reason);
             } else {
@@ -633,7 +658,7 @@ class SellerController extends Controller
 
             return response()->json([
                 'message' => $parcel
-                    ? "Shipped to warehouse. Parcel {$parcel->tracking_number} is waiting for a rider."
+                    ? "Ready for pickup. Parcel {$parcel->tracking_number} is waiting for a rider from the sorting center."
                     : "Order is now {$label}.",
                 'order' => $order->fresh()->load(['user', 'items.product'])->withTrackingStage(),
             ]);
@@ -662,10 +687,10 @@ class SellerController extends Controller
             $q->where('seller_id', $sellerId);
         })->findOrFail($id);
 
-        if (! in_array($order->status, ['Processing', 'Shipped'], true)) {
-            return response()->json(['message' => 'Only Processing orders can be shipped to the warehouse.'], 422);
+        if ($order->status !== 'Processing') {
+            return response()->json(['message' => 'Only Processing orders can be made ready for pickup.'], 422);
         }
-        $parcel = DB::transaction(fn () => $order->shipToWarehouse($request->user()));
+        $parcel = DB::transaction(fn () => $order->requestPickup($request->user()));
 
         return response()->json([
             'message' => 'Pickup scheduled successfully',
@@ -692,10 +717,10 @@ class SellerController extends Controller
             $q->where('seller_id', $sellerId);
         })->findOrFail($id);
 
-        if (! in_array($order->status, ['Processing', 'Shipped'], true)) {
-            return response()->json(['message' => 'Only Processing orders can be shipped to the warehouse.'], 422);
+        if ($order->status !== 'Processing') {
+            return response()->json(['message' => 'Only Processing orders can be made ready for pickup.'], 422);
         }
-        DB::transaction(fn () => $order->shipToWarehouse($request->user()));
+        DB::transaction(fn () => $order->requestPickup($request->user()));
 
         return response()->json([
             'message' => 'Order marked as handed over to courier',

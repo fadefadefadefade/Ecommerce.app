@@ -7,8 +7,9 @@ import '../buyer/account/notifications_screen.dart';
 import '../buyer/account/security_screen.dart';
 import '../buyer/personal_info_screen.dart';
 import 'courier_deliveries_screen.dart';
+import 'courier_pickups_screen.dart';
 
-/// Courier (rider) app: deliveries assigned by logistics, history and account.
+/// Courier (rider) app: deliveries and seller pickups from their sorting center, history and account.
 class CourierMainScreen extends StatefulWidget {
   const CourierMainScreen({super.key});
 
@@ -45,6 +46,7 @@ class _CourierMainScreenState extends State<CourierMainScreen> {
             index: _index,
             children: [
               const CourierDeliveriesScreen(),
+              const CourierPickupsScreen(),
               CourierDeliveriesScreen(key: ValueKey(_historyToken), history: true),
               const _CourierAccountScreen(),
             ],
@@ -54,7 +56,7 @@ class _CourierMainScreenState extends State<CourierMainScreen> {
             backgroundColor: Colors.white,
             indicatorColor: const Color(0xFFFA4E1C).withValues(alpha: 0.12),
             onDestinationSelected: (i) => setState(() {
-              if (i == 1) _historyToken++;
+              if (i == 2) _historyToken++;
               _index = i;
             }),
             destinations: const [
@@ -62,6 +64,11 @@ class _CourierMainScreenState extends State<CourierMainScreen> {
                 icon: Icon(Icons.local_shipping_outlined),
                 selectedIcon: Icon(Icons.local_shipping, color: Color(0xFFFA4E1C)),
                 label: 'Deliveries',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.move_to_inbox_outlined),
+                selectedIcon: Icon(Icons.move_to_inbox, color: Color(0xFFFA4E1C)),
+                label: 'Pickups',
               ),
               NavigationDestination(
                 icon: Icon(Icons.history),

@@ -26,6 +26,15 @@ class CourierService {
   static Future<String> fail(int id, String reason) =>
       _action('/courier/deliveries/$id/fail', {'reason': reason});
 
+  /// Pickups from sellers. [tab] is 'active' (to pick up / picked up) or 'history'.
+  static Future<List<Map<String, dynamic>>> pickups({String tab = 'active'}) async {
+    final data = ApiService.unwrap(await ApiService.get('/courier/pickups?tab=$tab'));
+    return (data['pickups'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  /// To Pick Up → Picked Up (the sorting center receives it on arrival).
+  static Future<String> pickedUp(int id) => _action('/courier/pickups/$id/picked-up');
+
   static Future<String> _action(String path, [Map<String, dynamic>? body]) async {
     final data = ApiService.unwrap(await ApiService.post(path, body: body ?? {}));
     return data['message']?.toString() ?? 'Done.';

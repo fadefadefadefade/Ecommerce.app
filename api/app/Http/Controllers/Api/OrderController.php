@@ -26,7 +26,7 @@ class OrderController extends Controller
                 'stage' => $stage,
                 'stage_label' => Order::stageLabel($stage),
                 'stages' => Order::STAGES,
-                'can_cancel' => in_array($order->status, Order::CANCELLABLE, true),
+                'can_cancel' => $order->canCancel(),
                 'cancellation_reason' => $order->cancellation_reason,
                 'payment_status' => $order->payment_status,
                 'payment_method' => $order->payment_method,
@@ -76,7 +76,7 @@ class OrderController extends Controller
                     'status' => $order->status,
                     'stage' => $stage,
                     'stage_label' => Order::stageLabel($stage),
-                    'can_cancel' => in_array($order->status, Order::CANCELLABLE, true),
+                    'can_cancel' => $order->canCancel(),
                     'payment_status' => $order->payment_status,
                     'payment_method' => $order->payment_method,
                     'total_price' => $order->total_price,
@@ -102,9 +102,11 @@ class OrderController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
-            if (! in_array($order->status, Order::CANCELLABLE, true)) {
+            if (! $order->canCancel()) {
                 return response()->json([
-                    'message' => 'This order can no longer be cancelled because it has already been shipped.',
+                    'message' => $order->status === 'Processing'
+                        ? 'This order can no longer be cancelled because a rider already picked it up.'
+                        : 'This order can no longer be cancelled because it has already been shipped.',
                 ], 422);
             }
 

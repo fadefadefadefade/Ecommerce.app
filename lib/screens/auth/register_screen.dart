@@ -682,7 +682,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: _buildTextField(
                         controller: _zipCodeController,
                         label: 'ZIP Code',
+                        isRequired: true,
                         keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        validator: (value) {
+                          final v = value?.trim() ?? '';
+                          if (v.isEmpty) return 'ZIP code is required';
+                          if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Enter a 4-digit ZIP code';
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -910,6 +918,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     bool isRequired = false,
     TextInputType? keyboardType,
     int? maxLength,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -954,9 +963,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             contentPadding: const EdgeInsets.all(12),
           ),
-          validator: isRequired
-              ? (value) => value == null || value.isEmpty ? 'Required field' : null
-              : null,
+          validator: validator ??
+              (isRequired ? (value) => value == null || value.isEmpty ? 'Required field' : null : null),
         ),
       ],
     );

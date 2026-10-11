@@ -31,6 +31,11 @@ class Rider extends Model
         return $this->hasMany(ParcelDelivery::class, 'rider_id');
     }
 
+    public function pickups(): HasMany
+    {
+        return $this->hasMany(ParcelPickup::class, 'rider_id');
+    }
+
     /** ID documents are uploaded through the web app, so they live in its public storage. */
     public function getIdDocumentUrlAttribute(): ?string
     {

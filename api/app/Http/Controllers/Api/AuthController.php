@@ -16,20 +16,31 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+        ], [
+            'email.required'    => 'Please enter your email.',
+            'email.email'       => 'Invalid email. Please check the format (e.g. name@gmail.com).',
+            'password.required' => 'Please enter your password.',
         ]);
 
-        if (!Auth::attempt($credentials)) {
+        // Specific messages on purpose (requested): no account vs. wrong password.
+        $user = User::where('email', $credentials['email'])->first();
+
+        if (! $user) {
             return response()->json([
                 'success' => false,
-                'message' => 'These credentials do not match our records.',
+                'message' => 'No account found with this email. Please sign up first.',
+            ], 404);
+        }
+
+        if (! Hash::check($credentials['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Incorrect password. Please try again.',
             ], 401);
         }
 
-        $user = Auth::user();
-        
         // Check if user account is approved (only for non-admin roles)
         if ($user->role !== 'admin' && $user->approval_status === 'pending') {
-            Auth::logout();
             return response()->json([
                 'success' => false,
                 'message' => 'Your account is pending approval. Please wait for administrator approval.',
@@ -37,7 +48,6 @@ class AuthController extends Controller
         }
 
         if ($user->role !== 'admin' && $user->approval_status === 'rejected') {
-            Auth::logout();
             return response()->json([
                 'success' => false,
                 'message' => 'Your account has been rejected. Please contact support.',
@@ -80,7 +90,7 @@ class AuthController extends Controller
             'province'       => 'required|string|max:255',
             'municipality'   => 'required|string|max:255',
             'barangay'       => 'required|string|max:255',
-            'zip_code'       => 'nullable|string|max:20',
+            'zip_code'       => 'required|digits:4',
             'house_number'   => 'required|string|max:50',
             'street'         => 'required|string|max:255',
         ]);

@@ -70,6 +70,41 @@ class Parcel extends Model
     }
 
     public function order(): BelongsTo { return $this->belongsTo(Order::class); }
+    public function sortingCenter(): BelongsTo { return $this->belongsTo(User::class, 'current_sorting_center_id'); }
+
+    public function pickups(): HasMany
+    {
+        return $this->hasMany(ParcelPickup::class, 'parcel_id');
+    }
+
+    /** Latest pickup trip (seller → sorting center). */
+    public function pickup(): HasOne
+    {
+        return $this->hasOne(ParcelPickup::class, 'parcel_id')->latestOfMany();
+    }
+
+    /**
+     * Sorting center (users.id) that covers a buyer's city, else their province.
+     * Null when none matches; any sorting center can then take the parcel.
+     */
+    public static function sortingCenterFor(?string $city, ?string $province): ?int
+    {
+        $centers = User::where('role', 'sorting_center')
+            ->where('approval_status', 'approved')
+            ->orderBy('id')
+            ->get(['id', 'municipality', 'province']);
+
+        $norm = fn (?string $v) => strtolower(trim(str_ireplace(['city of', 'city'], '', (string) $v)));
+        $city = $norm($city);
+
+        $byCity = $city === '' ? null : $centers->first(fn ($c) => $norm($c->municipality) !== ''
+            && (str_contains($city, $norm($c->municipality)) || str_contains($norm($c->municipality), $city)));
+        if ($byCity) return $byCity->id;
+
+        $province = strtolower(trim((string) $province));
+        return $province === '' ? null
+            : $centers->first(fn ($c) => strtolower(trim((string) $c->province)) === $province)?->id;
+    }
 
     public function getStatusLabelAttribute(): string
     {

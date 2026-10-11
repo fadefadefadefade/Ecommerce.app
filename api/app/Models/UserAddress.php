@@ -7,20 +7,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserAddress extends Model
 {
+    // Same columns as the web app's UserAddress (shared user_addresses table).
     protected $fillable = [
         'user_id',
-        'label',
-        'first_name',
-        'last_name',
+        'label',        // e.g. Home, Work, Other
+        'full_name',
         'phone',
-        'region',
-        'province',
-        'municipality',
+        'address_line',
         'barangay',
-        'zip_code',
-        'house_number',
-        'street',
-        'landmark',
+        'city',
+        'province',
+        'zip',
+        'country',
         'is_default',
     ];
 
@@ -33,16 +31,16 @@ class UserAddress extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** Human-readable one-liner for display */
     public function getFullAddressAttribute(): string
     {
-        return implode(', ', array_filter([
-            $this->house_number,
-            $this->street,
+        return collect([
+            $this->address_line,
             $this->barangay,
-            $this->municipality,
+            $this->city,
             $this->province,
-            $this->region,
-            $this->zip_code,
-        ]));
+            $this->zip,
+            $this->country,
+        ])->filter()->implode(', ');
     }
 }

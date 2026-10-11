@@ -451,11 +451,20 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('ZIP Code', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const Text('ZIP Code *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _zipController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 4,
+                          validator: (value) {
+                          final v = value?.trim() ?? '';
+                          if (v.isEmpty) return 'ZIP code is required';
+                          if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Enter a 4-digit ZIP code';
+                          return null;
+                        },
                           decoration: InputDecoration(
+                            counterText: '',
                             hintText: 'ZIP',
                             hintStyle: const TextStyle(fontSize: 11),
                             filled: true,

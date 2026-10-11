@@ -82,7 +82,7 @@ class OrderService {
   }
 
   // Update order status (seller can update orders containing their products)
-  /// Seller moves an order: 'Processing', 'Shipped' (to warehouse) or 'Cancelled' (needs [reason]).
+  /// Seller moves an order: 'Processing', 'Ready for Pickup' or 'Cancelled' (needs [reason]).
   static Future<Map<String, dynamic>> updateOrderStatus(
     int orderId,
     String status, {
