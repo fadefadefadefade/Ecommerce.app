@@ -26,20 +26,35 @@ class CourierController extends Controller
 
         $active = $mine()->whereIn('status', self::ACTIVE)->with('parcel.order')->get();
 
+        $pickups = fn () => ParcelPickup::where('rider_id', $rider->id);
+        $center = $rider->sortingCenter;
+
         return response()->json([
             'rider' => [
                 'id' => $rider->id,
                 'full_name' => $rider->full_name,
+                'phone' => $rider->phone,
                 'vehicle_type' => $rider->vehicle_type,
                 'area' => $rider->area?->name,
                 'is_active' => $rider->is_active,
+                'sorting_center' => $center ? [
+                    'name' => $center->name,
+                    'address' => collect([$center->street, $center->barangay, $center->municipality, $center->province])
+                        ->filter()->implode(', '),
+                ] : null,
             ],
             'stats' => [
-                'to_pick_up' => ParcelPickup::where('rider_id', $rider->id)->whereIn('status', ParcelPickup::OPEN)->count(),
+                // Pickups: seller → sorting center
+                'to_pick_up' => $pickups()->where('status', 'assigned')->count(),
+                'carrying' => $pickups()->where('status', 'picked_up')->count(),
+                'pickups_today' => $pickups()->where('status', 'received')->whereDate('received_at', today())->count(),
+                'pickups_total' => $pickups()->where('status', 'received')->count(),
+                // Deliveries: sorting center → buyer
                 'to_deliver' => $active->where('status', 'assigned')->count(),
                 'delivering' => $active->where('status', 'out_for_delivery')->count(),
                 'delivered_today' => $mine()->where('status', 'delivered')->whereDate('delivered_at', today())->count(),
                 'delivered_total' => $mine()->where('status', 'delivered')->count(),
+                'failed_total' => $mine()->where('status', 'failed')->count(),
                 // Cash-on-delivery the rider still has to collect
                 'cod_to_collect' => (float) $active
                     ->filter(fn ($d) => strtoupper((string) $d->parcel?->order?->payment_method) === 'COD'
@@ -214,7 +229,7 @@ class CourierController extends Controller
     /** The approved, active rider profile of the logged-in courier. */
     private function rider(Request $request): Rider
     {
-        $rider = Rider::with('area')->where('user_id', $request->user()->id)->first();
+        $rider = Rider::with(['area', 'sortingCenter'])->where('user_id', $request->user()->id)->first();
 
         abort_unless($request->user()->role === 'courier' && $rider, 403, 'This account is not a registered rider.');
         abort_unless($rider->application_status === 'approved', 403, 'Your rider application is not approved yet.');

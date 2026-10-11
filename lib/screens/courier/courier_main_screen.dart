@@ -8,8 +8,9 @@ import '../buyer/account/security_screen.dart';
 import '../buyer/personal_info_screen.dart';
 import 'courier_deliveries_screen.dart';
 import 'courier_pickups_screen.dart';
+import 'dashboard_screen.dart';
 
-/// Courier (rider) app: deliveries and seller pickups from their sorting center, history and account.
+/// Courier (rider) app: dashboard, deliveries and seller pickups from their sorting center, history and account.
 class CourierMainScreen extends StatefulWidget {
   const CourierMainScreen({super.key});
 
@@ -45,6 +46,10 @@ class _CourierMainScreenState extends State<CourierMainScreen> {
           body: IndexedStack(
             index: _index,
             children: [
+              CourierDashboardScreen(
+                onOpenDeliveries: () => setState(() => _index = 1),
+                onOpenPickups: () => setState(() => _index = 2),
+              ),
               const CourierDeliveriesScreen(),
               const CourierPickupsScreen(),
               CourierDeliveriesScreen(key: ValueKey(_historyToken), history: true),
@@ -56,10 +61,15 @@ class _CourierMainScreenState extends State<CourierMainScreen> {
             backgroundColor: Colors.white,
             indicatorColor: const Color(0xFFFA4E1C).withValues(alpha: 0.12),
             onDestinationSelected: (i) => setState(() {
-              if (i == 2) _historyToken++;
+              if (i == 3) _historyToken++;
               _index = i;
             }),
             destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard, color: Color(0xFFFA4E1C)),
+                label: 'Dashboard',
+              ),
               NavigationDestination(
                 icon: Icon(Icons.local_shipping_outlined),
                 selectedIcon: Icon(Icons.local_shipping, color: Color(0xFFFA4E1C)),

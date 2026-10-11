@@ -25,6 +25,7 @@ class Rider extends Model
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
     public function area(): BelongsTo { return $this->belongsTo(DeliveryArea::class, 'area_id'); }
+    public function sortingCenter(): BelongsTo { return $this->belongsTo(User::class, 'sorting_center_id'); }
 
     public function parcelDeliveries(): HasMany
     {
