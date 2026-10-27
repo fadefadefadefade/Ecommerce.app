@@ -1,8 +1,9 @@
+import 'assistant_screen.dart';
 import 'package:flutter/material.dart';
 import '../../theme/buyer_colors.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../services/buyer_api.dart';
 import '../auth/login_screen.dart';
 import 'home_screen.dart';
 import 'shop_screen.dart';
@@ -43,13 +44,10 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   }
 
   Future<void> refreshCartCount() async {
-    try {
-      final data = ApiService.unwrap(await ApiService.get('/cart'));
-      if (!mounted) return;
-      setState(() => _cartCount = (data['count'] as num?)?.toInt() ?? (data['items'] as List?)?.length ?? 0);
-    } catch (_) {
-      // Badge is best-effort; the cart screen shows real errors.
-    }
+    // Badge is best-effort; the cart screen shows real errors.
+    final r = await BuyerApi.cart();
+    if (!mounted || !r.ok) return;
+    setState(() => _cartCount = (r.body['count'] as num?)?.toInt() ?? 0);
   }
 
   void goTo(int index) {
@@ -64,7 +62,8 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        if (!authProvider.isAuthenticated || authProvider.user?.isBuyer != true) {
+        if (!authProvider.isAuthenticated ||
+            authProvider.user?.isBuyer != true) {
           if (!_redirecting) {
             _redirecting = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,6 +80,15 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
         }
 
         return Scaffold(
+          // The website's ALVY Assistant bubble, on Home and Shop.
+          floatingActionButton: _currentIndex <= 1
+              ? FloatingActionButton(
+                  heroTag: 'alvy-assistant',
+                  tooltip: 'ALVY Assistant',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssistantScreen())),
+                  child: const Icon(Icons.support_agent),
+                )
+              : null,
           body: IndexedStack(
             index: _currentIndex,
             children: [
@@ -94,80 +102,28 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
               const ProfileScreen(),
             ],
           ),
-          bottomNavigationBar: Container(
+          bottomNavigationBar: DecoratedBox(
             decoration: BoxDecoration(
-              color: context.bc.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
+              border: Border(top: BorderSide(color: context.bc.border)),
+              boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, -2))],
             ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(icon: Icons.home, label: 'Home', index: tabHome),
-                    _buildNavItem(icon: Icons.storefront, label: 'Shop', index: tabShop),
-                    _buildNavItem(
-                      icon: Icons.shopping_cart,
-                      label: 'Cart',
-                      index: tabCart,
-                      badge: _cartCount,
-                    ),
-                    _buildNavItem(icon: Icons.person, label: 'Account', index: tabAccount),
-                  ],
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: goTo,
+              destinations: [
+                const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+                const NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'Shop'),
+                NavigationDestination(
+                  icon: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart_outlined)),
+                  selectedIcon: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart)),
+                  label: 'Cart',
                 ),
-              ),
+                const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),
+              ],
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-    int badge = 0,
-  }) {
-    final isActive = _currentIndex == index;
-    final color = isActive ? const Color(0xFFfa4e1c) : context.bc.muted;
-
-    return GestureDetector(
-      onTap: () => goTo(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFfa4e1c).withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Badge(
-              isLabelVisible: badge > 0,
-              label: Text(badge > 99 ? '99+' : '$badge'),
-              backgroundColor: const Color(0xFFfa4e1c),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

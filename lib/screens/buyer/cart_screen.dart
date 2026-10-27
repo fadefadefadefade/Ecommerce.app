@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../utils/num_utils.dart';
-import '../../widgets/net_image.dart';
+
+import '../../services/buyer_api.dart';
 import '../../theme/buyer_colors.dart';
-import '../../services/api_service.dart';
-import '../../widgets/live_refresh.dart';
-import 'buyer_main_screen.dart';
+import '../../widgets/buyer_kit.dart';
+import '../../widgets/net_image.dart';
 import 'checkout_screen.dart';
+import 'product_detail_screen.dart';
 
+/// The website's cart (cart/index): lines grouped by store, tick what to check out, change the
+/// quantity within stock, remove; lines that can't be bought say why.
 class CartScreen extends StatefulWidget {
-  /// "Browse Items" action; defaults to popping back when the cart was pushed.
   final VoidCallback? onBrowse;
-
-  /// Called after the cart contents load or change (used for the nav badge).
   final VoidCallback? onChanged;
 
   const CartScreen({super.key, this.onBrowse, this.onChanged});
@@ -20,109 +19,66 @@ class CartScreen extends StatefulWidget {
   State<CartScreen> createState() => _CartScreenState();
 }
 
-class _CartScreenState extends State<CartScreen> with LiveRefresh {
-  List<dynamic> _cartItems = [];
-  double _subtotal = 0;
-  bool _isLoading = true;
+class _CartScreenState extends State<CartScreen> {
+  List<dynamic> stores = [];
+  final Set<int> selected = {};
+  bool loading = true;
+  String? error;
+  bool busy = false;
 
   @override
   void initState() {
     super.initState();
-    _loadCart();
+    _load();
   }
 
-  @override
-  int? get liveTab => BuyerMainScreenState.tabCart;
+  Iterable<Map> get _lines => stores.expand((s) => List<Map>.from(s['lines']));
 
-  @override
-  Future<void> onLiveRefresh() => _loadCart(silent: true);
-
-  int _stockOf(dynamic item) => ((item['product']?['stock']) as num?)?.toInt() ?? 0;
-
-  /// Items whose quantity is more than what's left (or that sold out).
-  List<dynamic> get _stockProblems =>
-      _cartItems.where((i) => (i['quantity'] as num).toInt() > _stockOf(i)).toList();
-
-  Future<void> _loadCart({bool silent = false}) async {
-    if (!silent) setState(() => _isLoading = true);
-    try {
-      final response = ApiService.unwrap(await ApiService.get('/cart'));
-      if (!mounted) return;
-      setState(() {
-        _cartItems = response['items'] ?? [];
-        _subtotal = asDouble(response['subtotal']);
-        _isLoading = false;
-      });
-      widget.onChanged?.call();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      if (!silent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading cart: $e')),
-        );
-      }
-    }
+  Future<void> _load() async {
+    final r = await BuyerApi.cart();
+    if (!mounted) return;
+    setState(() {
+      loading = false;
+      error = r.ok ? null : r.message;
+      if (!r.ok) return;
+      final first = stores.isEmpty;
+      stores = r.body['stores'];
+      final ids = _lines.map((l) => l['id'] as int).toSet();
+      selected.retainAll(ids);
+      // Like the website, buyable lines start ticked.
+      if (first) selected.addAll(_lines.where((l) => l['unavailable'] == null).map((l) => l['id'] as int));
+    });
+    widget.onChanged?.call();
   }
 
-  Future<void> _updateQuantity(int cartItemId, int newQuantity) async {
-    if (newQuantity < 1) return;
-
-    try {
-      ApiService.unwrap(await ApiService.patch('/cart/$cartItemId', {
-        'quantity': newQuantity,
-      }));
-      _loadCart(silent: true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: const Color(0xFFC62828),
-          ),
-        );
-        _loadCart(silent: true);
-      }
-    }
+  Future<void> _setQty(Map line, int qty) async {
+    setState(() => busy = true);
+    final r = await BuyerApi.updateCart(line['id'], qty);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (!r.ok) showResult(context, r);
+    _load();
   }
 
-  Future<void> _removeItem(int cartItemId, String title) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove Item'),
-        content: Text('Remove "$title" from cart?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _remove(Map line) async {
+    setState(() => busy = true);
+    final r = await BuyerApi.removeFromCart(line['id']);
+    if (!mounted) return;
+    setState(() => busy = false);
+    showResult(context, r);
+    _load();
+  }
 
-    if (confirmed == true) {
-      try {
-        ApiService.unwrap(await ApiService.delete('/cart/$cartItemId'));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Item removed from cart')),
-          );
-        }
-        _loadCart();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error removing item: $e')),
-          );
-        }
-      }
+  double get _total => _lines.where((l) => selected.contains(l['id'])).fold(0.0, (s, l) => s + asNum(l['subtotal']));
+
+  void _checkout() {
+    final blocked = _lines.where((l) => selected.contains(l['id']) && l['unavailable'] != null).toList();
+    if (blocked.isNotEmpty) {
+      showError(context,
+          'Some items can\'t be checked out: ${blocked.map((l) => '${l['product']?['title'] ?? 'Removed item'} (${l['unavailable']})').join(', ')}. Please untick or update them.');
+      return;
     }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutScreen(items: selected.toList()))).then((_) => _load());
   }
 
   @override
@@ -130,428 +86,129 @@ class _CartScreenState extends State<CartScreen> with LiveRefresh {
     return Scaffold(
       backgroundColor: context.bc.background,
       appBar: AppBar(
-        title: const Text('Shopping Cart'),
-        backgroundColor: const Color(0xFFFA4E1C),
-        foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        title: Text('Shopping Cart (${_lines.length})'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _cartItems.isEmpty
-              ? _buildEmptyCart()
-              : Column(
-                  children: [
-                    // Progress steps
-                    _buildProgressSteps(),
-                    // Cart items
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _cartItems.length,
-                        itemBuilder: (context, index) {
-                          final item = _cartItems[index];
-                          return _buildCartItem(item);
-                        },
-                      ),
-                    ),
-                    // Bottom checkout section
-                    _buildCheckoutSection(),
-                  ],
-                ),
-    );
-  }
-
-  Widget _buildProgressSteps() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      color: context.bc.surface,
-      child: Row(
-        children: [
-          _buildStep(1, 'Cart', true),
-          _buildStepLine(false),
-          _buildStep(2, 'Checkout', false),
-          _buildStepLine(false),
-          _buildStep(3, 'Confirm', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep(int number, String label, bool active) {
-    return Column(
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: active ? const Color(0xFFFA4E1C) : context.bc.subtle,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              '$number',
-              style: TextStyle(
-                color: active ? Colors.white : context.bc.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: active ? const Color(0xFFFA4E1C) : context.bc.muted,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStepLine(bool active) {
-    return Expanded(
-      child: Container(
-        height: 1,
-        color: context.bc.subtle,
-      ),
-    );
-  }
-
-  Widget _buildEmptyCart() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: context.bc.subtle,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                size: 40,
-                color: Color(0xFFFA4E1C),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Your cart is empty',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: context.bc.text,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Looks like you haven\'t added anything yet.',
-              style: TextStyle(
-                fontSize: 14,
-                color: context.bc.muted,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: widget.onBrowse ?? () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFA4E1C),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-              ),
-              child: const Text('Browse Items'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Live stock line under the price: sold out / not enough / few left / in stock.
-  Widget _buildStockNote(int quantity, int stock) {
-    const red = Color(0xFFC62828);
-    const orange = Color(0xFFEF6C00);
-    final (String text, Color color, bool bold) = stock <= 0
-        ? ('Out of stock — please remove', red, true)
-        : quantity > stock
-            ? ('Only $stock left — lower the quantity', red, true)
-            : stock <= 5
-                ? ('Only $stock left in stock', orange, true)
-                : ('$stock in stock', context.bc.muted, false);
-    return Text(
-      text,
-      style: TextStyle(fontSize: 11, color: color, fontWeight: bold ? FontWeight.w700 : FontWeight.normal),
-    );
-  }
-
-  Widget _buildCartItem(Map<String, dynamic> item) {
-    final product = item['product'];
-    final quantity = item['quantity'] as int;
-    final subtotal = asDouble(item['subtotal']);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: context.bc.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: NetImage(
-                product['image_url'] ?? 'https://placehold.co/80x100/FF6300/FFFFFF?text=Product',
-                width: 80,
-                height: 100,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 80,
-                    height: 100,
-                    color: context.bc.subtle,
-                    child: const Icon(Icons.shopping_bag, color: Color(0xFFFA4E1C)),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Product details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product['title'] ?? '',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: context.bc.text,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'by ${product['author'] ?? ''}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: context.bc.muted,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '₱${asDouble(product['effective_price']).toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFFA4E1C),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            _buildStockNote(quantity, _stockOf(item)),
-                          ],
-                        ),
-                      ),
-                      // Remove button
-                      IconButton(
-                        onPressed: () => _removeItem(item['id'], product['title']),
-                        icon: const Icon(Icons.close, size: 20),
-                        style: IconButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ],
-                  ),
+      body: LoadState(
+        loading: loading,
+        error: error,
+        onRetry: _load,
+        child: stores.isEmpty
+            ? Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.shopping_cart_outlined, size: 64, color: context.bc.muted),
                   const SizedBox(height: 12),
-                  // Quantity controls and subtotal
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Quantity stepper
-                      Container(
-                        decoration: BoxDecoration(
-                          color: context.bc.subtle,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFFFDCC2)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              onPressed: quantity > 1
-                                  ? () => _updateQuantity(item['id'], quantity - 1)
-                                  : null,
-                              icon: const Icon(Icons.remove, size: 16),
-                              style: IconButton.styleFrom(
-                                foregroundColor: const Color(0xFFFA4E1C),
-                                disabledForegroundColor: context.bc.muted,
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                '$quantity',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: context.bc.text,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: quantity < 99 && quantity < _stockOf(item)
-                                  ? () => _updateQuantity(item['id'], quantity + 1)
-                                  : null,
-                              icon: const Icon(Icons.add, size: 16),
-                              style: IconButton.styleFrom(
-                                foregroundColor: const Color(0xFFFA4E1C),
-                                disabledForegroundColor: context.bc.muted,
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Line total
-                      Text(
-                        '₱${subtotal.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: context.bc.text,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCheckoutSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: context.bc.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Subtotal:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: context.bc.muted,
-                  ),
-                ),
-                Text(
-                  '₱${_subtotal.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: context.bc.text,
-                  ),
-                ),
-              ],
-            ),
-            if (_stockProblems.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC62828).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber, color: Color(0xFFC62828), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Some items no longer have enough stock. Lower the quantity or remove them to continue.',
-                        style: TextStyle(fontSize: 12, color: context.bc.text),
-                      ),
+                  Text('Your cart is empty.', style: TextStyle(color: context.bc.muted)),
+                  const SizedBox(height: 12),
+                  if (widget.onBrowse != null)
+                    ElevatedButton(
+                      onPressed: widget.onBrowse,
+                      style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white),
+                      child: const Text('Browse Items'),
                     ),
-                  ],
-                ),
+                ]),
+              )
+            : RefreshIndicator(
+                color: kOrange,
+                onRefresh: _load,
+                child: ListView(padding: const EdgeInsets.all(12), children: [for (final s in stores) _store(Map.from(s))]),
               ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _cartItems.isEmpty || _stockProblems.isNotEmpty
-                    ? null
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CheckoutScreen(),
-                          ),
-                        );
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFA4E1C),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+      ),
+      bottomNavigationBar: stores.isEmpty
+          ? null
+          : SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                decoration: BoxDecoration(color: context.bc.surface, border: Border(top: BorderSide(color: context.bc.border))),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text('Total (${selected.length} item${selected.length == 1 ? '' : 's'})', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                      Text(peso(_total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kOrange)),
+                    ]),
                   ),
-                ),
-                child: const Text(
-                  'Proceed to Checkout',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  ElevatedButton(
+                    onPressed: selected.isEmpty || busy ? null : _checkout,
+                    style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size(140, 46)),
+                    child: Text('Check Out (${selected.length})'),
                   ),
-                ),
+                ]),
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
+
+  Widget _store(Map s) {
+    final lines = List<Map>.from(s['lines']);
+    final ids = lines.where((l) => l['unavailable'] == null).map((l) => l['id'] as int);
+    final all = ids.isNotEmpty && ids.every(selected.contains);
+    return SectionCard(
+      padding: const EdgeInsets.fromLTRB(4, 0, 8, 8),
+      child: Column(children: [
+        Row(children: [
+          Checkbox(
+            value: all,
+            activeColor: kOrange,
+            onChanged: ids.isEmpty ? null : (v) => setState(() => v == true ? selected.addAll(ids) : selected.removeAll(ids)),
+          ),
+          const Icon(Icons.storefront, size: 18, color: kOrange),
+          const SizedBox(width: 6),
+          Expanded(child: Text(s['name'] ?? '', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text))),
+          if (s['on_vacation'] == true) const Text('On vacation', style: TextStyle(fontSize: 11, color: Color(0xFFB45309))),
+        ]),
+        for (final l in lines) _line(l),
+      ]),
+    );
+  }
+
+  Widget _line(Map l) {
+    final product = l['product'];
+    final reason = l['unavailable'];
+    final qty = asNum(l['quantity']).toInt();
+    final stock = asNum(l['stock']).toInt();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Checkbox(
+          value: selected.contains(l['id']),
+          activeColor: kOrange,
+          onChanged: (v) => setState(() => v == true ? selected.add(l['id']) : selected.remove(l['id'])),
+        ),
+        InkWell(
+          onTap: product == null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(slug: product['slug']))),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              width: 64,
+              height: 64,
+              color: context.bc.subtle,
+              child: product?['image_url'] != null ? NetImage(product['image_url'], fit: BoxFit.cover) : const Icon(Icons.image_not_supported),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(product?['title'] ?? 'Removed item', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.bc.text)),
+            if (l['variation'] != null) Text(l['variation']['name'], style: TextStyle(fontSize: 12, color: context.bc.muted)),
+            Text(peso(l['unit_price']), style: const TextStyle(color: kOrange, fontWeight: FontWeight.w700)),
+            if (reason != null) Text(reason, style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
+            Row(children: [
+              _qtyButton(Icons.remove, qty > 1 && !busy ? () => _setQty(l, qty - 1) : null),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('$qty', style: const TextStyle(fontWeight: FontWeight.w700))),
+              _qtyButton(Icons.add, qty < stock && !busy ? () => _setQty(l, qty + 1) : null),
+              const Spacer(),
+              IconButton(onPressed: busy ? null : () => _remove(l), icon: Icon(Icons.delete_outline, color: context.bc.muted), tooltip: 'Remove'),
+            ]),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _qtyButton(IconData icon, VoidCallback? onTap) => SizedBox(
+        width: 30,
+        height: 30,
+        child: OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(padding: EdgeInsets.zero), child: Icon(icon, size: 16)),
+      );
 }
-
-

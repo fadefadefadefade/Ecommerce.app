@@ -23,24 +23,25 @@ class BuyerPalette {
 
   static const primary = Color(0xFFfa4e1c);
 
+  // The website's tokens (see theme/app_theme.dart): navy text scale, grey page, white cards, hairline borders.
   static const light = BuyerPalette(
     background: Color(0xFFF5F5F5),
     surface: Colors.white,
-    subtle: Color(0xFFF5F5F5),
-    text: Color(0xFF222222),
-    textSecondary: Color(0xFF555555),
-    muted: Color(0xFF8a7a70),
-    border: Color(0xFFE6E6E6),
+    subtle: Color(0xFFF4F7FA),
+    text: Color(0xFF002B4D),
+    textSecondary: Color(0xFF4A7A94),
+    muted: Color(0xFF6B90AA),
+    border: Color(0xFFE6EDF2),
   );
 
   static const dark = BuyerPalette(
-    background: Color(0xFF121212),
-    surface: Color(0xFF1E1E1E),
-    subtle: Color(0xFF2A2A2A),
-    text: Color(0xFFEDEDED),
-    textSecondary: Color(0xFFC4C4C4),
-    muted: Color(0xFF9E9E9E),
-    border: Color(0xFF333333),
+    background: Color(0xFF0E1621),
+    surface: Color(0xFF16212E),
+    subtle: Color(0xFF1D2A3A),
+    text: Color(0xFFE8EEF4),
+    textSecondary: Color(0xFFB5C6D6),
+    muted: Color(0xFF8AA3B8),
+    border: Color(0xFF26354A),
   );
 }
 

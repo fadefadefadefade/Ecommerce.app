@@ -1,23 +1,38 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/net_image.dart';
-import '../../../services/api_service.dart';
+
+import '../../../services/buyer_api.dart';
 import '../../../theme/buyer_colors.dart';
-import 'account_ui.dart';
+import '../../../widgets/buyer_kit.dart';
+import '../../../widgets/net_image.dart';
 import 'order_detail_screen.dart';
 
+/// The website's My Purchases (profile/orders): tabs with counts and the orders in each.
 class MyOrdersScreen extends StatefulWidget {
-  const MyOrdersScreen({super.key});
+  final String initialTab;
+  const MyOrdersScreen({super.key, this.initialTab = 'all'});
 
   @override
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
-  static final _tabs = ['All', ...orderStages.values, 'Cancelled'];
+  static const _tabs = [
+    ('all', 'All'),
+    ('to_pay', 'To Pay'),
+    ('to_ship', 'To Ship'),
+    ('to_receive', 'To Receive'),
+    ('completed', 'Completed'),
+    ('cancelled', 'Cancelled'),
+    ('return_refund', 'Return/Refund'),
+  ];
 
-  List<Map<String, dynamic>> _orders = [];
-  bool _loading = true;
-  String? _error;
+  late String tab = widget.initialTab;
+  List<dynamic> orders = [];
+  Map<String, int> counts = {};
+  int page = 1;
+  int last = 1;
+  bool loading = true;
+  String? error;
 
   @override
   void initState() {
@@ -25,187 +40,100 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool more = false}) async {
+    if (!more) setState(() => loading = true);
+    final r = await BuyerApi.orders(tab: tab, page: more ? page + 1 : 1);
+    if (!mounted) return;
     setState(() {
-      _loading = true;
-      _error = null;
+      loading = false;
+      error = r.ok ? null : r.message;
+      if (!r.ok) return;
+      orders = more ? [...orders, ...r.body['data']] : List.of(r.body['data']);
+      page = r.body['meta']['current_page'];
+      last = r.body['meta']['last_page'];
+      counts = {for (final t in r.body['tabs']) t['key'] as String: asNum(t['count']).toInt()};
     });
-    try {
-      final data = ApiService.unwrap(await ApiService.get('/orders'));
-      if (!mounted) return;
-      setState(() {
-        _orders = (data['orders'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = errorText(e);
-        _loading = false;
-      });
-    }
-  }
-
-  List<Map<String, dynamic>> _filtered(String tab) {
-    if (tab == 'All') return _orders;
-    return _orders.where((o) => (o['stage_label'] ?? o['status'] ?? '').toString() == tab).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: _tabs.length,
+      initialIndex: _tabs.indexWhere((t) => t.$1 == tab).clamp(0, _tabs.length - 1),
       child: Scaffold(
         backgroundColor: context.bc.background,
-        appBar: accountAppBar(
-          'My Orders',
+        appBar: AppBar(
+          title: const Text('My Purchases'),
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: _tabs.map((t) {
-              final count = _filtered(t).length;
-              return Tab(text: t == 'All' || count == 0 ? t : '$t ($count)');
-            }).toList(),
+            labelColor: kOrange,
+            indicatorColor: kOrange,
+            onTap: (i) {
+              setState(() => tab = _tabs[i].$1);
+              _load();
+            },
+            tabs: [
+              for (final t in _tabs) Tab(text: (counts[t.$1] ?? 0) > 0 ? '${t.$2} (${counts[t.$1]})' : t.$2),
+            ],
           ),
         ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator(color: BuyerPalette.primary))
-            : _error != null
-                ? AccountEmptyState(
-                    icon: Icons.wifi_off,
-                    title: 'Could not load orders',
-                    message: _error!,
-                    action: ElevatedButton(onPressed: _load, child: const Text('Retry')),
-                  )
-                : TabBarView(children: _tabs.map(_buildList).toList()),
+        body: LoadState(
+          loading: loading,
+          error: error,
+          onRetry: _load,
+          child: RefreshIndicator(
+            color: kOrange,
+            onRefresh: _load,
+            child: orders.isEmpty
+                ? ListView(children: [
+                    Padding(padding: const EdgeInsets.all(48), child: Center(child: Text('No orders here yet.', style: TextStyle(color: context.bc.muted)))),
+                  ])
+                : ListView(padding: const EdgeInsets.all(12), children: [
+                    for (final o in orders) _order(Map.from(o)),
+                    if (page < last) TextButton(onPressed: () => _load(more: true), child: const Text('Load more')),
+                  ]),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildList(String tab) {
-    final orders = _filtered(tab);
-    return RefreshIndicator(
-      color: BuyerPalette.primary,
-      onRefresh: _load,
-      child: orders.isEmpty
-          ? ListView(
-              children: [
-                SizedBox(
-                  height: 400,
-                  child: AccountEmptyState(
-                    icon: Icons.receipt_long,
-                    title: tab == 'All' ? 'No orders yet' : 'No ${tab.toLowerCase()} orders',
-                    message: 'Orders you place will show up here.',
-                  ),
+  Widget _order(Map o) {
+    final items = List<Map>.from(o['items']);
+    return InkWell(
+      onTap: () async {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: o['id'])));
+        _load();
+      },
+      child: SectionCard(
+        title: '${o['store']} · ${o['number']}',
+        trailing: Text(o['status_label'] ?? '', style: const TextStyle(color: kOrange, fontWeight: FontWeight.w600, fontSize: 12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final i in items.take(2))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: SizedBox(width: 48, height: 48, child: i['image_url'] != null ? NetImage(i['image_url'], fit: BoxFit.cover) : const Icon(Icons.image)),
                 ),
-              ],
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: orders.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, i) => _buildOrderCard(orders[i]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('${i['title']}${i['variation'] != null ? ' (${i['variation']})' : ''} × ${i['quantity']}',
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                ),
+                Text(peso(i['price'])),
+              ]),
             ),
-    );
-  }
-
-  Widget _buildOrderCard(Map<String, dynamic> order) {
-    final c = context.bc;
-    final itemsCount = toNum(order['items_count']).toInt();
-    final title = order['first_item_title'] as String?;
-    final image = order['first_item_image'] as String?;
-
-    return Material(
-      color: c.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: order['id'])),
-          );
-          _load();
-        },
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: c.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.receipt_long, size: 18, color: c.muted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Order #${order['order_number'] ?? order['id']}',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: c.text),
-                    ),
-                  ),
-                  StageBadge('${order['stage'] ?? ''}', label: order['stage_label']),
-                ],
-              ),
-              Divider(height: 20, color: c.border),
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      color: c.subtle,
-                      child: image != null
-                          ? NetImage(
-                              image,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, color: c.muted),
-                            )
-                          : Icon(Icons.inventory_2, color: c.muted),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title ?? (itemsCount == 0 ? 'No items' : '$itemsCount item${itemsCount == 1 ? '' : 's'}'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: c.text),
-                        ),
-                        if (title != null && itemsCount > 1)
-                          Text('+${itemsCount - 1} more item${itemsCount - 1 == 1 ? '' : 's'}',
-                              style: TextStyle(fontSize: 12, color: c.muted)),
-                        const SizedBox(height: 4),
-                        Text(formatDate(order['created_at']), style: TextStyle(fontSize: 12, color: c.muted)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Text('${order['payment_method'] ?? ''}', style: TextStyle(fontSize: 12, color: c.muted)),
-                  const Spacer(),
-                  Text('Total: ', style: TextStyle(color: c.textSecondary)),
-                  Text(
-                    peso(order['total_price']),
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: BuyerPalette.primary, fontSize: 15),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+          if (items.length > 2) Text('+${items.length - 2} more item(s)', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+          const Divider(),
+          Row(children: [
+            Expanded(child: Text(formatDate(o['created_at']), style: TextStyle(fontSize: 12, color: context.bc.muted))),
+            Text('Order Total: ', style: TextStyle(color: context.bc.textSecondary)),
+            Text(peso(o['total']), style: const TextStyle(fontWeight: FontWeight.w800, color: kOrange)),
+          ]),
+        ]),
       ),
     );
   }

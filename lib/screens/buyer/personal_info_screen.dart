@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../services/buyer_api.dart';
+import '../../widgets/buyer_kit.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -48,33 +49,23 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
-    try {
-      final response = ApiService.unwrap(await ApiService.get('/profile'));
-      final user = response['user'];
-      if (!mounted) return;
-
-      setState(() {
-        _nameController.text = user['name'] ?? '';
-        _emailController.text = user['email'] ?? '';
-        _phoneController.text = user['phone'] ?? '';
-        _bioController.text = user['bio'] ?? '';
-        _selectedGender = user['sex'];
-        _currentImageUrl = user['profile_photo_path'];
-        
-        if (user['birthday'] != null) {
-          _selectedBirthday = DateTime.parse(user['birthday']);
-        }
-        
-        _isLoading = false;
-      });
-    } catch (e) {
+    final r = await BuyerApi.profile();
+    if (!mounted) return;
+    if (!r.ok) {
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
-        );
-      }
+      return showResult(context, r);
     }
+    final user = r.body['user'];
+    setState(() {
+      _nameController.text = user['name'] ?? '';
+      _emailController.text = user['email'] ?? '';
+      _phoneController.text = user['phone'] ?? '';
+      _bioController.text = user['bio'] ?? '';
+      _selectedGender = user['sex'];
+      _currentImageUrl = user['photo_url'];
+      _selectedBirthday = user['birthday'] != null ? DateTime.tryParse(user['birthday']) : null;
+      _isLoading = false;
+    });
   }
 
   Future<void> _pickImage() async {
@@ -130,44 +121,20 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
     setState(() => _isSaving = true);
 
-    try {
-      final Map<String, dynamic> data = {
-        'name': _nameController.text,
-        'email': _emailController.text,
-        'phone': _phoneController.text,
-        'bio': _bioController.text,
-        'sex': _selectedGender,
-        'birthday': _selectedBirthday?.toIso8601String().split('T')[0],
-      };
-
-      // If image is selected, we need to use multipart
-      if (_selectedImage != null) {
-        // For now, we'll skip image upload until we implement multipart support
-        // TODO: Implement multipart/form-data support in ApiService
-      }
-
-      final response = ApiService.unwrap(await ApiService.post('/profile', body: data));
-
-      if (mounted) {
-        // Update auth provider with new user data
-        context.read<AuthProvider>().updateUser(response['user']);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Color(0xFF059669),
-          ),
-        );
-        
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      setState(() => _isSaving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+    // The website's profile form: name, bio, sex, birthday and photo. Email and phone change on
+    // Security, with a code.
+    final r = await BuyerApi.updateProfile({
+      'name': _nameController.text.trim(),
+      'bio': _bioController.text.trim(),
+      if (_selectedGender != null) 'sex': _selectedGender!,
+      if (_selectedBirthday != null) 'birthday': _selectedBirthday!.toIso8601String().split('T')[0],
+    }, avatar: _selectedImage?.path);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    showResult(context, r);
+    if (r.ok) {
+      context.read<AuthProvider>().updateUser(Map<String, dynamic>.from(r.body['user']));
+      Navigator.pop(context, true);
     }
   }
 
@@ -177,8 +144,6 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('Edit Profile'),
-        backgroundColor: const Color(0xFFFA4E1C),
-        foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -296,8 +261,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           // Email
                           TextFormField(
                             controller: _emailController,
+                            readOnly: true,
                             decoration: InputDecoration(
                               labelText: 'Email Address *',
+                              helperText: 'Change it on Security (a code is sent to confirm).',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -321,9 +288,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           // Phone
                           TextFormField(
                             controller: _phoneController,
+                            readOnly: true,
                             decoration: InputDecoration(
                               labelText: 'Phone Number',
-                              hintText: '+63 912 345 6789',
+                              helperText: 'Change it on Security (a code is sent to confirm).',
+                              hintText: '09123456789',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),

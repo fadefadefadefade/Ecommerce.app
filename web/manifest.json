@@ -1,6 +1,6 @@
 {
-    "name": "alvy_app",
-    "short_name": "alvy_app",
+    "name": "ALVYSHOP",
+    "short_name": "ALVYSHOP",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

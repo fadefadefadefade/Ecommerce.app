@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
+import 'otp_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,9 +17,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _rememberMe = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _error;
 
   AuthProvider? _authProvider;
 
@@ -28,6 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         _authProvider = Provider.of<AuthProvider>(context, listen: false)
           ..addListener(_handleAuthStateChange);
+        // e.g. "Your session expired. Please log in again." after 30 idle minutes.
+        final notice = _authProvider!.takeNotice();
+        if (notice != null) setState(() => _error = notice);
       }
     });
   }
@@ -68,71 +74,44 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    debugPrint('🚀 Login button pressed');
     if (!mounted) return;
-    
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     final authProvider = context.read<AuthProvider>();
     final result = await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text,
-      remember: _rememberMe,
     );
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    debugPrint('🔄 Login result received: ${result['success']}');
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-
-      if (result['success']) {
-        debugPrint('✅ Login screen received success result');
-        
-        // Wait a moment for Consumer to potentially trigger
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        // Check if we're still on this screen (Consumer didn't trigger navigation)
-        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
-          debugPrint('⚠️  Consumer didn\'t trigger navigation, using manual fallback');
-          
-          // Manual navigation as backup if Consumer doesn't work
-          final user = authProvider.user;
-          if (user != null) {
-            debugPrint('🎯 Manual navigation for role: ${user.role}');
-            
-            final targetScreen = authProvider.getMainScreenForRole();
-            debugPrint('📱 Manually navigating to: ${targetScreen.runtimeType}');
-            
-            if (mounted) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => targetScreen),
-                (route) => false,
-              );
-            }
-          } else {
-            debugPrint('❌ User is null after successful login - this shouldn\'t happen');
-          }
-        } else {
-          debugPrint('✅ Navigation appears to have been handled by Consumer or listener');
-        }
-      } else {
-        debugPrint('❌ Login screen received error: ${result['message']}');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Login failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+    if (result.ok) {
+      // The listener / AuthWrapper opens the account's part of the app; this is the fallback.
+      if (ModalRoute.of(context)?.isCurrent == true && authProvider.user != null) {
+        _navigateToMainScreen(authProvider);
       }
+    } else if (result.needsOtp) {
+      // Sign-up never finished: confirm the emailed code first (the web's code step).
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => OtpScreen(
+          otpToken: result.otpToken!,
+          message: result.message,
+          maskedEmail: result.maskedEmail,
+          cooldown: result.cooldown,
+        ),
+      ));
+    } else {
+      setState(() => _error = result.message);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFfbeee8),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -140,15 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 440),
               decoration: BoxDecoration(
-                color: const Color(0xFFFDF8F5),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE6EDF2)),
+                boxShadow: Alvy.liftShadow,
               ),
               padding: const EdgeInsets.all(32),
               child: Form(
@@ -157,44 +131,39 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Logo
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFfa4e1c),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'ALVY',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Image.asset('assets/images/logo-mark.png', width: 52, height: 52),
+                      const SizedBox(width: 10),
+                      Text('ALVY', style: Alvy.display(size: 30)),
+                    ]),
                     const SizedBox(height: 24),
 
                     // Title
-                    const Text(
-                      'Login',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF222222),
-                      ),
-                    ),
+                    Text('Welcome back', style: Alvy.display(size: 26)),
                     const SizedBox(height: 8),
                     const Text(
                       'Enter your details to login',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF8a7a70),
+                        color: Color(0xFF6B90AA),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
+
+
+                    if (_error != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFECACA)),
+                        ),
+                        child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13)),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Email Field
                     Column(
@@ -205,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF3a2f29),
+                            color: Color(0xFF002B4D),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -214,16 +183,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
                             hintText: 'example@gmail.com',
-                            hintStyle: const TextStyle(color: Color(0xFF8a7a70)),
+                            hintStyle: const TextStyle(color: Color(0xFF6B90AA)),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6D9CF)),
+                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6D9CF)),
+                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -254,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF3a2f29),
+                            color: Color(0xFF002B4D),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -263,16 +232,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             hintText: '••••••••',
-                            hintStyle: const TextStyle(color: Color(0xFF8a7a70)),
+                            hintStyle: const TextStyle(color: Color(0xFF6B90AA)),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6D9CF)),
+                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6D9CF)),
+                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -282,7 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                color: const Color(0xFF8a7a70),
+                                color: const Color(0xFF6B90AA),
                               ),
                               onPressed: () {
                                 setState(() => _obscurePassword = !_obscurePassword);
@@ -296,25 +265,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Remember Me checkbox - wrapped to prevent overflow
-                    Wrap(
-                      children: [
-                        Checkbox(
-                          value: _rememberMe,
-                          onChanged: (value) {
-                            setState(() => _rememberMe = value ?? false);
-                          },
-                          activeColor: const Color(0xFFfa4e1c),
-                        ),
-                        const Text(
-                          'Remember Me',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF5a4d45),
+                        // The website's "Forgot password?" (an emailed reset link).
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => ForgotPasswordScreen(email: _emailController.text.trim()),
+                            )),
+                            child: const Text('Forgot password?', style: TextStyle(color: Color(0xFFfa4e1c), fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ],
@@ -370,7 +328,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           "Don't have an account? ",
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF8a7a70),
+                            color: Color(0xFF6B90AA),
                           ),
                         ),
                         TextButton(
@@ -392,23 +350,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF222222),
+                              color: Color(0xFF002B4D),
                             ),
                           ),
                         ),
                       ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Additional help text
-                    const Text(
-                      'Login with your email and password.\nAll user types use the same login.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF8a7a70),
-                      ),
                     ),
                   ],
                 ),

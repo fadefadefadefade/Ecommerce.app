@@ -23,7 +23,7 @@ class ProductThumb extends StatelessWidget {
     final placeholder = Container(
       width: size,
       height: size,
-      color: const Color(0xFFF3EDE4),
+      color: const Color(0xFFF4F7FA),
       child: Icon(Icons.inventory_2_outlined, size: size * 0.45, color: const Color(0xFFfa4e1c)),
     );
 

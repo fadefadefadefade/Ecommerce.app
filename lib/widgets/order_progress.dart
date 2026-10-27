@@ -17,17 +17,17 @@ const orderStages = <String, String>{
 Color stageColor(String stage) {
   switch (stage) {
     case 'processing':
-      return const Color(0xFF6A1B9A);
+      return const Color(0xFF9333EA);
     case 'warehouse':
       return const Color(0xFF1565C0);
     case 'delivering':
       return const Color(0xFF00838F);
     case 'delivered':
-      return const Color(0xFF2E7D32);
+      return const Color(0xFF15803D);
     case 'cancelled':
-      return const Color(0xFFC62828);
+      return const Color(0xFFDC2626);
     default:
-      return const Color(0xFFEF6C00);
+      return const Color(0xFFB45309);
   }
 }
 

@@ -256,8 +256,6 @@ class ProfileScaffold extends StatelessWidget {
       backgroundColor: context.bc.background,
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -278,7 +276,7 @@ Future<void> confirmLogout(BuildContext context) async {
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
           child: const Text('Logout'),
         ),
       ],

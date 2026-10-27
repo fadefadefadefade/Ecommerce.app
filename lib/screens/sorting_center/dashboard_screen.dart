@@ -10,7 +10,7 @@ class SortingCenterDashboardScreen extends StatelessWidget {
     final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFfbeee8),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
@@ -20,7 +20,7 @@ class SortingCenterDashboardScreen extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE6D9CF)),
+                  bottom: BorderSide(color: Color(0xFFE6EDF2)),
                 ),
               ),
               child: Row(
@@ -33,7 +33,7 @@ class SortingCenterDashboardScreen extends StatelessWidget {
                         'Sorting Center Dashboard',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF8a7a70),
+                          color: Color(0xFF6B90AA),
                         ),
                       ),
                       Text(
@@ -41,7 +41,7 @@ class SortingCenterDashboardScreen extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF222222),
+                          color: Color(0xFF002B4D),
                         ),
                       ),
                     ],
@@ -57,11 +57,11 @@ class SortingCenterDashboardScreen extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(
+            const Expanded(
               child: Center(
                 child: Text(
                   'Sorting Center Dashboard - Coming Soon',
-                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 18, color: Color(0xFF6B90AA)),
                 ),
               ),
             ),

@@ -1,155 +1,72 @@
 # ALVY Mobile App (Flutter)
 
-E-commerce mobile application built with Flutter for the ALVY platform.
+The ALVY marketplace on Android: buyers, sellers, riders / couriers and logistics companies.
+(The admin panel is on the website only.)
 
-## Features
+## One backend, one server
 
-- ✅ **Login Screen** - User authentication
-- ✅ **Multi-role Dashboard** - Different dashboards for:
-  - Buyers (Home screen with product browsing)
-  - Sellers (Dashboard - Coming Soon)
-  - Couriers (Dashboard - Coming Soon)
-  - Admins (Dashboard - Coming Soon)
-  - Sorting Center Staff (Dashboard - Coming Soon)
+The app has no backend of its own. It talks to the website (`Ecommerce.web`) through `/api/v1`,
+which runs the website's own controllers, so the rules, messages and data are the same on both.
 
-## Tech Stack
+```
+Website (browser)  ─┐
+                    ├──> https://alvy.trade (Cloudflare tunnel) ──> Ecommerce.web (port 8000) ──> ecommerce_db
+Mobile app (phone) ─┘
+```
 
-- **Flutter** - UI framework
-- **Provider** - State management
-- **HTTP/Dio** - API requests
-- **Flutter Secure Storage** - Secure token storage
-- **Google Fonts** - Typography
+Keep `Ecommerce.web` running on port 8000 (`php artisan serve` in `Ecommerce.web`); the tunnel and the app both use it.
 
-## Setup Instructions
+## Which server the app uses
 
-### 1. Install Dependencies
+- **Built-in:** `https://alvy.trade`.
+- **When building:** `flutter run --dart-define=API_URL=http://10.0.2.2:8000` (Android emulator).
+- **In the app:** Login → **Server** (type an address, **Test**, **Save**). Examples:
+  - Live site: `https://alvy.trade`
+  - Phone on USB: run `adb reverse tcp:8000 tcp:8000`, then `http://127.0.0.1:8000`
+  - Emulator: `http://10.0.2.2:8000`
+
+One login for every account (buyers, sellers, riders and logistics companies), like the website's `/login`.
+
+## Run and build
+
 ```bash
 flutter pub get
+flutter run                                   # uses https://alvy.trade
+flutter build apk --release                   # build/app/outputs/flutter-apk/app-release.apk
 ```
 
-### 2. Configure API Backend
-Update the API base URL in `lib/config/api_config.dart`:
-```dart
-static const String baseUrl = 'http://your-laravel-backend.test/api';
-```
+## Publish the app on the website
 
-### 3. Run the App
-```bash
-# For Android
-flutter run
+People download the app from **https://alvy.trade/app** ("Get the app" in the website footer). To publish a new version:
 
-# For iOS
-flutter run
-
-# For Web
-flutter run -d chrome
-```
-
-## Project Structure
-
-```
-lib/
-├── config/
-│   └── api_config.dart          # API endpoint configuration
-├── models/
-│   └── user.dart                # User model
-├── providers/
-│   └── auth_provider.dart       # Authentication state management
-├── screens/
-│   ├── auth/
-│   │   └── login_screen.dart    # Login screen
-│   ├── buyer/
-│   │   └── home_screen.dart     # Buyer home screen
-│   ├── seller/
-│   │   └── dashboard_screen.dart
-│   ├── courier/
-│   │   └── dashboard_screen.dart
-│   ├── admin/
-│   │   └── dashboard_screen.dart
-│   └── sorting_center/
-│       └── dashboard_screen.dart
-├── services/
-│   └── api_service.dart         # API service layer
-└── main.dart                    # App entry point
-```
-
-## API Integration
-
-The app expects the following API endpoints from your Laravel backend:
-
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-- `GET /api/home` - Buyer home data (categories, featured books, best sellers)
-
-### Expected API Response Format
-
-#### Login Response
-```json
-{
-  "token": "bearer_token_here",
-  "user": {
-    "id": 1,
-    "name": "John Doe",
-    "email": "john@example.com",
-    "role": "buyer",
-    "approval_status": "approved",
-    "created_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-#### Home Data Response
-```json
-{
-  "featured": [...],
-  "bestSellers": [...],
-  "categories": [...]
-}
-```
-
-## Color Scheme
-
-- Primary: `#fa4e1c` (Orange)
-- Background: `#fbeee8` (Light Peach)
-- Card Background: `#FDF8F5` (Off White)
-- Text: `#222222` (Dark Gray)
-- Secondary Text: `#8a7a70` (Brown Gray)
-
-## Next Steps
-
-1. Update the API base URL in `api_config.dart`
-2. Implement the remaining dashboard screens
-3. Add product detail page
-4. Add cart functionality
-5. Add checkout flow
-6. Add order history
-7. Add user profile management
-
-## Running Tests
-
-```bash
-flutter test
-```
-
-## Building for Production
-
-### Android
 ```bash
 flutter build apk --release
+cp build/app/outputs/flutter-apk/app-release.apk ../Ecommerce.web/storage/app/app-releases/ALVY.apk
 ```
 
-### iOS
+The APK stays out of git (`storage/app` is ignored).
+
+If Gradle says "Network is unreachable" while building on a network that only has IPv6, set
+`JAVA_TOOL_OPTIONS=-Djava.net.preferIPv6Addresses=true` for the build (stop the old Gradle daemon first).
+
+## Tests
+
 ```bash
-flutter build ios --release
+flutter analyze
+flutter test                                  # unit / widget tests (the e2e ones skip without API_URL)
 ```
 
-## Notes
+End-to-end tests run against a real `Ecommerce.web` on a **throwaway** database (never `ecommerce_db`),
+seeded with `SampleLogisticsSeeder`:
 
-- Make sure your Laravel backend has CORS enabled for mobile app access
-- Use HTTPS for production API endpoints
-- Implement proper SSL certificate pinning for security
-- Test on both iOS and Android devices
+```bash
+# host-side widget e2e
+flutter test test/e2e_seller_flow_test.dart --dart-define=API_URL=http://127.0.0.1:8095
+# on an emulator / phone
+flutter test integration_test/rider_flow_test.dart -d emulator-5554 --dart-define=API_URL=http://10.0.2.2:8095
+```
 
-## License
+## History
 
-Proprietary - ALVY Platform
+The old separate backend (`Ecommerce.app/api`) was removed when the app moved to the website's API.
+A copy is kept in `Ecommerce.web/storage/backups/old_mobile_backend_Ecommerce.app-api_20261020.zip`.

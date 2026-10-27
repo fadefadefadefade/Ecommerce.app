@@ -1,570 +1,203 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/order_progress.dart';
+
+import '../../../services/seller_api.dart';
+import '../../../theme/buyer_colors.dart';
 import '../../../widgets/product_thumb.dart';
-import '../../../models/order.dart';
-import '../../../services/order_service.dart';
+import '../seller_kit.dart';
 import 'seller_order_details_screen.dart';
 
+/// The web's Order Management list: tabs with counts (New, To Ship, Shipping, …), order-number search, pages.
 class SellerOrdersScreen extends StatefulWidget {
-  const SellerOrdersScreen({super.key});
+  final String initialTab;
+  const SellerOrdersScreen({super.key, this.initialTab = 'new'});
 
   @override
   State<SellerOrdersScreen> createState() => _SellerOrdersScreenState();
 }
 
-class _SellerOrdersScreenState extends State<SellerOrdersScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  
-  List<Order> _orders = [];
-  Map<String, int> _statusCounts = {};
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
+class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
+  late String _tab = widget.initialTab;
+  final _q = TextEditingController();
+  final _scroll = ScrollController();
+  List<Map<String, dynamic>> _tabs = [];
+  final List<Map<String, dynamic>> _orders = [];
+  int _page = 0;
+  int _lastPage = 1;
+  bool _loading = false;
   String? _error;
-  String _selectedStatus = 'all';
-  String _searchQuery = '';
-  int _currentPage = 1;
-  bool _hasMoreData = true;
-
-  // Tab options with status filters
-  final List<Map<String, String>> _tabs = [
-    {'key': 'all', 'label': 'All', 'status': ''},
-    {'key': 'pending', 'label': 'Pending', 'status': 'Pending'},
-    {'key': 'processing', 'label': 'Processing', 'status': 'Processing'},
-    {'key': 'shipped', 'label': 'Shipped', 'status': 'Shipped'},
-    {'key': 'delivered', 'label': 'Delivered', 'status': 'Delivered'},
-  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    _tabController.addListener(_onTabChanged);
-    _scrollController.addListener(_onScroll);
-    _loadOrders();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) _more();
+    });
+    _refresh();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _searchController.dispose();
-    _scrollController.dispose();
+    _q.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  void _onTabChanged() {
-    if (!_tabController.indexIsChanging) {
-      setState(() {
-        _selectedStatus = _tabs[_tabController.index]['key']!;
-        _currentPage = 1;
-        _hasMoreData = true;
-      });
-      _loadOrders(refresh: true);
-    }
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoadingMore && _hasMoreData) {
-        _loadMoreOrders();
-      }
-    }
-  }
-
-  Future<void> _loadOrders({bool refresh = false}) async {
-    if (refresh) {
-      setState(() {
-        _orders.clear();
-        _currentPage = 1;
-        _hasMoreData = true;
-      });
-    }
-    
+  Future<void> _refresh() async {
     setState(() {
-      _isLoading = true;
+      _orders.clear();
+      _page = 0;
+      _lastPage = 1;
       _error = null;
     });
-
-    try {
-      final result = await OrderService.getSellerOrders(
-        page: _currentPage,
-        status: _selectedStatus == 'all' ? null : _tabs.firstWhere((tab) => tab['key'] == _selectedStatus)['status'],
-        search: _searchQuery.isEmpty ? null : _searchQuery,
-      );
-
-      if (!mounted) return;
-      if (result['success']) {
-        final List<Order> newOrders = result['orders'];
-        setState(() {
-          if (refresh || _currentPage == 1) {
-            _orders = newOrders;
-          } else {
-            _orders.addAll(newOrders);
-          }
-          _statusCounts = Map<String, int>.from(result['statusCounts'] ?? {});
-          _hasMoreData = newOrders.length >= 20; // Assuming 20 is page limit
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = result['message'];
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Failed to load orders: $e';
-        _isLoading = false;
-      });
-    }
+    await _more();
   }
 
-  Future<void> _loadMoreOrders() async {
-    if (_isLoadingMore || !_hasMoreData) return;
-
+  Future<void> _more() async {
+    if (_loading || _page >= _lastPage) return;
+    setState(() => _loading = true);
+    final r = await SellerApi.orders(tab: _tab, page: _page + 1, q: _q.text.trim());
+    if (!mounted) return;
     setState(() {
-      _isLoadingMore = true;
-      _currentPage++;
-    });
-
-    try {
-      final result = await OrderService.getSellerOrders(
-        page: _currentPage,
-        status: _selectedStatus == 'all' ? null : _tabs.firstWhere((tab) => tab['key'] == _selectedStatus)['status'],
-        search: _searchQuery.isEmpty ? null : _searchQuery,
-      );
-
-      if (!mounted) return;
-      if (result['success']) {
-        final List<Order> newOrders = result['orders'];
-        setState(() {
-          _orders.addAll(newOrders);
-          _hasMoreData = newOrders.length >= 20;
-          _isLoadingMore = false;
-        });
-      } else {
-        setState(() {
-          _currentPage--; // Revert page increment
-          _isLoadingMore = false;
-        });
+      _loading = false;
+      if (!r.ok) {
+        _error = r.message;
+        return;
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _currentPage--; // Revert page increment
-        _isLoadingMore = false;
-      });
-    }
-  }
-
-  void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query;
-      _currentPage = 1;
-      _hasMoreData = true;
+      _orders.addAll(asList(r.body['data']));
+      _tabs = asList(r.body['tabs']);
+      final meta = asMap(r.body['meta']);
+      _page = asInt(meta['current_page']);
+      _lastPage = asInt(meta['last_page']);
     });
-    _loadOrders(refresh: true);
   }
 
-  Future<void> _refreshOrders() async {
-    await _loadOrders(refresh: true);
+  Future<void> _open(int id) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => SellerOrderDetailsScreen(orderId: id)));
+    _refresh();
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.bc;
     return Scaffold(
-      backgroundColor: const Color(0xFFFBEEE8),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFfa4e1c),
-        foregroundColor: Colors.white,
-        title: const Text('My Orders'),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(120),
-          child: Column(
-            children: [
-              // Search Bar
+      backgroundColor: c.background,
+      appBar: sellerBar('Orders', actions: [IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh))]),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: TextField(
+            controller: _q,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => _refresh(),
+            decoration: InputDecoration(
+              hintText: 'Search order number',
+              prefixIcon: const Icon(Icons.search),
+              isDense: true,
+              filled: true,
+              fillColor: c.surface,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: c.border)),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 46,
+          child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+            for (final t in _tabs)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Search orders...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                    prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear, color: Colors.white.withOpacity(0.7)),
-                            onPressed: () {
-                              _searchController.clear();
-                              _onSearchChanged('');
-                            },
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: const BorderSide(color: Colors.white),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+                padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
+                child: ChoiceChip(
+                  label: Text('${t['label']} (${t['count']})'),
+                  selected: _tab == t['key'],
+                  selectedColor: kOrange.withValues(alpha: 0.15),
+                  onSelected: (_) {
+                    _tab = '${t['key']}';
+                    _refresh();
+                  },
                 ),
               ),
-              // Status Tabs
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                indicatorColor: Colors.white,
-                indicatorWeight: 3,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white.withOpacity(0.7),
-                labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                tabs: _tabs.map((tab) {
-                  final count = _statusCounts[tab['key']] ?? 0;
-                  return Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(tab['label']!),
-                        if (count > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              count.toString(),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ],
+          ]),
+        ),
+        Expanded(
+          child: LoadState(
+            loading: _loading && _orders.isEmpty,
+            error: _error,
+            onRetry: _refresh,
+            child: RefreshIndicator(
+              color: kOrange,
+              onRefresh: _refresh,
+              child: _orders.isEmpty
+                  ? ListView(children: const [EmptyNote(Icons.receipt_long_outlined, 'No orders here.')])
+                  : ListView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                      itemCount: _orders.length + (_page < _lastPage ? 1 : 0),
+                      itemBuilder: (_, i) => i == _orders.length
+                          ? const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: kOrange)))
+                          : _card(_orders[i]),
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshOrders,
-        color: const Color(0xFFfa4e1c),
-        child: _buildBody(),
-      ),
+      ]),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading && _orders.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFFfa4e1c),
-        ),
-      );
-    }
-
-    if (_error != null && _orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade300,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Error Loading Orders',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF222222),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF8a7a70),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _refreshOrders,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFfa4e1c),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.shopping_cart_outlined,
-              size: 64,
-              color: const Color(0xFF8a7a70).withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isNotEmpty 
-                  ? 'No orders found for "$_searchQuery"'
-                  : _selectedStatus == 'all' 
-                      ? 'No orders yet'
-                      : 'No ${_tabs.firstWhere((tab) => tab['key'] == _selectedStatus)['label']?.toLowerCase()} orders',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF8a7a70),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _searchQuery.isNotEmpty
-                  ? 'Try adjusting your search terms'
-                  : 'Orders will appear here once customers place them',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: const Color(0xFF8a7a70).withOpacity(0.7),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: _orders.length + (_isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index >= _orders.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFfa4e1c),
-              ),
-            ),
-          );
-        }
-
-        return _buildOrderCard(_orders[index]);
-      },
-    );
-  }
-
-  Widget _buildOrderCard(Order order) {
-    final statusColors = OrderService.getStatusColor(order.status);
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+  Widget _card(Map<String, dynamic> o) {
+    final c = context.bc;
+    final items = asList(o['items']);
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SellerOrderDetailsScreen(orderId: order.id),
-            ),
-          );
-        },
         borderRadius: BorderRadius.circular(12),
+        onTap: () => _open(asInt(o['id'])),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Order Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Order #${order.id}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF222222),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Color(int.parse(statusColors['bg']!.replaceAll('#', '0xFF'))),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      OrderService.getStatusBadgeText(order.status),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(int.parse(statusColors['text']!.replaceAll('#', '0xFF'))),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              
-              // Customer Info
-              Row(
-                children: [
-                  Icon(
-                    Icons.person_outline,
-                    size: 16,
-                    color: const Color(0xFF8a7a70),
-                  ),
-                  const SizedBox(width: 4),
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text('${o['number']}', style: TextStyle(fontWeight: FontWeight.w800, color: c.text))),
+              Pill(stepLabel(o['seller_step'], o['status']), color: Pill.forState(o['status'])),
+            ]),
+            const SizedBox(height: 2),
+            Text('${o['buyer'] ?? ''} · ${formatDateTime(o['created_at'])}', style: TextStyle(fontSize: 12, color: c.muted)),
+            const SizedBox(height: 8),
+            for (final it in items.take(2))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(children: [
+                  ProductThumb(url: it['image_url'], size: 40),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      order.fullName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF8a7a70),
-                      ),
-                    ),
+                    child: Text('${it['title']}${it['variation'] != null ? ' (${it['variation']})' : ''}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.text)),
                   ),
-                ],
+                  Text('×${it['quantity']}', style: TextStyle(color: c.muted)),
+                ]),
               ),
-              const SizedBox(height: 4),
-              
-              // Date
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: const Color(0xFF8a7a70),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    OrderService.formatOrderDate(order.createdAt),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF8a7a70),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              
-              // Delivery progress
-              OrderProgressBar(stage: order.stage),
-              const SizedBox(height: 12),
-
-              // Order Items Summary: photos of the first few items
-              Row(
-                children: [
-                  ...order.sellerItems.take(4).map((item) => Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ProductThumb(url: item.product?.primaryImageUrl, size: 44, radius: 6),
-                      )),
-                  if (order.sellerItems.length > 4)
-                    Text(
-                      '+${order.sellerItems.length - 4}',
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF8a7a70)),
-                    ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      order.sellerItems.length == 1
-                          ? (order.sellerItems.first.product?.title ?? '1 item')
-                          : '${order.sellerItems.length} items',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, color: Color(0xFF8a7a70)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              
-              // Financial Summary
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your Earnings',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF8a7a70),
-                        ),
-                      ),
-                      Text(
-                        OrderService.formatCurrency(order.sellerEarnings),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF059669),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Total Value',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF8a7a70),
-                        ),
-                      ),
-                      Text(
-                        OrderService.formatCurrency(order.sellerSubtotal),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF222222),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
+            if (items.length > 2) Text('+${items.length - 2} more item(s)', style: TextStyle(fontSize: 12, color: c.muted)),
+            const Divider(height: 14),
+            Row(children: [
+              Expanded(child: Text('${o['payment'] ?? ''}', style: TextStyle(fontSize: 12, color: c.muted))),
+              Text(peso(o['total']), style: const TextStyle(fontWeight: FontWeight.w800, color: kOrange)),
+            ]),
+          ]),
         ),
       ),
     );
   }
+}
+
+/// The web's seller step names (Order::sellerStep) as shown on the order list.
+String stepLabel(dynamic step, dynamic status) {
+  final s = '${status ?? ''}';
+  if (s != 'Pending' && s != 'Processing') return s;
+  return switch ('${step ?? ''}') {
+    'new' => 'New',
+    'accepted' => 'Accepted',
+    'packed' => 'Packed',
+    'ready' => 'Ready for Pickup',
+    _ => s,
+  };
 }

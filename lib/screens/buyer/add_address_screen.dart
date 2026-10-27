@@ -1,7 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+
+import '../../config/api_config.dart';
 import '../../theme/buyer_colors.dart';
-import '../../services/api_service.dart';
+import '../../services/buyer_api.dart';
+import '../../services/location.dart';
 import '../../services/psgc_service.dart';
+import '../../widgets/buyer_kit.dart';
 
 class AddAddressScreen extends StatefulWidget {
   final Map<String, dynamic>? address;
@@ -42,17 +51,33 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   String? _selectedMunicipalityName;
   String? _selectedBarangayName;
 
+  // The map pin (the website's "Pin location"): optional, saved with the address.
+  double? _lat;
+  double? _lng;
+  String? _pinned;
+  bool _locating = false;
+  // The website's "Pin your location": an OpenStreetMap map, a place search, tap to pin.
+  static const _phCenter = LatLng(12.8797, 121.7740);
+  final _map = MapController();
+  final _search = TextEditingController();
+  List<Map<String, dynamic>> _places = [];
+  String? _searchNote;
+  bool _searching = false;
+
   @override
   void initState() {
     super.initState();
     final a = widget.address;
     if (a != null) {
       _fullNameController.text = a['full_name'] ?? '';
-      _phoneController.text = a['phone'] ?? '';
+      _phoneController.text = localPhone(a['phone']);
       _zipController.text = a['zip'] ?? '';
       _selectedLabel = a['label'] ?? 'Home';
       _isDefault = a['is_default'] == true || a['is_default'] == 1;
       // address_line is saved as "house, street"
+      _lat = a['latitude'] == null ? null : (a['latitude'] as num).toDouble();
+      _lng = a['longitude'] == null ? null : (a['longitude'] as num).toDouble();
+      if (_lat != null) _pinned = 'Pinned on the map';
       final line = (a['address_line'] ?? '') as String;
       final comma = line.indexOf(', ');
       if (comma > 0) {
@@ -67,6 +92,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
 
   @override
   void dispose() {
+    _search.dispose();
     _fullNameController.dispose();
     _phoneController.dispose();
     _houseNumberController.dispose();
@@ -90,6 +116,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     final house = _houseNumberController.text.trim();
     final street = _streetController.text.trim();
     final body = {
+      'region': relocated ? _selectedRegionName : a?['region'],
       'label': _selectedLabel,
       'full_name': _fullNameController.text.trim(),
       'phone': _phoneController.text.trim(),
@@ -97,29 +124,135 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       'barangay': relocated ? _selectedBarangayName : a?['barangay'],
       'city': city,
       'province': relocated ? (_selectedProvinceName ?? _selectedRegionName) : a?['province'],
+      'province_code': relocated ? _selectedProvince : a?['province_code'],
+      'municipality_code': relocated ? _selectedMunicipality : a?['municipality_code'],
+      'barangay_code': relocated ? _selectedBarangay : a?['barangay_code'],
       'zip': _zipController.text.trim(),
       'is_default': _isDefault,
+      if (_lat != null && _lng != null) 'latitude': _lat,
+      if (_lat != null && _lng != null) 'longitude': _lng,
     };
 
     setState(() => _isSaving = true);
-    try {
-      final result = _isEdit
-          ? await ApiService.put('/addresses/${a!['id']}', body)
-          : await ApiService.post('/addresses', body: body);
-      final data = ApiService.unwrap(result);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(data['message'] ?? 'Address saved'),
-        backgroundColor: const Color(0xFF059669),
-      ));
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
+    // The website's address rules and messages (AddressController).
+    final r = _isEdit ? await BuyerApi.updateAddress(a!['id'], body) : await BuyerApi.addAddress(body);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    showResult(context, r);
+    if (r.ok) Navigator.pop(context, true);
+  }
+
+  /// The phone's location as the map pin; the website's /api/geo/reverse fills the region, province, city,
+  /// barangay, street and ZIP it can find there (the buyer checks them before saving).
+  Future<void> _useMyLocation() async {
+    setState(() => _locating = true);
+    final loc = await PhoneLocation.current();
+    if (!mounted) return;
+    if (!loc.ok) {
+      setState(() => _locating = false);
+      return showError(context, loc.problem ?? 'Could not get your location.');
     }
+    await _pinAt(loc.lat!, loc.lng!);
+  }
+
+  /// Places matching a typed search (the website's /api/geo/search).
+  Future<void> _findPlace() async {
+    final q = _search.text.trim();
+    if (q.length < 3 || _searching) return;
+    setState(() {
+      _searching = true;
+      _searchNote = 'Searching…';
+      _places = [];
+    });
+    try {
+      final res = await http.get(Uri.parse('${ApiConfig.webUrl}/api/geo/search?q=${Uri.encodeQueryComponent(q)}'), headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 20));
+      final list = res.statusCode == 200 ? (jsonDecode(res.body) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList() : null;
+      if (!mounted) return;
+      setState(() {
+        _places = list ?? [];
+        _searchNote = list == null ? 'Search is unavailable right now.' : (list.isEmpty ? 'No places found. Try another name, or tap the map.' : null);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _searchNote = 'Search is unavailable right now.');
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  /// Pin a spot: the map moves there and the website's /api/geo/reverse fills the region, province, city,
+  /// barangay, street and ZIP it can find (the buyer checks them before saving).
+  Future<void> _pinAt(double lat, double lng) async {
+    setState(() {
+      _locating = true;
+      _lat = lat;
+      _lng = lng;
+      _places = [];
+      _searchNote = null;
+    });
+    try {
+      _map.move(LatLng(lat, lng), _map.camera.zoom < 16 ? 17 : _map.camera.zoom);
+    } catch (_) {}
+    final loc = (lat: lat, lng: lng);
+    Map<String, dynamic> geo = {};
+    try {
+      final res = await http.get(Uri.parse('${ApiConfig.webUrl}/api/geo/reverse?lat=${loc.lat}&lon=${loc.lng}'), headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 20));
+      geo = Map<String, dynamic>.from(jsonDecode(res.body) as Map);
+      if (res.statusCode != 200) {
+        if (!mounted) return;
+        setState(() => _locating = false);
+        return showError(context, '${geo['message'] ?? 'We couldn\'t find an address there.'}');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _locating = false);
+      return showError(context, 'Could not look up the address. Fill it in below.');
+    }
+    if (!mounted) return;
+    setState(() {
+      _lat = loc.lat;
+      _lng = loc.lng;
+      _pinned = '${geo['display'] ?? 'Pinned at your location'}';
+      if (_streetController.text.trim().isEmpty && geo['street'] != null) _streetController.text = '${geo['street']}';
+      if (geo['zip'] != null) _zipController.text = '${geo['zip']}';
+    });
+
+    String? code(dynamic item) => item is Map ? '${item['code'] ?? ''}' : null;
+    bool has(List<Map<String, dynamic>> list, String? c) => c != null && c.isNotEmpty && list.any((x) => '${x['code']}' == c);
+
+    final region = code(geo['region']);
+    if (has(_regions, region)) {
+      setState(() {
+        _selectedRegion = region;
+        _selectedRegionName = _regions.firstWhere((r) => '${r['code']}' == region)['name'];
+      });
+      await _loadProvinces(region!);
+      final province = code(geo['province']);
+      if (has(_provinces, province)) {
+        setState(() {
+          _selectedProvince = province;
+          _selectedProvinceName = _provinces.firstWhere((p) => '${p['code']}' == province)['name'];
+        });
+        await _loadMunicipalities(province!);
+      }
+      final city = code(geo['city']);
+      if (has(_municipalities, city)) {
+        setState(() {
+          _selectedMunicipality = city;
+          _selectedMunicipalityName = _municipalities.firstWhere((m) => '${m['code']}' == city)['name'];
+        });
+        await _loadBarangays(city!);
+        final brgy = code(geo['barangay']);
+        if (has(_barangays, brgy)) {
+          setState(() {
+            _selectedBarangay = brgy;
+            _selectedBarangayName = _barangays.firstWhere((b) => '${b['code']}' == brgy)['name'];
+          });
+        }
+      }
+    }
+    if (mounted) setState(() => _locating = false);
   }
 
   Future<void> _loadRegions() async {
@@ -136,6 +269,16 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     try {
       final provinces = await PsgcService.getProvinces(regionCode);
       if (!mounted) return;
+      if (provinces.isEmpty) {
+        // NCR: no province level — its cities sit directly under the region.
+        setState(() {
+          _provinces = [];
+          _selectedProvince = null;
+          _selectedProvinceName = null;
+        });
+        await _loadMunicipalities(regionCode);
+        return;
+      }
       setState(() {
         _provinces = provinces;
         _municipalities = [];
@@ -181,8 +324,6 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     return Scaffold(
       backgroundColor: context.bc.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFfa4e1c),
-        foregroundColor: Colors.white,
         title: Text(_isEdit ? 'Edit Address' : 'Add Address'),
         elevation: 0,
       ),
@@ -214,9 +355,9 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                maxLength: 30,
+                inputFormatters: phoneFormatters,
                 decoration: InputDecoration(
-                  hintText: '09XX XXX XXXX',
+                  hintText: '09XXXXXXXXX',
                   counterText: '',
                   filled: true,
                   fillColor: context.bc.surface,
@@ -254,6 +395,100 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   style: TextStyle(fontSize: 12, color: context.bc.textSecondary),
                 ),
               ],
+              const SizedBox(height: 16),
+
+              // Pin your location (optional): search a place, tap the map, or use the phone's location.
+              Row(children: [
+                const Text('Pin your location ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text('(optional)', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _findPlace(),
+                    decoration: InputDecoration(
+                      hintText: 'Search a place, e.g. SM Calamba',
+                      isDense: true,
+                      filled: true,
+                      fillColor: context.bc.surface,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(onPressed: _searching ? null : _findPlace, child: const Text('Search')),
+              ]),
+              if (_searchNote != null)
+                Padding(padding: const EdgeInsets.only(top: 6), child: Text(_searchNote!, style: TextStyle(fontSize: 12, color: context.bc.muted))),
+              for (final pl in _places)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.place_outlined, color: Color(0xFFfa4e1c)),
+                  title: Text('${pl['label']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                  onTap: () => _pinAt((pl['lat'] as num).toDouble(), (pl['lon'] as num).toDouble()),
+                ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  height: 220,
+                  child: FlutterMap(
+                    mapController: _map,
+                    options: MapOptions(
+                      initialCenter: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : _phCenter,
+                      initialZoom: _lat != null ? 17 : 5,
+                      onTap: (_, point) => _locating ? null : _pinAt(point.latitude, point.longitude),
+                    ),
+                    children: [
+                      TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.alvy_app'),
+                      if (_lat != null && _lng != null)
+                        MarkerLayer(markers: [
+                          Marker(
+                            point: LatLng(_lat!, _lng!),
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.topCenter,
+                            // Drag the pin to the house; letting go looks up the address there.
+                            child: GestureDetector(
+                              onPanUpdate: _locating
+                                  ? null
+                                  : (d) {
+                                      final cam = _map.camera;
+                                      final to = cam.screenOffsetToLatLng(cam.latLngToScreenOffset(LatLng(_lat!, _lng!)) + d.delta);
+                                      setState(() {
+                                        _lat = to.latitude;
+                                        _lng = to.longitude;
+                                      });
+                                    },
+                              onPanEnd: _locating ? null : (_) => _pinAt(_lat!, _lng!),
+                              child: const Icon(Icons.location_pin, size: 40, color: Color(0xFFfa4e1c)),
+                            ),
+                          ),
+                        ]),
+                      const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text("Tap the map or drag the pin to your house. We'll fill in the address below for you.", style: TextStyle(fontSize: 12, color: context.bc.muted)),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _locating ? null : _useMyLocation,
+                icon: _locating
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location, color: Color(0xFFfa4e1c)),
+                label: Text(_lat == null ? 'Use my current location' : 'Update the pin to my location'),
+              ),
+              if (_pinned != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text('📍 $_pinned', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                ),
               const SizedBox(height: 16),
 
               // Region Dropdown

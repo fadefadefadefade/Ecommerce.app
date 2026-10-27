@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
-import '../../theme/buyer_colors.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
-import '../../config/api_config.dart';
+import '../../services/buyer_api.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/buyer_colors.dart';
+import '../../widgets/buyer_kit.dart';
 import '../../widgets/buyer_product_card.dart';
 import '../../widgets/live_refresh.dart';
+import '../../widgets/net_image.dart';
+import 'account/collections_screens.dart' show VoucherCenterScreen, WishlistScreen;
+import 'account/notifications_screen.dart';
 import 'buyer_main_screen.dart';
+import 'chat_screen.dart';
 import 'shop_screen.dart';
 
-/// Buyer home: Shop-style search + categories, featured row and a suggested grid.
+/// The website's home page (home/index): search, category shortcuts with item counts, new
+/// arrivals and best sellers.
 class BuyerHomeScreen extends StatefulWidget {
   const BuyerHomeScreen({super.key});
 
@@ -22,355 +29,316 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
   int? get liveTab => BuyerMainScreenState.tabHome;
 
   @override
-  Future<void> onLiveRefresh() => _loadHomeData(silent: true);
+  Duration get liveInterval => const Duration(seconds: 30);
 
-  static const _primary = Color(0xFFfa4e1c);
+  @override
+  Future<void> onLiveRefresh() => _load(silent: true);
 
-  final _searchController = TextEditingController();
+  final _search = TextEditingController();
   List<dynamic> featured = [];
-  List<dynamic> suggested = [];
+  List<dynamic> trending = [];
   List<dynamic> categories = [];
-  bool isLoading = true;
+  bool loading = true;
   String? error;
 
   @override
   void initState() {
     super.initState();
-    _loadHomeData();
+    _load();
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  Future<void> _loadHomeData({bool silent = false}) async {
-    if (!silent) {
-      setState(() {
-        isLoading = true;
-        error = null;
-      });
-    }
-    try {
-      final data = ApiService.unwrap(await ApiService.get(ApiConfig.home));
-      if (!mounted) return;
-      setState(() {
-        featured = data['featured'] ?? [];
-        suggested = data['suggested'] ?? data['bestSellers'] ?? [];
-        categories = data['categories'] ?? [];
-        isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-        error = e.toString().replaceFirst('Exception: ', '');
-      });
-    }
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => loading = true);
+    final r = await BuyerApi.home();
+    if (!mounted) return;
+    setState(() {
+      loading = false;
+      if (!r.ok) {
+        if (!silent) error = r.message;
+        return;
+      }
+      error = null;
+      featured = r.body['featured'];
+      trending = r.body['trending'];
+      categories = r.body['categories'];
+    });
   }
 
-  void _search(String query) {
-    final q = query.trim();
-    if (q.isEmpty) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ShopScreen(initialSearch: q)),
-    );
+  void _searchFor(String q) {
+    if (q.trim().isEmpty) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen(initialSearch: q.trim())));
   }
 
-  void _openCategory(Map<String, dynamic> category) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ShopScreen(categoryId: category['id'], categoryName: category['name']),
-      ),
-    );
-  }
-
-  void _openShopTab() => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop);
+  void _refreshCart() => BuyerMainScreen.of(context)?.refreshCartCount();
 
   @override
   Widget build(BuildContext context) {
+    final name = context.watch<AuthProvider>().user?.name ?? '';
+    final first = name.trim().split(' ').first;
     return Scaffold(
       backgroundColor: context.bc.background,
-      // Same search bar as the Shop screen
-      appBar: AppBar(
-        backgroundColor: context.bc.surface,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: context.bc.subtle,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: TextField(
-            controller: _searchController,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: 'Search products...',
-              hintStyle: TextStyle(color: context.bc.muted, fontSize: 14),
-              prefixIcon: Icon(Icons.search, color: context.bc.textSecondary, size: 20),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 10),
-            ),
-            onSubmitted: _search,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: _primary),
-            onPressed: () => _search(_searchController.text),
-          ),
-        ],
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (isLoading && featured.isEmpty && suggested.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: _primary));
-    }
-    if (error != null && featured.isEmpty && suggested.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.wifi_off, size: 56, color: context.bc.muted),
-              const SizedBox(height: 12),
-              Text(error!, textAlign: TextAlign.center, style: TextStyle(color: context.bc.muted)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _loadHomeData,
-                style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: _primary,
-      onRefresh: _loadHomeData,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _buildBanner()),
-          if (categories.isNotEmpty) SliverToBoxAdapter(child: _buildCategories()),
-          if (featured.isNotEmpty) SliverToBoxAdapter(child: _buildFeatured()),
-          SliverToBoxAdapter(
-            child: _sectionHeader('Suggested for You', icon: Icons.auto_awesome, onSeeAll: _openShopTab),
-          ),
-          if (suggested.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: Text('No products yet.', style: TextStyle(color: context.bc.muted))),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+      body: LoadState(
+        loading: loading && featured.isEmpty,
+        error: featured.isEmpty ? error : null,
+        onRetry: _load,
+        child: RefreshIndicator(
+          color: kOrange,
+          onRefresh: _load,
+          child: CustomScrollView(slivers: [
+            // The website's header: navy, the logo, quick links, and the white search bar with the orange button.
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              toolbarHeight: 60,
+              expandedHeight: 116,
+              titleSpacing: 14,
+              title: Row(children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                  child: Image.asset('assets/images/logo-mark.png', fit: BoxFit.contain),
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => BuyerProductCard(product: Map<String, dynamic>.from(suggested[i])),
-                  childCount: suggested.length,
+                const SizedBox(width: 10),
+                Text('ALVY', style: Alvy.display(size: 22, color: Colors.white)),
+              ]),
+              actions: [
+                IconButton(
+                  tooltip: 'Voucher Center',
+                  icon: const Icon(Icons.confirmation_number_outlined),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherCenterScreen())),
                 ),
-              ),
-            ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-              child: OutlinedButton(
-                onPressed: _openShopTab,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _primary,
-                  side: const BorderSide(color: _primary),
-                  backgroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                IconButton(
+                  tooltip: 'Notifications',
+                  icon: const Icon(Icons.notifications_none),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                 ),
-                child: const Text('See More Products'),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBanner() {
-    final name = context.watch<AuthProvider>().user?.name ?? 'Guest';
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFfa4e1c), Color(0xFFff8a50)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hi, ${name.split(' ').first}!',
-                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                IconButton(
+                  tooltip: 'Messages',
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen())),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Discover great deals picked just for you.',
-                  style: TextStyle(color: Colors.white, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: _openShopTab,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: _primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Shop Now', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
+                const SizedBox(width: 4),
               ],
-            ),
-          ),
-          const Icon(Icons.shopping_bag, size: 64, color: Colors.white24),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionHeader(String title, {required IconData icon, VoidCallback? onSeeAll}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 20, 4, 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: _primary),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.bc.text),
-            ),
-          ),
-          if (onSeeAll != null)
-            TextButton(
-              onPressed: onSeeAll,
-              child: const Text(
-                'See All →',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _primary),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                  child: _SearchBar(controller: _search, onSearch: _searchFor),
+                ),
               ),
             ),
-        ],
+            SliverToBoxAdapter(child: _hero(first)),
+            SliverToBoxAdapter(child: _perks()),
+            if (categories.isNotEmpty) ...[
+              SliverToBoxAdapter(child: _header('Browse', 'Shop by category', onAll: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop))),
+              SliverToBoxAdapter(child: _categoryGrid()),
+            ],
+            SliverToBoxAdapter(child: _header('Just in', 'New Arrivals', onAll: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop))),
+            _grid(featured),
+            SliverToBoxAdapter(child: _header('Top picks', 'Best Sellers', onAll: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop))),
+            _grid(trending),
+            const SliverToBoxAdapter(child: SizedBox(height: 88)),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildCategories() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('Categories', icon: Icons.category),
-        Container(
-          color: context.bc.surface,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: SizedBox(
-            height: 92,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: categories.length,
-              itemBuilder: (context, i) {
-                final category = Map<String, dynamic>.from(categories[i]);
-                return InkWell(
-                  onTap: () => _openCategory(category),
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 78,
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: _primary.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(_categoryIcon(category['name'] ?? ''), color: _primary),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          category['name'] ?? '',
-                          maxLines: 2,
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: context.bc.text, height: 1.2),
-                        ),
-                      ],
-                    ),
+  /// The website's orange gradient hero.
+  Widget _hero(String first) => Container(
+        margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+        padding: const EdgeInsets.fromLTRB(18, 18, 12, 18),
+        decoration: BoxDecoration(gradient: Alvy.gradient, borderRadius: BorderRadius.circular(14), boxShadow: Alvy.buttonShadow),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(first.isEmpty ? 'WELCOME TO ALVY' : 'HI, ${first.toUpperCase()}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
+              const SizedBox(height: 4),
+              Text('Great finds from local sellers', style: Alvy.display(size: 21, color: Colors.white)),
+              const SizedBox(height: 4),
+              const Text('Vouchers, flash deals and free shipping every day.', style: TextStyle(color: Colors.white, fontSize: 12.5)),
+              const SizedBox(height: 12),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: kOrange, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10)),
+                onPressed: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop),
+                child: const Text('Shop now'),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 74,
+            height: 74,
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), shape: BoxShape.circle),
+            child: const Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 38),
+          ),
+        ]),
+      );
+
+  /// Quick links to the website's Voucher Center, Wishlist and the shop.
+  Widget _perks() {
+    final c = context.bc;
+    Widget perk(IconData icon, String label, Color color, VoidCallback onTap) => Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const SizedBox(height: 6),
+                Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: c.text)),
+              ]),
+            ),
+          ),
+        );
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: c.border), boxShadow: Alvy.cardShadow),
+      child: Row(children: [
+        perk(Icons.confirmation_number_outlined, 'Vouchers', kOrange,
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherCenterScreen()))),
+        perk(Icons.local_shipping_outlined, 'Free shipping', const Color(0xFF0F9F8A),
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherCenterScreen()))),
+        perk(Icons.favorite_border, 'Wishlist', const Color(0xFFDC2626),
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistScreen()))),
+        perk(Icons.storefront_outlined, 'All shops', Alvy.navy, () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop)),
+      ]),
+    );
+  }
+
+  Widget _categoryGrid() {
+    final c = context.bc;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: c.border), boxShadow: Alvy.cardShadow),
+      child: SizedBox(
+        height: 104,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: categories.length,
+          itemBuilder: (_, i) {
+            final cat = categories[i];
+            return InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen(categorySlug: cat['slug'], categoryName: cat['name']))),
+              child: SizedBox(
+                width: 80,
+                child: Column(children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(16)),
+                    clipBehavior: Clip.antiAlias,
+                    child: NetImage(cat['image_url'], fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.category_outlined, color: kOrange)),
                   ),
-                );
-              },
-            ),
-          ),
+                  const SizedBox(height: 6),
+                  Text(cat['name'], maxLines: 1, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: c.text)),
+                  Text('${cat['count']} items', style: TextStyle(fontSize: 10, color: c.muted)),
+                ]),
+              ),
+            );
+          },
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildFeatured() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('Featured', icon: Icons.local_fire_department, onSeeAll: _openShopTab),
-        SizedBox(
-          height: 250,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: featured.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, i) => SizedBox(
-              width: 150,
-              child: BuyerProductCard(product: Map<String, dynamic>.from(featured[i])),
+  /// The website's section heading: an orange eyebrow over a Nunito title, with "See all".
+  Widget _header(String eyebrow, String title, {VoidCallback? onAll}) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 22, 6, 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(eyebrow.toUpperCase(), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.7, color: kOrange)),
+              const SizedBox(height: 2),
+              Text(title, style: Alvy.display(size: 19, color: context.bc.text)),
+            ]),
+          ),
+          if (onAll != null)
+            TextButton(
+              onPressed: onAll,
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('See all'), Icon(Icons.chevron_right, size: 18)]),
+            ),
+        ]),
+      );
+
+  Widget _grid(List items) => items.isEmpty
+      ? SliverToBoxAdapter(
+          child: Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('No products yet.', style: TextStyle(color: context.bc.muted)))),
+        )
+      : SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          sliver: SliverGrid.count(
+            crossAxisCount: 2,
+            childAspectRatio: 0.56,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            children: [for (final p in items) BuyerProductCard(product: Map<String, dynamic>.from(p), onCartChanged: _refreshCart)],
+          ),
+        );
+}
+
+/// The website's search bar: white, rounded, with the orange search button.
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onSearch;
+  const _SearchBar({required this.controller, required this.onSearch});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+      child: Row(children: [
+        const SizedBox(width: 12),
+        const Icon(Icons.search, color: Alvy.textMuted, size: 20),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            textInputAction: TextInputAction.search,
+            onSubmitted: onSearch,
+            style: const TextStyle(color: Alvy.navy, fontSize: 14),
+            decoration: const InputDecoration(
+              hintText: 'Search products, brands, categories…',
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             ),
           ),
         ),
-      ],
+        Padding(
+          padding: const EdgeInsets.all(4),
+          child: Material(
+            color: kOrange,
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => onSearch(controller.text),
+              child: const SizedBox(width: 44, height: 36, child: Icon(Icons.search, color: Colors.white, size: 20)),
+            ),
+          ),
+        ),
+      ]),
     );
-  }
-
-  static IconData _categoryIcon(String name) {
-    final n = name.toLowerCase();
-    if (n.contains('electronic')) return Icons.devices;
-    if (n.contains('cloth') || n.contains('fashion')) return Icons.checkroom;
-    if (n.contains('book')) return Icons.menu_book;
-    if (n.contains('home') || n.contains('garden')) return Icons.chair;
-    if (n.contains('sport')) return Icons.sports_basketball;
-    if (n.contains('toy') || n.contains('game')) return Icons.toys;
-    if (n.contains('health') || n.contains('beauty')) return Icons.spa;
-    if (n.contains('auto') || n.contains('car')) return Icons.directions_car;
-    if (n.contains('food') || n.contains('beverage')) return Icons.restaurant;
-    if (n.contains('office')) return Icons.work_outline;
-    return Icons.category;
   }
 }

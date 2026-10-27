@@ -13,7 +13,7 @@ Future<String?> showReasonDialog(
   String hint = 'Reason',
   String confirmLabel = 'Submit',
   String cancelLabel = 'Cancel',
-  Color confirmColor = const Color(0xFFC62828),
+  Color confirmColor = const Color(0xFFDC2626),
   bool required = true,
   int maxLength = 500,
 }) {

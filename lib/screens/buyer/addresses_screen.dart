@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/buyer_colors.dart';
-import '../../services/api_service.dart';
+import '../../services/buyer_api.dart';
+import '../../widgets/buyer_kit.dart';
 import 'add_address_screen.dart';
 
 class AddressesScreen extends StatefulWidget {
@@ -22,45 +23,20 @@ class _AddressesScreenState extends State<AddressesScreen> {
 
   Future<void> _loadAddresses() async {
     setState(() => _isLoading = true);
-    try {
-      final result = await ApiService.get('/addresses');
-      setState(() {
-        if (result['success'] == true && result['data'] != null) {
-          _addresses = result['data']['addresses'] ?? [];
-        } else {
-          _addresses = [];
-        }
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading addresses: $e')),
-        );
-      }
-    }
+    final r = await BuyerApi.addresses();
+    if (!mounted) return;
+    setState(() {
+      _addresses = r.ok ? (r.body['addresses'] ?? []) : [];
+      _isLoading = false;
+    });
+    if (!r.ok) showResult(context, r);
   }
 
   Future<void> _setDefault(int addressId) async {
-    try {
-      await ApiService.patch('/addresses/$addressId/set-default', {});
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Default address updated'),
-            backgroundColor: Color(0xFF059669),
-          ),
-        );
-      }
-      _loadAddresses();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    final r = await BuyerApi.defaultAddress(addressId);
+    if (!mounted) return;
+    showResult(context, r);
+    _loadAddresses();
   }
 
   Future<void> _deleteAddress(int addressId, String label) async {
@@ -76,7 +52,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
             child: const Text('Remove'),
           ),
         ],
@@ -84,21 +60,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
     );
 
     if (confirmed == true) {
-      try {
-        await ApiService.delete('/addresses/$addressId');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Address removed')),
-          );
-        }
-        _loadAddresses();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
+      final r = await BuyerApi.deleteAddress(addressId);
+      if (!mounted) return;
+      showResult(context, r);
+      _loadAddresses();
     }
   }
 
@@ -119,8 +84,6 @@ class _AddressesScreenState extends State<AddressesScreen> {
       backgroundColor: context.bc.background,
       appBar: AppBar(
         title: const Text('My Addresses'),
-        backgroundColor: const Color(0xFFFA4E1C),
-        foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -261,6 +224,14 @@ class _AddressesScreenState extends State<AddressesScreen> {
     );
   }
 
+  Widget _addressNote(String text) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(8)),
+        child: Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFFB45309))),
+      );
+
   Widget _buildAddressCard(Map<String, dynamic> address) {
     final isDefault = address['is_default'] == true;
 
@@ -350,6 +321,27 @@ class _AddressesScreenState extends State<AddressesScreen> {
                   ),
               ],
             ),
+            if (address['complete'] == false || address['service_area'] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Builder(builder: (_) {
+                  final complete = address['complete'] != false;
+                  final ok = address['deliverable'] != false;
+                  final (label, color, bg) = !complete
+                      ? ('Needs update', const Color(0xFFB45309), const Color(0xFFFFFBEB))
+                      : ok
+                          ? ('Delivers here', const Color(0xFF047857), const Color(0xFFECFDF5))
+                          : ('Outside delivery area', const Color(0xFFB45309), const Color(0xFFFFFBEB));
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                    ),
+                  );
+                }),
+              ),
             const SizedBox(height: 12),
             Text(
               address['full_address'] ?? '',
@@ -358,6 +350,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
                 color: context.bc.textSecondary,
               ),
             ),
+            if (address['complete'] == false)
+              _addressNote('Edit this address and choose the region, city and barangay from the lists so it can be used at checkout.')
+            else if (address['deliverable'] == false)
+              _addressNote("We only deliver within ${address['service_area']} for now, so this address can't be used at checkout."),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,

@@ -28,15 +28,21 @@ class SellerMainScreenState extends State<SellerMainScreen> {
 
   int _currentIndex = 0;
 
-  void goTo(int index) => setState(() => _currentIndex = index);
+  // Opening a tab loads it fresh, like opening the page on the website.
+  final Map<int, int> _opened = {};
+
+  void goTo(int index) => setState(() {
+        if (index != _currentIndex) _opened[index] = (_opened[index] ?? 0) + 1;
+        _currentIndex = index;
+      });
   bool _redirecting = false;
-  
-  final List<Widget> _screens = [
-    const SellerDashboardScreen(),
-    const SellerProductsScreen(),
-    const SellerOrdersScreen(),
-    const SellerReportsScreen(),
-    const SellerProfileScreen(),
+
+  static const List<Widget> _screens = [
+    SellerDashboardScreen(),
+    SellerProductsScreen(),
+    SellerOrdersScreen(),
+    SellerReportsScreen(),
+    SellerProfileScreen(),
   ];
 
   @override
@@ -65,14 +71,16 @@ class SellerMainScreenState extends State<SellerMainScreen> {
         return Scaffold(
           body: IndexedStack(
             index: _currentIndex,
-            children: _screens,
+            children: [
+              for (var i = 0; i < _screens.length; i++) KeyedSubtree(key: ValueKey('tab-$i-${_opened[i] ?? 0}'), child: _screens[i]),
+            ],
           ),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -106,7 +114,7 @@ class SellerMainScreenState extends State<SellerMainScreen> {
                     ),
                     _buildNavItem(
                       icon: Icons.person,
-                      label: 'Profile',
+                      label: 'More',
                       index: 4,
                     ),
                   ],
@@ -126,12 +134,14 @@ class SellerMainScreenState extends State<SellerMainScreen> {
   }) {
     final isActive = _currentIndex == index;
     
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+    return Expanded(
+      child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => goTo(index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFfa4e1c).withOpacity(0.1) : Colors.transparent,
+          color: isActive ? const Color(0xFFfa4e1c).withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -139,20 +149,23 @@ class SellerMainScreenState extends State<SellerMainScreen> {
           children: [
             Icon(
               icon,
-              color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF8a7a70),
+              color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF6B90AA),
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF8a7a70),
+                color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF6B90AA),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
