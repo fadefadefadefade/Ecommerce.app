@@ -93,9 +93,7 @@ class _SellerReportsScreenState extends State<SellerReportsScreen> {
                 icon: const Icon(Icons.download_outlined),
                 onSelected: _export,
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'pdf', child: Text('Download PDF')),
-                  PopupMenuItem(value: 'xlsx', child: Text('Download Excel (XLSX)')),
-                  PopupMenuItem(value: 'csv', child: Text('Download CSV')),
+                  PopupMenuItem(value: 'pdf', child: Text('Download PDF')),   // PDF only, like the website
                 ],
               ),
       ]),

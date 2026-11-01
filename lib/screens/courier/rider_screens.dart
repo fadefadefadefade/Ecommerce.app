@@ -436,7 +436,7 @@ class _RiderPickupScreenState extends State<RiderPickupScreen> {
 
 // ── Delivery ───────────────────────────────────────────────────
 
-/// The web's delivery page: Mark Out for Delivery, then photo + the buyer's OTP + the exact COD; or a failed attempt.
+/// The web's delivery page: Mark Out for Delivery, then the proof photo + the exact COD; or a failed attempt.
 class RiderDeliveryScreen extends StatefulWidget {
   final int deliveryId;
   const RiderDeliveryScreen({super.key, required this.deliveryId});
@@ -451,7 +451,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
   bool _busy = false;
   String? _error;
   Map<String, String> _errors = {};
-  final _otp = TextEditingController();
   final _cod = TextEditingController();
   String? _photo;
   String? _reason;
@@ -464,7 +463,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
 
   @override
   void dispose() {
-    _otp.dispose();
     _cod.dispose();
     super.dispose();
   }
@@ -579,24 +577,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                 child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_photo!), height: 160, fit: BoxFit.cover)),
               ),
             if (_errors['pod_photo'] != null) Text(_errors['pod_photo']!, style: const TextStyle(color: Color(0xFFDC2626))),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _otp,
-              enabled: d['otp_locked_until'] == null,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: 'OTP from the buyer',
-                helperText: 'The buyer sees the 6-digit OTP on their order page.',
-                helperMaxLines: 2,
-                counterText: '',
-                errorText: _errors['otp'] ??
-                    (d['otp_locked_until'] != null ? 'OTP entry is locked until ${formatDate(d['otp_locked_until'], 'h:mm a')}.' : null),
-                errorMaxLines: 3,
-                border: const OutlineInputBorder(),
-              ),
-            ),
+            // Like the website: the proof photo (and the exact COD) completes the delivery; there is no buyer OTP.
             if (cod != null) ...[
               const SizedBox(height: 8),
               TextField(
@@ -614,7 +595,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
             const SizedBox(height: 12),
             BusyButton('Delivered', busy: _busy, color: const Color(0xFF15803D), icon: Icons.check_circle_outline,
                 onPressed: () => _do(() => RiderApi.deliver(widget.deliveryId,
-                    otp: _otp.text.trim(), cod: cod != null ? _cod.text.trim() : null, photo: _photo), back: true)),
+                    cod: cod != null ? _cod.text.trim() : null, photo: _photo), back: true)),
           ]),
         ),
       if (a['fail'] == true)

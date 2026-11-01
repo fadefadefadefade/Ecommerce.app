@@ -129,9 +129,8 @@ class _SellerCommissionsScreenState extends State<SellerCommissionsScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    OutlinedButton(onPressed: _exporting ? null : () => _export('csv'), child: const Text('CSV')),
-                    const SizedBox(width: 6),
-                    OutlinedButton(onPressed: _exporting ? null : () => _export('xlsx'), child: const Text('Excel')),
+                    // Reports are PDF only, like the website.
+                    OutlinedButton.icon(onPressed: _exporting ? null : () => _export('pdf'), icon: const Icon(Icons.picture_as_pdf_outlined, size: 18), label: const Text('PDF')),
                   ]),
                   const SizedBox(height: 10),
                   if (_rows.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text('No order lines in this period.', textAlign: TextAlign.center, style: TextStyle(color: c.muted))),

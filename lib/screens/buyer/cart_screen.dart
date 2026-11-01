@@ -11,9 +11,10 @@ import 'product_detail_screen.dart';
 /// quantity within stock, remove; lines that can't be bought say why.
 class CartScreen extends StatefulWidget {
   final VoidCallback? onBrowse;
-  final VoidCallback? onChanged;
+  /// The item count from each load, for the tab badge (so the badge needs no request of its own).
+  final ValueChanged<int>? onCount;
 
-  const CartScreen({super.key, this.onBrowse, this.onChanged});
+  const CartScreen({super.key, this.onBrowse, this.onCount});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -48,7 +49,7 @@ class _CartScreenState extends State<CartScreen> {
       // Like the website, buyable lines start ticked.
       if (first) selected.addAll(_lines.where((l) => l['unavailable'] == null).map((l) => l['id'] as int));
     });
-    widget.onChanged?.call();
+    if (r.ok) widget.onCount?.call((r.body['count'] as num?)?.toInt() ?? 0);
   }
 
   Future<void> _setQty(Map line, int qty) async {

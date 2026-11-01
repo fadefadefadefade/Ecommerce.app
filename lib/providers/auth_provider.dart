@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
+import '../config/api_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/user.dart';
@@ -111,8 +114,28 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// The web's sign-up form: [fields] as on the website, [files] maps upload field → local file path.
+  /// A sign-up with Google (google_code) comes back signed in.
   Future<AuthResult> register(Map<String, String> fields, Map<String, String> files) async {
-    return AuthResult.from(await ApiClient.multipart('/auth/register', fields, files: files));
+    final res = await ApiClient.multipart('/auth/register', fields, files: files);
+    if (res.body['token'] != null) return _finish(res);
+    return AuthResult.from(res);
+  }
+
+  /// "Continue with Google": the website's own Google sign-in in a secure browser tab. It comes back with a
+  /// one-time code: an existing account is then signed in; a new Google email gets [GoogleSignIn.signup]
+  /// (email, names and the code) for the sign-up form.
+  Future<GoogleSignIn> google() async {
+    String back;
+    try {
+      back = await FlutterWebAuth2.authenticate(url: '${ApiConfig.webUrl}/auth/google?app=1', callbackUrlScheme: 'alvyshop');
+    } on PlatformException catch (e) {
+      return GoogleSignIn(cancelled: e.code == 'CANCELED', error: e.code == 'CANCELED' ? null : 'Google sign-in could not open. Please try again.');
+    }
+    final q = Uri.parse(back).queryParameters;
+    if (q['error'] != null) return GoogleSignIn(error: q['error']);
+    final res = await ApiClient.post('/auth/google/exchange', {'code': q['code'] ?? '', 'device_name': 'ALVY app'});
+    if (res.ok && res.body['status'] == 'signup') return GoogleSignIn(signup: Map<String, dynamic>.from(res.body));
+    return GoogleSignIn(result: await _finish(res));
   }
 
   Future<AuthResult> _finish(ApiResponse res) async {
@@ -229,4 +252,14 @@ class AuthProvider with ChangeNotifier {
     _storage.write(key: 'user_data', value: jsonEncode(_user!.toJson()));
     notifyListeners();
   }
+}
+
+
+/// What "Continue with Google" ended with: signed in (or refused, in [result]), a new sign-up, cancelled or an error.
+class GoogleSignIn {
+  final AuthResult? result;
+  final Map<String, dynamic>? signup;
+  final bool cancelled;
+  final String? error;
+  const GoogleSignIn({this.result, this.signup, this.cancelled = false, this.error});
 }

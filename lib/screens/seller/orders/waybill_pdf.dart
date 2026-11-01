@@ -49,6 +49,13 @@ class WaybillPdf {
                 pw.BarcodeWidget(barcode: pw.Barcode.code128(), data: '${w['tracking'] ?? ''}', height: 34, drawText: false),
               ]),
             ),
+            pw.SizedBox(width: 8),
+            // Like the website's label: the QR code hubs scan (the waybill number, else the tracking number).
+            pw.Column(children: [
+              pw.BarcodeWidget(barcode: pw.Barcode.qrCode(), data: '${w['waybill'] ?? w['tracking'] ?? ''}', width: 62, height: 62, drawText: false),
+              pw.SizedBox(height: 2),
+              pw.Text('SCAN ME', style: pw.TextStyle(font: bold, fontSize: 6.5, letterSpacing: 1.2)),
+            ]),
             pw.SizedBox(width: 10),
             pw.SizedBox(
               width: 90,

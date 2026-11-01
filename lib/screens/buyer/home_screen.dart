@@ -1,3 +1,4 @@
+import 'all_categories_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -138,7 +139,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
             SliverToBoxAdapter(child: _hero(first)),
             SliverToBoxAdapter(child: _perks()),
             if (categories.isNotEmpty) ...[
-              SliverToBoxAdapter(child: _header('Browse', 'Shop by category', onAll: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop))),
+              // "See all" opens the website's All Categories page.
+              SliverToBoxAdapter(child: _header('Browse', 'Shop by category',
+                  onAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllCategoriesScreen())))),
               SliverToBoxAdapter(child: _categoryGrid()),
             ],
             SliverToBoxAdapter(child: _header('Just in', 'New Arrivals', onAll: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop))),

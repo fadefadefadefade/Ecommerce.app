@@ -36,26 +36,30 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   int _cartCount = 0;
   // Bumped each time the Cart tab opens so it reloads items added elsewhere.
   int _cartReloadToken = 0;
+  DateTime _cartCountAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  @override
-  void initState() {
-    super.initState();
-    refreshCartCount();
+  // No load in initState: the IndexedStack builds the Cart tab right away, and its first load sets the badge.
+
+  void _setCartCount(int count) {
+    _cartCountAt = DateTime.now();
+    if (mounted && count != _cartCount) setState(() => _cartCount = count);
   }
 
+  /// After something was added to the cart (product cards).
   Future<void> refreshCartCount() async {
     // Badge is best-effort; the cart screen shows real errors.
     final r = await BuyerApi.cart();
     if (!mounted || !r.ok) return;
-    setState(() => _cartCount = (r.body['count'] as num?)?.toInt() ?? 0);
+    _setCartCount((r.body['count'] as num?)?.toInt() ?? 0);
   }
 
   void goTo(int index) {
     setState(() {
-      if (index == tabCart) _cartReloadToken++;
+      if (index == tabCart) _cartReloadToken++;   // the reloaded cart updates the badge itself
       _currentIndex = index;
     });
-    refreshCartCount();
+    // Other tabs: only re-check a badge older than 30 s (catches items added on a product page).
+    if (index != tabCart && DateTime.now().difference(_cartCountAt).inSeconds > 30) refreshCartCount();
   }
 
   @override
@@ -97,7 +101,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
               CartScreen(
                 key: ValueKey(_cartReloadToken),
                 onBrowse: () => goTo(tabShop),
-                onChanged: refreshCartCount,
+                onCount: _setCartCount,
               ),
               const ProfileScreen(),
             ],

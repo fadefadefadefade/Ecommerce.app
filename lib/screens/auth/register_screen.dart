@@ -1,11 +1,14 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/buyer_api.dart';
 import '../../services/psgc_service.dart';
 import '../../widgets/buyer_kit.dart' show phoneFormatters;
 import 'otp_screen.dart';
@@ -15,7 +18,12 @@ import 'otp_screen.dart';
 /// checks every field with its own rules and messages; a field with an error is shown on its step.
 class RegisterScreen extends StatefulWidget {
   final String initialRole;
-  const RegisterScreen({super.key, this.initialRole = 'buyer'});
+  /// From "Continue with Google": email (locked), first_name, last_name and google_code.
+  final Map<String, dynamic>? google;
+  /// A signed-in buyer applying as a seller or courier (the website's "Become a seller / courier"):
+  /// the same steps without the account ones, sent to /become-seller or /become-courier.
+  final bool apply;
+  const RegisterScreen({super.key, this.initialRole = 'buyer', this.google, this.apply = false});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -78,14 +86,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // A rider signs up as role "courier": the chosen hub approves them and they take its jobs.
   // (A logistics company can also add riders and couriers itself; those get an email to set a password.)
+  // Logistics companies are not listed: like the website, they sign up through the private link the admin
+  // shares (/sc/register), so the logistics steps below are only used when a screen opens this one for them.
   static const _roles = [
     ('buyer', 'Buyer', 'Shop and order', Icons.shopping_bag_outlined),
     ('seller', 'Seller', 'Open a shop', Icons.storefront_outlined),
     ('courier', 'Rider', 'Deliver parcels', Icons.two_wheeler),
-    ('logistics', 'Logistics', 'Run a sorting hub', Icons.warehouse_outlined),
   ];
 
-  List<String> get _steps => [
+  List<String> get _steps => widget.apply
+      ? [
+          'Personal',
+          'Address',
+          if (_role == 'seller') 'Shop',
+          if (_role == 'courier') 'Courier',
+          if (_role == 'seller') 'Security',   // the account password confirms the application
+        ]
+      : [
         'Account type',
         'Personal',
         'Address',
@@ -97,19 +114,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   /// Which step shows a field (to jump to the first error).
   int _stepOf(String field) {
-    const personal = ['first_name', 'last_name', 'middle_initial', 'sex', 'contact_no', 'phone', 'birthday', 'valid_id'];
+    const personal = ['first_name', 'last_name', 'middle_initial', 'sex', 'contact_no', 'phone', 'birthday'];
     const address = ['region', 'province', 'province_code', 'municipality', 'municipality_code', 'barangay', 'house_number', 'street', 'zip_code'];
     const security = ['email', 'password', 'password_confirmation', 'terms'];
-    if (field == 'role') return 0;
-    if (personal.contains(field)) return 1;
-    if (address.contains(field)) return 2;
-    if (security.contains(field)) return 3;
-    return 4;
+    final name = field == 'role'
+        ? 'Account type'
+        : personal.contains(field)
+            ? 'Personal'
+            : address.contains(field)
+                ? 'Address'
+                : security.contains(field)
+                    ? 'Security'
+                    : (_role == 'courier' ? 'Courier' : _role == 'seller' ? 'Shop' : 'Sorting Center');
+    final i = _steps.indexOf(name);
+    return i < 0 ? _steps.length - 1 : i;
   }
 
   @override
   void initState() {
     super.initState();
+    if (widget.apply) {
+      // Applying from the buyer account: start from what the account already has.
+      final u = context.read<AuthProvider>().user;
+      _first.text = u?.firstName ?? '';
+      _last.text = u?.lastName ?? '';
+      _contact.text = u?.phone ?? '';
+    }
+    final g = widget.google;
+    if (g != null) {
+      _email.text = '${g['email'] ?? ''}';
+      _first.text = '${g['first_name'] ?? ''}';
+      _last.text = '${g['last_name'] ?? ''}';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && g['message'] != null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${g['message']}')));
+        }
+      });
+    }
     PsgcService.getRegions().then((r) => mounted ? setState(() => _regions = r) : null);
     ApiClient.get('/auth/register/options').then((res) {
       if (!mounted || !res.ok) return;
@@ -183,6 +224,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (path != null) setState(() => _files[field] = path);
   }
 
+  // ── Terms / Privacy pop-up ──────────────────────────────────
+
+  TextSpan _policyLink(String label, String key) => TextSpan(
+        text: label,
+        style: const TextStyle(color: _orange, fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+        recognizer: TapGestureRecognizer()..onTap = () => _showPolicy(key, label),
+      );
+
+  /// The policy's full published text (the website's pop-up); "I agree" ticks the terms box.
+  Future<void> _showPolicy(String key, String title) async {
+    final agreed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(ctx).size.height * 0.85,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+              child: Row(children: [
+                Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+                IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+              ]),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: FutureBuilder<ApiResponse>(
+                future: BuyerApi.policy(key),
+                builder: (ctx, snap) {
+                  if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: _orange));
+                  final html = snap.data!.ok ? snap.data!.body['content'] as String? : null;
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: html == null
+                        ? Text(snap.data!.ok ? 'This policy is being prepared. Check back soon.' : snap.data!.message,
+                            style: const TextStyle(color: _muted))
+                        : HtmlWidget(html, textStyle: const TextStyle(fontSize: 14, height: 1.55)),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: _orange, padding: const EdgeInsets.symmetric(vertical: 14)),
+                child: const Text('I agree'),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (agreed == true && mounted) setState(() => _terms = true);
+  }
+
   // ── Submit ─────────────────────────────────────────────────
 
   Map<String, String> _fields() => {
@@ -203,7 +302,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'house_number': _house.text.trim(),
         'street': _street.text.trim(),
         'zip_code': _zip.text.trim(),
-        'email': _email.text.trim(),
+        'email': widget.google != null ? '${widget.google!['email']}' : _email.text.trim(),
+        if (widget.google != null) 'google_code': '${widget.google!['google_code']}',
         'password': _password.text,
         'password_confirmation': _confirm.text,
         if (_terms) 'terms': '1',
@@ -227,7 +327,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'seller' => ['government_id', _sellerType == 'Corporation' ? 'sec_certificate' : 'dti_certificate', 'bir_2303'],
       'courier' => ['or_cr_image', 'vehicle_reg_image'],
       'logistics' => ['government_id', 'business_permit'],
-      _ => ['valid_id'],
+      _ => <String>[],   // buyers don't upload an ID (like the website)
     };
     return {
       for (final k in keep)
@@ -235,7 +335,110 @@ class _RegisterScreenState extends State<RegisterScreen> {
     };
   }
 
+  /// The website's application fields (its names differ a little from sign-up: "phone", "or_cr", capitalised choices).
+  Map<String, String> _applyFields() {
+    String cap(String v) => v.isEmpty ? v : v[0].toUpperCase() + v.substring(1);
+    final address = {
+      'province': _noProvince ? '' : (_province?['name'] ?? ''),
+      'municipality': _city?['name'] ?? '',
+      'barangay': _barangay?['name'] ?? '',
+    };
+    if (_role == 'seller') {
+      return {
+        'first_name': _first.text.trim(),
+        'last_name': _last.text.trim(),
+        'phone': _contact.text.trim(),
+        'shop_name': _shop.text.trim(),
+        'line_of_business': _category ?? '',
+        'seller_type': _sellerType ?? '',
+        'tin': _tin.text.trim(),
+        'region': _region?['name'] ?? '',
+        ...address,
+        'province_code': _noProvince ? '' : (_province?['code'] ?? ''),
+        'municipality_code': _city?['code'] ?? '',
+        'street': [_house.text.trim(), _street.text.trim()].where((s) => s.isNotEmpty).join(' '),
+        'zip_code': _zip.text.trim(),
+        'password': _password.text,
+        'password_confirmation': _confirm.text,
+        if (_terms) 'terms': '1',
+      };
+    }
+    return {
+      'first_name': _first.text.trim(),
+      'last_name': _last.text.trim(),
+      'middle_initial': _mi.text.trim(),
+      'sex': cap(_sex ?? ''),
+      'contact_no': _contact.text.trim(),
+      'birthday': _birthday != null ? DateFormat('yyyy-MM-dd').format(_birthday!) : '',
+      ...address,
+      'house_number': _house.text.trim(),
+      'street': _street.text.trim(),
+      'vehicle_type': cap(_vehicle),
+      'plate_number': _plate.text.trim(),
+      'sorting_center_id': _hubId?.toString() ?? '',
+    };
+  }
+
+  Map<String, String> _applyUploads() {
+    final names = _role == 'seller'
+        ? {for (final k in ['government_id', _sellerType == 'Corporation' ? 'sec_certificate' : 'dti_certificate', 'bir_2303']) k: k}
+        // Sign-up's "Driver's License" (or_cr_image) is the website's id_upload; "Vehicle Registration" is or_cr.
+        : {'id_upload': 'or_cr_image', 'or_cr': 'vehicle_reg_image'};
+    return {
+      for (final e in names.entries)
+        if (_files[e.value] != null) e.key: _files[e.value]!
+    };
+  }
+
+  Future<void> _submitApplication() async {
+    setState(() {
+      _busy = true;
+      _errors = {};
+    });
+    final r = await ApiClient.multipart(_role == 'seller' ? '/become-seller' : '/become-courier', _applyFields(), files: _applyUploads());
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!r.ok) {
+      setState(() {
+        _errors = Map.of(r.fieldErrors);
+        if (_errors.containsKey('phone')) _errors['contact_no'] ??= _errors['phone']!;
+        for (final (web, app) in [('id_upload', 'or_cr_image'), ('or_cr', 'vehicle_reg_image'), ('sorting_center_id', 'logistics_id')]) {
+          if (_errors.containsKey(web)) _errors[app] ??= _errors[web]!;
+        }
+        if (_errors.isNotEmpty) {
+          _step = _errors.keys.map(_stepOf).reduce((a, b) => a < b ? a : b).clamp(0, _steps.length - 1);
+        }
+      });
+      _snack(r.message);
+      return;
+    }
+    final auth = context.read<AuthProvider>();
+    if (r.body['user'] is Map) auth.updateUser(Map<String, dynamic>.from(r.body['user']));
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Application submitted'),
+        content: Text(r.message),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+      ),
+    );
+    if (!mounted) return;
+    if (_role == 'courier') {
+      // Like the website, the account is now a pending courier: open its screen.
+      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => auth.getMainScreenForRole()), (r) => false);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _submit() async {
+    if (widget.apply) {
+      if (_role == 'seller' && _password.text != _confirm.text) {
+        setState(() => _errors = {'password': 'The passwords do not match.'});
+        return;
+      }
+      return _submitApplication();
+    }
     if (_password.text != _confirm.text) {
       setState(() {
         _errors = {'password': 'The passwords do not match.'};
@@ -262,6 +465,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
       // Always say what is wrong, even for a field this step doesn't show.
       _snack(result.message);
+      return;
+    }
+    // Signed up with Google: already signed in (the login screen's listener opens the account).
+    if (result.ok) {
+      final auth = context.read<AuthProvider>();
+      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => auth.getMainScreenForRole()), (r) => false);
       return;
     }
     if (result.needsOtp) {
@@ -311,7 +520,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           elevation: 0,
           foregroundColor: _ink,
           leading: IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back', onPressed: _back),
-          title: Text('Create account · ${_step + 1}/${_steps.length}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          title: Text('${widget.apply ? (_role == 'seller' ? 'Become a seller' : 'Become a courier') : 'Create account'} · ${_step + 1}/${_steps.length}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         body: SafeArea(
           child: Column(
@@ -343,7 +552,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         activeColor: _orange,
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
-                        title: const Text("I agree to ALVY's Terms and Conditions and Privacy Policy.", style: TextStyle(fontSize: 13)),
+                        // Like the website: the two names open the full text, and "I agree" there ticks this box.
+                        title: Text.rich(
+                          TextSpan(style: const TextStyle(fontSize: 13, color: Colors.black87), children: [
+                            const TextSpan(text: "I agree to ALVY's "),
+                            _policyLink('Terms and Conditions', 'terms_of_service'),
+                            const TextSpan(text: ' and '),
+                            _policyLink('Privacy Policy', 'privacy_policy'),
+                            const TextSpan(text: '.'),
+                          ]),
+                        ),
                         subtitle: _err('terms'),
                       ),
                     Row(
@@ -363,7 +581,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: ElevatedButton.styleFrom(backgroundColor: _orange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48)),
                             child: _busy
                                 ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : Text(last ? 'Create Account' : 'Next', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                : Text(last ? (widget.apply ? 'Submit application' : 'Create Account') : 'Next', style: const TextStyle(fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ],
@@ -454,7 +672,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             style: OutlinedButton.styleFrom(alignment: Alignment.centerLeft, minimumSize: const Size.fromHeight(48)),
           ),
           _err('birthday') ?? const SizedBox(height: 8),
-          if (_role == 'buyer') _upload('valid_id', 'Valid Government ID*', 'A photo or PDF of a valid government-issued ID. JPG, PNG or PDF, max 5 MB.'),
         ];
 
       case 'Address':
@@ -475,8 +692,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ];
 
       case 'Security':
+        if (widget.apply) {
+          return [
+            const Text('Confirm it is you', style: TextStyle(fontWeight: FontWeight.w700, color: _ink)),
+            const Text('Enter your ALVY account password to send the application.', style: TextStyle(color: _muted, fontSize: 13)),
+            const SizedBox(height: 12),
+            _text(_password, 'Account password', 'password', required: true, obscure: _hidePassword,
+                suffix: IconButton(
+                  icon: Icon(_hidePassword ? Icons.visibility_off : Icons.visibility),
+                  onPressed: () => setState(() => _hidePassword = !_hidePassword),
+                )),
+            _text(_confirm, 'Confirm password', 'password_confirmation', required: true, obscure: _hidePassword),
+          ];
+        }
         return [
-          _text(_email, 'Email Address', 'email', required: true, keyboard: TextInputType.emailAddress, hint: 'juan@gmail.com'),
+          if (widget.google != null) ...[
+            _label('Email Address', required: true),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              decoration: BoxDecoration(color: const Color(0xFFF4F7FA), borderRadius: BorderRadius.circular(6), border: Border.all(color: _line)),
+              child: Row(children: [
+                Expanded(child: Text('${widget.google!['email']}', style: const TextStyle(color: _ink, fontWeight: FontWeight.w600))),
+                const Icon(Icons.verified, size: 18, color: Color(0xFF15803D)),
+                const SizedBox(width: 4),
+                const Text('Verified with Google', style: TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ] else
+            _text(_email, 'Email Address', 'email', required: true, keyboard: TextInputType.emailAddress, hint: 'juan@gmail.com'),
           _text(_password, 'Password', 'password',
               required: true,
               obscure: _hidePassword,

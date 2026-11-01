@@ -9,7 +9,7 @@ import '../../theme/buyer_colors.dart';
 import 'hub_more_screens.dart';
 import 'logistics_kit.dart';
 import 'parcel_detail_screen.dart';
-import '../../widgets/password_code_dialog.dart';
+
 import '../../widgets/report_download.dart';
 
 // ── Dashboard ──────────────────────────────────────────────────
@@ -724,7 +724,7 @@ class _LogisticsConversationScreenState extends State<LogisticsConversationScree
 
 // ── Account ────────────────────────────────────────────────────
 
-/// The web's logistics Account: name and email, and the password (with the current one).
+/// The web's logistics Account: name and email. The password is on the Security page (SecurityScreen).
 class LogisticsAccountScreen extends StatefulWidget {
   const LogisticsAccountScreen({super.key});
   @override
@@ -733,12 +733,10 @@ class LogisticsAccountScreen extends StatefulWidget {
 
 class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
   Map<String, dynamic>? _d;
-  String _via = 'email';   // where the password-change code goes
   String? _error;
   bool _loading = true, _saving = false;
   Map<String, String> _errors = {};
   final _name = TextEditingController(), _email = TextEditingController();
-  final _current = TextEditingController(), _password = TextEditingController(), _confirm = TextEditingController();
 
   @override
   void initState() {
@@ -748,7 +746,7 @@ class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _email, _current, _password, _confirm]) {
+    for (final c in [_name, _email]) {
       c.dispose();
     }
     super.dispose();
@@ -758,9 +756,6 @@ class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
     _d = body;
     _name.text = '${asMap(body['company'])['name'] ?? ''}';
     _email.text = '${asMap(body['company'])['email'] ?? ''}';
-    _current.clear();
-    _password.clear();
-    _confirm.clear();
   }
 
   Future<void> _load() async {
@@ -784,7 +779,6 @@ class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
     final r = await LogisticsApi.updateAccount({
       'name': _name.text.trim(),
       'email': _email.text.trim(),
-      if (_current.text.isNotEmpty) ...{'current_password': _current.text, 'password': _password.text, 'password_confirmation': _confirm.text, 'code_via': _via},
     });
     if (!mounted) return;
     setState(() {
@@ -793,15 +787,7 @@ class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
       if (r.ok && r.body['company'] != null) _fill(r.body);
     });
     if (r.ok && r.body['user'] != null) context.read<AuthProvider>().updateUser(asMap(r.body['user']));
-    if (passwordCodeSent(r)) {
-      // The new password waits for the code emailed to the account.
-      for (final c in [_current, _password, _confirm]) {
-        c.clear();
-      }
-      await confirmPasswordCode(context, message: r.message);
-    } else {
-      showResult(context, r);
-    }
+    showResult(context, r);
   }
 
   @override
@@ -834,13 +820,7 @@ class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
                   child: Column(children: [
                     FormInput(_name, 'Name *', error: _errors['name']),
                     FormInput(_email, 'Email *', keyboard: TextInputType.emailAddress, error: _errors['email']),
-                    const Divider(),
-                    const Align(alignment: Alignment.centerLeft, child: Text('Change password (optional)', style: TextStyle(fontWeight: FontWeight.w700))),
-                    const SizedBox(height: 8),
-                    FormInput(_current, 'Current password', obscure: true, error: _errors['current_password']),
-                    FormInput(_password, 'New password (min. 8)', obscure: true, error: _errors['password']),
-                    FormInput(_confirm, 'Confirm new password', obscure: true),
-                    PasswordCodeChoice(onChanged: (v) => _via = v),
+                    // The password is on its own Security page now (with the rules checklist), like the website.
                     BusyButton('Save', busy: _saving, onPressed: _save),
                   ]),
                 ),

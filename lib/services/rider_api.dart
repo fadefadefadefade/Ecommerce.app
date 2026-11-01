@@ -16,8 +16,9 @@ class RiderApi {
   static Future<ApiResponse> confirmPickup(int id, String tracking) => ApiClient.post('/rider/pickups/$id/confirm', {'tracking_number': tracking});
   static Future<ApiResponse> delivery(int id) => ApiClient.get('/rider/deliveries/$id');
   static Future<ApiResponse> startDelivery(int id) => ApiClient.post('/rider/deliveries/$id/start');
-  static Future<ApiResponse> deliver(int id, {required String otp, String? cod, String? photo}) => ApiClient.multipart(
-      '/rider/deliveries/$id/deliver', {'otp': otp, if (cod != null) 'cod_collected': cod}, files: {if (photo != null) 'pod_photo': photo});
+  // No buyer OTP any more (like the website): the proof photo and, for COD, the exact amount.
+  static Future<ApiResponse> deliver(int id, {String? cod, String? photo}) => ApiClient.multipart(
+      '/rider/deliveries/$id/deliver', {if (cod != null) 'cod_collected': cod}, files: {if (photo != null) 'pod_photo': photo});
   static Future<ApiResponse> failDelivery(int id, String reason) => ApiClient.post('/rider/deliveries/$id/fail', {'reason': reason});
   static Future<ApiResponse> returnedToSeller(int parcelId) => ApiClient.post('/rider/returns/$parcelId/returned');
   static Future<ApiResponse> profile() => ApiClient.get('/rider/profile');

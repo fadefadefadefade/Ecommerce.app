@@ -71,6 +71,30 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _google() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    final g = await context.read<AuthProvider>().google();
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    if (g.cancelled) return;
+    if (g.error != null) return setState(() => _error = g.error);
+    if (g.signup != null) {
+      // No ALVY account for this Google email yet: the sign-up form, email locked, no email code.
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => RegisterScreen(google: g.signup)));
+      return;
+    }
+    final result = g.result!;
+    if (result.ok) {
+      final auth = context.read<AuthProvider>();
+      if (ModalRoute.of(context)?.isCurrent == true && auth.user != null) _navigateToMainScreen(auth);
+    } else {
+      setState(() => _error = result.message);
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -320,6 +344,35 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    // The website's "Continue with Google".
+                    Row(children: [
+                      const Expanded(child: Divider(color: Color(0xFFE6EDF2))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('or', style: TextStyle(fontSize: 13, color: Colors.blueGrey.shade300)),
+                      ),
+                      const Expanded(child: Divider(color: Color(0xFFE6EDF2))),
+                    ]),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: _isLoading ? null : _google,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF002B4D),
+                          side: const BorderSide(color: Color(0xFFE0E0E0)),
+                          backgroundColor: Colors.white,
+                        ),
+                        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          _GoogleMark(),
+                          SizedBox(width: 10),
+                          Text('Continue with Google', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
                     // Register Link
                     Wrap(
                       alignment: WrapAlignment.center,
@@ -365,4 +418,19 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+
+/// Google's "G", drawn (no image asset needed).
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+        width: 20,
+        height: 20,
+        child: Center(
+          child: Text.rich(TextSpan(text: 'G', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Color(0xFF4285F4), height: 1))),
+        ),
+      );
 }

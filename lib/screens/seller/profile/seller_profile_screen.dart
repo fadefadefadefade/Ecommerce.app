@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../widgets/profile_kit.dart';
 import '../../buyer/account/notifications_screen.dart';
+import '../../buyer/account/policy_screens.dart';
 import '../../buyer/account/security_screen.dart';
 import '../../buyer/chat_screen.dart';
 import '../marketing/marketing_screens.dart';
@@ -59,6 +60,8 @@ class SellerProfileScreen extends StatelessWidget {
               onTap: () => _push(context, const SellerAccountScreen())),
           ProfileAction(icon: Icons.lock_outline, label: 'Security', color: const Color(0xFF6B7280),
               onTap: () => _push(context, const SecurityScreen())),
+          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF4A7A94),
+              onTap: () => _push(context, const PoliciesScreen())),
           ProfileAction.logout(context),
         ]),
       ],

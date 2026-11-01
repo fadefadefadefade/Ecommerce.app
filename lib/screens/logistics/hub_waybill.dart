@@ -51,10 +51,21 @@ class HubWaybillPdf {
                 child: pw.Text(cod != null ? 'COD' : 'PAID', style: pw.TextStyle(font: bold, fontSize: 10, color: cod != null ? PdfColors.white : PdfColors.black)),
               ),
             ])),
-            box(pw.Column(children: [
-              pw.BarcodeWidget(barcode: pw.Barcode.code128(), data: '${w['waybill'] ?? ''}', height: 46, drawText: false),
-              pw.SizedBox(height: 3),
-              strong('${w['waybill'] ?? ''}', size: 14),
+            // Like the website's label: the QR code staff scan, with the barcode as a back-up.
+            box(pw.Row(children: [
+              pw.Column(children: [
+                pw.BarcodeWidget(barcode: pw.Barcode.qrCode(), data: '${w['waybill'] ?? ''}', width: 76, height: 76, drawText: false),
+                pw.SizedBox(height: 2),
+                pw.Text('SCAN ME', style: pw.TextStyle(font: bold, fontSize: 7, letterSpacing: 1.2)),
+              ]),
+              pw.SizedBox(width: 10),
+              pw.Expanded(
+                child: pw.Column(children: [
+                  pw.BarcodeWidget(barcode: pw.Barcode.code128(), data: '${w['waybill'] ?? ''}', height: 40, drawText: false),
+                  pw.SizedBox(height: 3),
+                  strong('${w['waybill'] ?? ''}', size: 13),
+                ]),
+              ),
             ])),
             box(pw.Row(children: [
               pw.Expanded(child: strong('${w['sort_code'] ?? ''}', size: 20)),

@@ -9,14 +9,12 @@ import 'package:share_plus/share_plus.dart';
 import '../services/api_client.dart';
 import 'buyer_kit.dart';
 
-/// The formats a report downloads in (the website's Download PDF / Export XLSX / Export CSV).
+/// The formats a report downloads in. Like the website, reports are PDF only.
 const reportFormats = [
   ('pdf', 'PDF', Icons.picture_as_pdf_outlined),
-  ('xlsx', 'Excel', Icons.grid_on_outlined),
-  ('csv', 'CSV', Icons.description_outlined),
 ];
 
-/// PDF / Excel / CSV buttons under a report.
+/// The Download PDF button under a report.
 class ReportDownloadButtons extends StatelessWidget {
   final bool busy;
   final ValueChanged<String> onDownload;

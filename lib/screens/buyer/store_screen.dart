@@ -116,7 +116,12 @@ class _StoreScreenState extends State<StoreScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(store['name'], style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: context.bc.text)),
                               Text(
-                                [if (store['location'] != null) store['location'], '${store['followers']} followers'].join(' · '),
+                                [
+                                  if (store['location'] != null) store['location'],
+                                  // The website's product count (all live products, not just this page).
+                                  if (store['product_count'] != null) '${store['product_count']} ${store['product_count'] == 1 ? 'product' : 'products'}',
+                                  '${store['followers']} followers',
+                                ].join(' · '),
                                 style: TextStyle(fontSize: 12, color: context.bc.muted),
                               ),
                               if (store['on_vacation'] == true)

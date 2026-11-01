@@ -75,8 +75,9 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
               aspectRatio: 1,
               child: Opacity(
                 opacity: outOfStock ? 0.5 : 1,
-                child: p['image_url'] != null
-                    ? NetImage(p['image_url'], fit: BoxFit.contain, errorBuilder: (_, __, ___) => const _NoImage())
+                // The small WebP copy for cards when the server has one (faster lists), else the full picture.
+                child: (p['thumb_url'] ?? p['image_url']) != null
+                    ? NetImage(p['thumb_url'] ?? p['image_url'], fit: BoxFit.contain, errorBuilder: (_, __, ___) => const _NoImage())
                     : const _NoImage(),
               ),
             ),

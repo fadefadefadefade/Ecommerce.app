@@ -5,6 +5,8 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/profile_kit.dart';
 import '../auth/login_screen.dart';
 import '../buyer/account/notifications_screen.dart';
+import '../buyer/account/policy_screens.dart';
+import '../buyer/account/security_screen.dart';
 import 'company_screens.dart';
 import 'hub_more_screens.dart';
 import 'hub_screens.dart';
@@ -139,7 +141,9 @@ class _MoreMenu extends StatelessWidget {
         (Icons.history, 'Activity Log', 'Everything your account changed', ActivityScreen()),
         (Icons.chat_bubble_outline, 'Messages', 'Riders, couriers, sellers and ALVY', LogisticsChatScreen()),
         (Icons.notifications_outlined, 'Notifications', 'Updates for your company', NotificationsScreen()),
-        (Icons.person_outline, 'Account', 'Name, email and password', LogisticsAccountScreen()),
+        (Icons.person_outline, 'Account', 'Name and email', LogisticsAccountScreen()),
+        (Icons.shield_outlined, 'Security', 'Change your password', SecurityScreen()),
+        (Icons.policy_outlined, 'Policies', 'Terms, privacy, prohibited items and more', PoliciesScreen()),
       ],
       footer: [
         const Divider(),

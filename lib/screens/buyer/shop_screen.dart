@@ -13,8 +13,10 @@ class ShopScreen extends StatefulWidget {
   final String? initialSearch;
   final String? categorySlug;
   final String? categoryName;
+  /// One subcategory of [categorySlug] (the website's ?sub=), e.g. from All Categories.
+  final String? subcategory;
 
-  const ShopScreen({super.key, this.initialSearch, this.categorySlug, this.categoryName});
+  const ShopScreen({super.key, this.initialSearch, this.categorySlug, this.categoryName, this.subcategory});
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -72,14 +74,14 @@ class _ShopScreenState extends State<ShopScreen> {
     if (!more) setState(() => loading = true);
 
     if (categorySlug != null) {
-      final r = await BuyerApi.category(categorySlug!, sort: sort.isEmpty ? null : sort);
+      final r = await BuyerApi.category(categorySlug!, sort: sort.isEmpty ? null : sort, sub: widget.subcategory);
       if (!mounted) return;
       setState(() {
         loading = false;
         error = r.ok ? null : r.message;
         if (!r.ok) return;
         products = r.body['data'];
-        categoryTitle = r.body['category']['name'];
+        categoryTitle = r.body['subcategory'] != null ? '${r.body['category']['name']} · ${r.body['subcategory']}' : r.body['category']['name'];
         page = last = 1;
         suggestion = null;
         notes = [];

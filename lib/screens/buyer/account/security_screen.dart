@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/api_client.dart';
 import '../../../services/buyer_api.dart';
+import '../../../services/logistics_api.dart';
 import '../../../services/rider_api.dart';
 import '../../../services/seller_api.dart';
 import '../../../widgets/buyer_kit.dart' show showResult, phoneFormatters;
@@ -43,7 +44,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
         ? await SellerApi.changePassword(_current.text, _new.text, _confirm.text, via: _via)
         : user?.isCourier == true
             ? await RiderApi.changePassword(_current.text, _new.text, _confirm.text, via: _via)
-            : await BuyerApi.changePassword(_current.text, _new.text, _confirm.text, via: _via);
+            : user?.isLogistics == true
+                // Logistics: the account save with only the password changing (name and email stay as they are).
+                ? await LogisticsApi.updateAccount({
+                    'name': user!.name, 'email': user.email,
+                    'current_password': _current.text, 'password': _new.text, 'password_confirmation': _confirm.text, 'code_via': _via,
+                  })
+                : await BuyerApi.changePassword(_current.text, _new.text, _confirm.text, via: _via);
     if (!mounted) return;
     setState(() => _saving = false);
     if (r.ok) {
@@ -194,8 +201,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
               ),
             ),
           ),
-          // Email / phone change with a code is on the buyer's security page; sellers and couriers change them on their account page.
-          if (user?.isSeller != true && user?.isCourier != true) ...[
+          // Email / phone change with a code is on the buyer's security page; sellers, couriers and logistics change them on their account page.
+          if (user?.isSeller != true && user?.isCourier != true && user?.isLogistics != true) ...[
             const SizedBox(height: 12),
             const _ContactChangeCard(),
           ],

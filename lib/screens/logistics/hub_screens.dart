@@ -234,6 +234,7 @@ class _SortingScreenState extends State<SortingScreen> {
   String? _error;
   bool _loading = true;
   final Map<int, int?> _chosen = {};
+  String _find = '';   // barangay search
 
   @override
   void initState() {
@@ -273,10 +274,35 @@ class _SortingScreenState extends State<SortingScreen> {
                 color: kOrange,
                 onRefresh: _load,
                 child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Text('Sorted today: ${d['sorted_today']}', style: TextStyle(color: c.muted)),
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 6, runSpacing: 6, children: [for (final a in areas) Pill('${a['name']}: ${a['sorted']}', color: const Color(0xFF2563EB))]),
-                  const SizedBox(height: 10),
+                  // The website's summary: what to sort, what was sorted, what waits for riders, busy barangays.
+                  StatGrid([
+                    StatTile(label: 'Waiting to sort', value: '${asList(d['pending']).length}', icon: Icons.inbox_outlined, color: kOrange),
+                    StatTile(label: 'Sorted today', value: '${d['sorted_today'] ?? 0}', icon: Icons.check_circle_outline, color: const Color(0xFF15803D)),
+                    StatTile(label: 'Ready for riders', value: '${areas.fold<int>(0, (n, a) => n + asInt(a['sorted']))}', icon: Icons.sort, color: const Color(0xFF2563EB)),
+                    StatTile(label: 'Barangays with parcels', value: '${areas.where((a) => asInt(a['sorted']) > 0).length} / ${areas.length}', icon: Icons.place_outlined, color: const Color(0xFF6D4AA5)),
+                  ]),
+                  const SizedBox(height: 12),
+                  // Ready for riders, per barangay (busiest first), with the website's "Find a barangay".
+                  if (areas.isNotEmpty) ...[
+                    TextField(
+                      decoration: const InputDecoration(hintText: 'Find a barangay…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+                      onChanged: (v) => setState(() => _find = v.trim().toLowerCase()),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final a in [...areas]..sort((x, y) => asInt(y['sorted']).compareTo(asInt(x['sorted']))))
+                        if (_find.isEmpty || '${a['name']}'.toLowerCase().contains(_find))
+                          Pill('${a['name']}: ${a['sorted']}', color: asInt(a['sorted']) > 0 ? const Color(0xFF2563EB) : c.muted),
+                    ]),
+                    const SizedBox(height: 14),
+                  ],
+                  Row(children: [
+                    Text('Sorting queue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.text)),
+                    const SizedBox(width: 8),
+                    Pill('${asList(d['pending']).length} ${asList(d['pending']).length == 1 ? 'parcel' : 'parcels'}',
+                        color: asList(d['pending']).isEmpty ? const Color(0xFF15803D) : kOrange),
+                  ]),
+                  const SizedBox(height: 8),
                   if (asList(d['pending']).isEmpty) const EmptyNote(Icons.sort, 'No parcels waiting to be sorted.'),
                   for (final p in asList(d['pending']))
                     ParcelCard(
@@ -344,15 +370,16 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
         child: ListView(scrollDirection: Axis.horizontal, children: [
           Padding(
             padding: const EdgeInsets.only(right: 6, bottom: 6),
-            child: ChoiceChip(label: const Text('All areas'), selected: _area == null, onSelected: (_) {
+            child: ChoiceChip(label: Text('All areas (${body['waiting_total'] ?? 0})'), selected: _area == null, onSelected: (_) {
               _area = null;
               reload();
             }),
           ),
-          for (final a in asList(body['areas']))
+          // Like the website: parcels waiting in each barangay, the busiest first.
+          for (final a in [...asList(body['areas'])]..sort((x, y) => asInt(y['waiting']).compareTo(asInt(x['waiting']))))
             Padding(
               padding: const EdgeInsets.only(right: 6, bottom: 6),
-              child: ChoiceChip(label: Text('${a['name']}'), selected: _area == asInt(a['id']), onSelected: (_) {
+              child: ChoiceChip(label: Text('${a['name']} (${a['waiting'] ?? 0})'), selected: _area == asInt(a['id']), onSelected: (_) {
                 _area = asInt(a['id']);
                 reload();
               }),

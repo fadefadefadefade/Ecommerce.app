@@ -15,7 +15,8 @@ class BuyerApi {
   static Future<ApiResponse> assistantReset() => ApiClient.post('/assistant/reset');
   static Future<ApiResponse> shop(Map<String, dynamic> query) => ApiClient.get('/shop', query: query);
   static Future<ApiResponse> categories() => ApiClient.get('/categories');
-  static Future<ApiResponse> category(String slug, {String? sort}) => ApiClient.get('/categories/$slug', query: {'sort': sort});
+  static Future<ApiResponse> category(String slug, {String? sort, String? sub}) =>
+      ApiClient.get('/categories/$slug', query: {'sort': sort, if (sub != null) 'sub': sub});
   static Future<ApiResponse> product(String slugOrId) => ApiClient.get('/products/${productSlug(slugOrId)}');
   static Future<ApiResponse> store(int sellerId, Map<String, dynamic> query) => ApiClient.get('/stores/$sellerId', query: query);
   static Future<ApiResponse> policy(String key) => ApiClient.get('/policies/$key');
@@ -104,6 +105,9 @@ class BuyerApi {
       ApiClient.post('/wishlist/$productId', {if (on != null) 'state': on ? 'on' : 'off'});
   static Future<ApiResponse> vouchers() => ApiClient.get('/vouchers');
   static Future<ApiResponse> claimVoucher(int id) => ApiClient.post('/vouchers/$id/claim');
+  /// Every claimable voucher of a Voucher Center tab ("all" = every tab), like the website's Claim all.
+  static Future<ApiResponse> claimAllVouchers({String tab = 'all'}) =>
+      ApiClient.post('/vouchers/claim-all', tab == 'all' ? {} : {'tab': tab});
   static Future<ApiResponse> following() => ApiClient.get('/following');
   static Future<ApiResponse> toggleFollow(int sellerId) => ApiClient.post('/stores/$sellerId/follow');
   static Future<ApiResponse> remindFlashSale(int flashSaleId) => ApiClient.post('/flash-sales/$flashSaleId/remind');

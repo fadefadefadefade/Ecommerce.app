@@ -9,8 +9,10 @@ import 'account/my_orders_screen.dart';
 import 'account/notifications_screen.dart';
 import 'account/security_screen.dart';
 import 'account/settings_screen.dart';
+import 'account/policy_screens.dart';
 import 'account/collections_screens.dart';
 import 'chat_screen.dart';
+import '../auth/register_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -98,6 +100,25 @@ class ProfileScreen extends StatelessWidget {
             label: 'Settings',
             color: context.bc.muted,
             onTap: () => _push(context, const SettingsScreen()),
+          ),
+          ProfileAction(
+            icon: Icons.policy_outlined,
+            label: 'Policies',
+            color: const Color(0xFF4A7A94),
+            onTap: () => _push(context, const PoliciesScreen()),
+          ),
+          // The website's "Become a seller / courier": apply from this account (reviewed before it changes).
+          ProfileAction(
+            icon: Icons.add_business_outlined,
+            label: 'Become a seller',
+            color: const Color(0xFFfa4e1c),
+            onTap: () => _push(context, const RegisterScreen(initialRole: 'seller', apply: true)),
+          ),
+          ProfileAction(
+            icon: Icons.two_wheeler,
+            label: 'Become a courier',
+            color: const Color(0xFF0F766E),
+            onTap: () => _push(context, const RegisterScreen(initialRole: 'courier', apply: true)),
           ),
           ProfileAction.logout(context),
         ]),
