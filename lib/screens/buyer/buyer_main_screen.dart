@@ -9,8 +9,13 @@ import 'home_screen.dart';
 import 'shop_screen.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
+import 'chat_screen.dart';
+import 'account/notifications_screen.dart';
+import '../../widgets/buyer_web_header.dart';
+import '../../widgets/responsive.dart';
 
-/// Bottom-nav shell for buyers, same layout as SellerMainScreen.
+/// Bottom-nav shell for buyers, same layout as SellerMainScreen. On a tablet it also has the website's
+/// header (BuyerWebHeader: search, messages, notifications, cart, account) and keeps the pages at the website's width.
 class BuyerMainScreen extends StatefulWidget {
   final int initialIndex;
 
@@ -83,7 +88,20 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
           );
         }
 
+        final wide = Responsive.isWide(context);
+        void push(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
         return Scaffold(
+          appBar: wide
+              ? BuyerWebHeader(
+                  currentTab: _currentIndex,
+                  cartCount: _cartCount,
+                  onTab: goTo,
+                  onMessages: () => push(const ChatListScreen()),
+                  onNotifications: () => push(const NotificationsScreen()),
+                  onSearch: (q) => push(ShopScreen(initialSearch: q)),
+                  accountName: authProvider.user?.name,
+                )
+              : null,
           // The website's ALVY Assistant bubble, on Home and Shop.
           floatingActionButton: _currentIndex <= 1
               ? FloatingActionButton(
@@ -93,7 +111,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
                   child: const Icon(Icons.support_agent),
                 )
               : null,
-          body: IndexedStack(
+          body: (wide ? (Widget w) => WebWidth(child: w) : (Widget w) => w)(IndexedStack(
             index: _currentIndex,
             children: [
               const BuyerHomeScreen(),
@@ -105,7 +123,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
               ),
               const ProfileScreen(),
             ],
-          ),
+          )),
           bottomNavigationBar: DecoratedBox(
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: context.bc.border)),

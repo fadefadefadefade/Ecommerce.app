@@ -175,8 +175,15 @@ class ApiClient {
     final response = ApiResponse(broken ? 0 : res.statusCode, body, broken: broken);
     if (response.unauthorized && (await token()) != null) {
       await clearToken();
-      onUnauthorized?.call('Your session expired. Please log in again.');
+      onUnauthorized?.call(signedOutMessage(response));
     }
     return response;
+  }
+
+  /// Why the login ended: the server's reason when it gives one (e.g. "signed out after a week"),
+  /// else a plain "session expired".
+  static String signedOutMessage(ApiResponse r) {
+    final m = r.body['message'];
+    return m is String && m.isNotEmpty && m != 'Unauthenticated.' ? m : 'Your session expired. Please log in again.';
   }
 }

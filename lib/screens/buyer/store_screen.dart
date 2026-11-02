@@ -1,3 +1,4 @@
+import '../../widgets/responsive.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/buyer_api.dart';
@@ -173,8 +174,8 @@ class _StoreScreenState extends State<StoreScreen> {
                   if (products.isEmpty)
                     Padding(padding: const EdgeInsets.all(32), child: Center(child: Text('No products here yet.', style: TextStyle(color: context.bc.muted))))
                   else
-                    GridView.count(
-                      crossAxisCount: 2,
+                    GridView.extent(
+                      maxCrossAxisExtent: Responsive.productTileMaxFor(context),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       childAspectRatio: 0.56,

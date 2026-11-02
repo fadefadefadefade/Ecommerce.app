@@ -1,3 +1,4 @@
+import '../../widgets/responsive.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/buyer_api.dart';
@@ -82,14 +83,58 @@ class _CartScreenState extends State<CartScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => CheckoutScreen(items: selected.toList()))).then((_) => _load());
   }
 
+  /// Tablet: the website's Order Summary card next to the cart lines.
+  Widget _summaryCard() {
+    final c = context.bc;
+    return SizedBox(
+      width: 320,
+      child: Card(
+        margin: const EdgeInsets.fromLTRB(0, 12, 12, 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Text('Order Summary', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: c.text)),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: Text('Selected items', style: TextStyle(color: c.muted))),
+              Text('${selected.length} of ${_lines.length}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+            ]),
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(child: Text('Subtotal', style: TextStyle(color: c.muted))),
+              Text(peso(_total), style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+            ]),
+            const SizedBox(height: 4),
+            Text('Shipping and vouchers are added at checkout.', style: TextStyle(fontSize: 12, color: c.muted)),
+            const Divider(height: 24),
+            Row(children: [
+              Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+              Text(peso(_total), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kOrange)),
+            ]),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: selected.isEmpty || busy ? null : _checkout,
+              style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48)),
+              child: Text('Check Out (${selected.length})'),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final wide = Responsive.isWide(context);
     return Scaffold(
       backgroundColor: context.bc.background,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text('Shopping Cart (${_lines.length})'),
-      ),
+      // Tablet: the web header is already on top, so the title sits in the page (no second bar).
+      appBar: wide
+          ? null
+          : AppBar(
+              automaticallyImplyLeading: false,
+              title: Text('Shopping Cart (${_lines.length})'),
+            ),
       body: LoadState(
         loading: loading,
         error: error,
@@ -112,10 +157,26 @@ class _CartScreenState extends State<CartScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [for (final s in stores) _store(Map.from(s))]),
+                child: wide
+                    ? WebWidth(
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(
+                            child: ListView(padding: const EdgeInsets.all(12), children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+                                child: Text('Shopping Cart (${_lines.length})',
+                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: context.bc.text)),
+                              ),
+                              for (final s in stores) _store(Map.from(s)),
+                            ]),
+                          ),
+                          _summaryCard(),
+                        ]),
+                      )
+                    : ListView(padding: const EdgeInsets.all(12), children: [for (final s in stores) _store(Map.from(s))]),
               ),
       ),
-      bottomNavigationBar: stores.isEmpty
+      bottomNavigationBar: stores.isEmpty || wide
           ? null
           : SafeArea(
               child: Container(

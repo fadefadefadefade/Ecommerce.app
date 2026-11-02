@@ -58,8 +58,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => loading = true);
+  /// [quiet]: after a quantity change, the page stays on screen while it reloads.
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) setState(() => loading = true);
     final r = await BuyerApi.checkout(items: widget.items, buyNow: widget.buyNow, addressId: addressId);
     if (!mounted) return;
     setState(() {
@@ -81,6 +82,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     });
   }
+
+  bool _qtyBusy = false;
+
+  /// − / + on an item: the cart line (or the Buy now item) gets the new quantity, then the page and its
+  /// totals are worked out again by the web, keeping the vouchers the buyer picked.
+  Future<void> _setQty(Map l, int qty) async {
+    setState(() => _qtyBusy = true);
+    final r = widget.buyNow
+        ? await BuyerApi.addToCart(l['product']['id'], quantity: qty, variationId: l['variation']?['id'], buyNow: true)
+        : await BuyerApi.updateCart(l['id'], qty);
+    if (!mounted) return;
+    if (!r.ok) {
+      setState(() => _qtyBusy = false);
+      return showResult(context, r);
+    }
+    final picked = (platform, shipping, Map<String, String>.from(sellers));
+    await _load(quiet: true);
+    if (!mounted) return;
+    setState(() => _qtyBusy = false);
+    if (page == null) return;
+    platform = picked.$1;
+    shipping = picked.$2;
+    sellers = picked.$3;
+    await _preview();
+  }
+
+  Widget _qtyButton(IconData icon, VoidCallback? onTap) => SizedBox(
+        width: 30,
+        height: 30,
+        child: OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(padding: EdgeInsets.zero), child: Icon(icon, size: 16)),
+      );
 
   /// Placing leaves out a typed code that already failed on Apply (it would only fail again).
   Map<String, dynamic> _voucherBody({bool typed = true}) => {
@@ -326,8 +358,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(l['product']?['title'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text('${l['variation'] != null ? '${l['variation']['name']} · ' : ''}${peso(l['unit_price'])} × ${l['quantity']}',
+                  Text('${l['variation'] != null ? '${l['variation']['name']} · ' : ''}${peso(l['unit_price'])}',
                       style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                  const SizedBox(height: 4),
+                  Builder(builder: (_) {
+                    final qty = asNum(l['quantity']).toInt();
+                    final stock = asNum(l['stock']).toInt();
+                    return Row(children: [
+                      _qtyButton(Icons.remove, qty > 1 && !_qtyBusy && !placing ? () => _setQty(l, qty - 1) : null),
+                      Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('$qty', style: const TextStyle(fontWeight: FontWeight.w700))),
+                      _qtyButton(Icons.add, qty < stock && !_qtyBusy && !placing ? () => _setQty(l, qty + 1) : null),
+                    ]);
+                  }),
                 ]),
               ),
               Text(peso(l['subtotal'])),

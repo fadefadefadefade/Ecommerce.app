@@ -31,10 +31,13 @@ class SellerMainScreenState extends State<SellerMainScreen> {
   // Opening a tab loads it fresh, like opening the page on the website.
   final Map<int, int> _opened = {};
 
-  void goTo(int index) => setState(() {
-        if (index != _currentIndex) _opened[index] = (_opened[index] ?? 0) + 1;
-        _currentIndex = index;
-      });
+  void goTo(int index) {
+    setState(() {
+      if (index != _currentIndex) _opened[index] = (_opened[index] ?? 0) + 1;
+      _currentIndex = index;
+    });
+  }
+
   bool _redirecting = false;
 
   static const List<Widget> _screens = [

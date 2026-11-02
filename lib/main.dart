@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, auth, theme, _) => MaterialApp(
-          title: 'ALVYSHOP',
+          title: 'ALVY Shop',
           debugShowCheckedModeBanner: false,
           theme: Alvy.light(),
           darkTheme: Alvy.dark(),

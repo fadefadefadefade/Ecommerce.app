@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/buyer_colors.dart';
+import 'responsive.dart';
 
 // Shared profile layout (header card, info card, action grid) used by the
 // buyer, seller and logistics profile screens so they all look the same.
@@ -191,12 +192,20 @@ class ProfileActionGrid extends StatelessWidget {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
+      // Phones: 3 per row. Tablets: small tiles, as many per row as fit (3 per row there would make each tile huge).
+      gridDelegate: Responsive.isWide(context)
+          ? const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 160,
+              childAspectRatio: 1.1,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            )
+          : const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 1,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
       itemCount: actions.length,
       itemBuilder: (context, index) {
         final action = actions[index];

@@ -43,14 +43,14 @@ flutter {
     source = "../.."
 }
 
-// Every release build is also saved as ALVYSHOP.apk, next to Flutter's app-release.apk
+// Every release build is also saved as "ALVY Shop.apk", next to Flutter's app-release.apk
 // (build/app/outputs/flutter-apk/), ready to share or upload.
 val copyAlvyShopApk = tasks.register("copyAlvyShopApk") {
     doLast {
         val dir = layout.buildDirectory.dir("outputs/flutter-apk").get().asFile
         val apk = File(dir, "app-release.apk")
         if (apk.exists()) {
-            apk.copyTo(File(dir, "ALVYSHOP.apk"), overwrite = true)
+            apk.copyTo(File(dir, "ALVY Shop.apk"), overwrite = true)
         }
     }
 }

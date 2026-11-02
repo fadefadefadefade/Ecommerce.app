@@ -14,6 +14,7 @@ import '../screens/seller/panel/panel_screens.dart';
 import '../screens/logistics/logistics_main_screen.dart';
 import '../screens/courier/courier_main_screen.dart';
 import '../screens/courier/courier_screens.dart';
+import '../screens/auth/login_screen.dart';
 
 /// What a sign-in, code or sign-up step answered (the web's rules and messages).
 class AuthResult {
@@ -78,9 +79,9 @@ class AuthProvider with ChangeNotifier {
         if (res.ok) {
           await _setUser(User.fromJson(res.body['user']));
         } else if (res.unauthorized) {
-          // e.g. the app was closed for more than 30 minutes (A22).
+          // The login ended, e.g. a week after signing in (like the website).
           await _storage.delete(key: 'user_data');
-          _notice = 'Your session expired. Please log in again.';
+          _notice = ApiClient.signedOutMessage(res);
         } else if (res.status == 0) {
           // Offline: keep the saved account so the app still opens.
           final saved = await _storage.read(key: 'user_data');
@@ -140,6 +141,16 @@ class AuthProvider with ChangeNotifier {
 
   Future<AuthResult> _finish(ApiResponse res) async {
     final result = AuthResult.from(res);
+    // Admins work on the website only: end the new session at once and stay on the login screen with the message.
+    final u = res.body['user'];
+    if (result.ok && res.body['token'] != null && u is Map && (u['role'] == 'admin' || u['home'] == 'admin')) {
+      await ApiClient.saveToken(res.body['token']);
+      try {
+        await ApiClient.post('/auth/logout');
+      } catch (_) {}
+      await ApiClient.clearToken();
+      return const AuthResult('error', adminOnWebsite);
+    }
     if (result.ok && res.body['token'] != null) {
       await ApiClient.saveToken(res.body['token']);
       await _setUser(User.fromJson(res.body['user']));
@@ -178,7 +189,7 @@ class AuthProvider with ChangeNotifier {
         return _buildStatusScreen(
           icon: Icons.admin_panel_settings,
           title: 'Admin',
-          body: 'The ALVY admin panel is on the website.\nPlease sign in at the website to continue.',
+          body: adminOnWebsite,
         );
       default:
         return _buildStatusScreen(
@@ -189,7 +200,29 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  static const adminOnWebsite = 'The ALVY admin panel is on the website.\nPlease sign in at alvy.trade to continue.';
+
+  /// An account the app can't open (e.g. an admin signed in by an older version). Logout or Back signs out
+  /// and returns to the login screen.
   Widget _buildStatusScreen({required IconData icon, required String title, required String body}) {
+    return Builder(builder: (context) {
+      Future<void> leave() async {
+        final nav = Navigator.of(context);
+        await logout();
+        nav.pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+      }
+
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) leave();
+        },
+        child: _statusBody(icon: icon, title: title, body: body, onLogout: leave),
+      );
+    });
+  }
+
+  Widget _statusBody({required IconData icon, required String title, required String body, required VoidCallback onLogout}) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: Center(
@@ -212,7 +245,7 @@ class AuthProvider with ChangeNotifier {
               Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: Color(0xFF6b90aa))),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: logout,
+                onPressed: onLogout,
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFfa4e1c), foregroundColor: Colors.white),
                 child: const Text('Logout'),
               ),

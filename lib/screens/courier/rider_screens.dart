@@ -11,6 +11,7 @@ import '../../services/api_client.dart';
 import '../../services/rider_api.dart';
 import '../../theme/buyer_colors.dart';
 import '../../widgets/net_image.dart';
+import '../../widgets/responsive.dart';
 import '../seller/seller_kit.dart';
 
 /// The web's Hub Jobs (courier.rider): Online / Offline, job offers with a countdown, and the active
@@ -124,7 +125,7 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
     final online = rider['online'] == true;
     final suspended = rider['suspended'] == true;
 
-    return ListView(padding: const EdgeInsets.all(12), children: [
+    final top = <Widget>[
       Text('${rider['company']} · ${rider['full_name']}', style: TextStyle(color: c.muted)),
       const SizedBox(height: 8),
       SectionCard(
@@ -153,6 +154,8 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
                 ),
         ]),
       ),
+    ];
+    final offersPart = <Widget>[
       Text('Offers', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
       const SizedBox(height: 6),
       if (offers.isEmpty)
@@ -163,7 +166,8 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
           ]),
         ),
       for (final o in offers) _offer(o),
-      const SizedBox(height: 8),
+    ];
+    final jobsPart = <Widget>[
       Text('Active jobs', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
       const SizedBox(height: 6),
       if (pickups.isEmpty && deliveries.isEmpty && returns.isEmpty)
@@ -228,6 +232,25 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
             trailing: Pill('${x['status_label']}', color: x['status'] == 'delivered' ? const Color(0xFF15803D) : const Color(0xFFDC2626)),
           ),
       ],
+    ];
+
+    // Tablet: offers on the left, active jobs and recent deliveries on the right. Phones: one list.
+    if (Responsive.isWide(context)) {
+      Widget column(List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+      return ListView(padding: const EdgeInsets.all(12), children: [
+        ...top,
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(flex: 2, child: column(offersPart)),
+          const SizedBox(width: 16),
+          Expanded(flex: 3, child: column(jobsPart)),
+        ]),
+      ]);
+    }
+    return ListView(padding: const EdgeInsets.all(12), children: [
+      ...top,
+      ...offersPart,
+      const SizedBox(height: 8),
+      ...jobsPart,
     ]);
   }
 

@@ -72,26 +72,32 @@ class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
   }
 }
 
+/// A portal menu (Hub, Riders, More): icons with the label under them (3 per row on phones, small tiles on tablets).
 class _Menu extends StatelessWidget {
   final String title;
   final List<(IconData, String, String, Widget)> items;
-  final List<Widget> footer;
-  const _Menu(this.title, this.items, {this.footer = const []});
+  /// A Log out tile at the end (More).
+  final bool logout;
+  const _Menu(this.title, this.items, {this.logout = false});
+
+  static const _colors = [
+    Color(0xFFFA4E1C), Color(0xFF2563EB), Color(0xFF059669), Color(0xFF9333EA), Color(0xFFF59E0B),
+    Color(0xFF0EA5E9), Color(0xFFDC2626), Color(0xFF0F766E), Color(0xFF4A7A94),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final tiles = <(IconData, String, Color, VoidCallback)>[
+      for (var i = 0; i < items.length; i++)
+        (items[i].$1, items[i].$2, _colors[i % _colors.length], () => Navigator.push(context, MaterialPageRoute(builder: (_) => items[i].$4))),
+      if (logout) (Icons.logout, 'Log out', const Color(0xFFDC2626), () => confirmLogout(context)),
+    ];
     return Scaffold(
       appBar: AppBar(title: Text(title), foregroundColor: Colors.white),
-      body: ListView(children: [
-        for (final it in items)
-          ListTile(
-            leading: Icon(it.$1, color: const Color(0xFFFA4E1C)),
-            title: Text(it.$2, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(it.$3),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => it.$4)),
-          ),
-        ...footer,
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        ProfileActionGrid(actions: [
+          for (final (icon, label, color, onTap) in tiles) ProfileAction(icon: icon, label: label, color: color, onTap: onTap),
+        ]),
       ]),
     );
   }
@@ -145,14 +151,7 @@ class _MoreMenu extends StatelessWidget {
         (Icons.shield_outlined, 'Security', 'Change your password', SecurityScreen()),
         (Icons.policy_outlined, 'Policies', 'Terms, privacy, prohibited items and more', PoliciesScreen()),
       ],
-      footer: [
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.logout, color: Color(0xFFDC2626)),
-          title: const Text('Log out', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
-          onTap: () => confirmLogout(context),
-        ),
-      ],
+      logout: true,
     );
   }
 }

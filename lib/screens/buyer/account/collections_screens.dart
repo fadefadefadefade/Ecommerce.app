@@ -1,3 +1,4 @@
+import '../../../widgets/responsive.dart';
 import 'package:flutter/material.dart';
 import '../../../widgets/voucher_ticket.dart';
 
@@ -54,9 +55,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
               ? ListView(children: [
                   Padding(padding: const EdgeInsets.all(48), child: Center(child: Text('Your wishlist is empty.', style: TextStyle(color: context.bc.muted)))),
                 ])
-              : GridView.count(
+              : GridView.extent(
                   padding: const EdgeInsets.all(12),
-                  crossAxisCount: 2,
+                  maxCrossAxisExtent: Responsive.productTileMaxFor(context),
                   childAspectRatio: 0.56,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,

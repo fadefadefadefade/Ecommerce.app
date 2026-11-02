@@ -1,3 +1,4 @@
+import '../../widgets/responsive.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -201,7 +202,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         onRetry: _load,
         child: p == null ? const SizedBox() : _body(),
       ),
-      bottomNavigationBar: p == null ? null : _buyBar(),
+      // Tablet: the buttons sit under the quantity, like the website.
+      bottomNavigationBar: p == null || Responsive.isWide(context) ? null : _buyBar(),
     );
   }
 
@@ -211,13 +213,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     final price = v != null ? v['price'] : p!['price'];
     final flash = p!['flash'];
     final upcoming = p!['upcoming'];
+    final wide = Responsive.isWide(context);   // tablet: the website's product page
 
-    return RefreshIndicator(
-      color: kOrange,
-      onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
-        // Photos
-        Container(
+    // Photos
+    final gallery = Container(
           color: Colors.white,
           child: Column(children: [
             AspectRatio(
@@ -239,19 +238,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     style: TextStyle(color: context.bc.muted, fontSize: 12)),
               ),
           ]),
-        ),
-        Padding(
+    );
+
+    final info = Padding(
           padding: const EdgeInsets.all(12),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (asMap(p!['details'])['Category'] != null)
-              Text(asMap(p!['details'])['Category'],
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFF6B90AA))),
+              Text(wide ? '${asMap(p!['details'])['Category']}'.toUpperCase() : asMap(p!['details'])['Category'],
+                  style: wide
+                      ? const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Color(0xFF6B90AA))
+                      : const TextStyle(fontSize: 12, color: Color(0xFF6B90AA))),
+            // Tablet: the website's big product name.
             Text(p!['title'],
                 style: TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
+                    fontSize: wide ? 28 : 19,
+                    fontWeight: wide ? FontWeight.w900 : FontWeight.w700,
+                    height: wide ? 1.2 : null,
                     color: context.bc.text)),
             const SizedBox(height: 6),
             Row(children: [
@@ -267,9 +270,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ]),
             const SizedBox(height: 12),
 
-            // Price
-            SectionCard(
-              child: Column(
+            // Price (tablet: on the page like the website, with "In stock · N available"; phone: in a card)
+            (wide
+                ? (Widget w) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        w,
+                        const SizedBox(height: 6),
+                        Builder(builder: (_) {
+                          final n = v != null ? asNum(v['stock']).toInt() : asNum(p!['stock']).toInt();
+                          return Row(children: [
+                            Icon(Icons.circle, size: 9, color: n > 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+                            const SizedBox(width: 6),
+                            Text(n > 0 ? 'In stock' : 'Out of stock', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.text)),
+                            if (n > 0) Text('  ·  $n available', style: TextStyle(color: context.bc.muted)),
+                          ]);
+                        }),
+                        const Divider(height: 28),
+                      ]),
+                    )
+                : (Widget w) => SectionCard(child: w))(
+              Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (flash != null) _flashBanner(flash),
@@ -278,8 +299,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         v == null && p!['price_range'] != null
                             ? '${peso(p!['price_range'][0])} – ${peso(p!['price_range'][1])}'
                             : peso(price),
-                        style: const TextStyle(
-                            fontSize: 24,
+                        style: TextStyle(
+                            fontSize: wide ? 30 : 24,
                             fontWeight: FontWeight.w800,
                             color: kOrange),
                       ),
@@ -307,6 +328,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
             // Options + quantity
             if (hasOptions) _options(),
+            // Tablet: the website's quantity box with Wishlist beside it, then Add to cart / Buy now right here.
+            if (wide) ...[
+              Text('Quantity', style: TextStyle(color: context.bc.text, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Container(
+                  decoration: BoxDecoration(border: Border.all(color: context.bc.border), borderRadius: BorderRadius.circular(10), color: context.bc.surface),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(onPressed: quantity > 1 ? () => setState(() => quantity--) : null, icon: const Icon(Icons.remove, size: 18)),
+                    SizedBox(width: 36, child: Text('$quantity', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+                    IconButton(onPressed: quantity < maxQty ? () => setState(() => quantity++) : null, icon: const Icon(Icons.add, size: 18)),
+                  ]),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _toggleWish,
+                  icon: Icon(p!['wished'] == true ? Icons.favorite : Icons.favorite_border, size: 18, color: p!['wished'] == true ? kOrange : null),
+                  label: const Text('Wishlist'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48), foregroundColor: context.bc.text),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              _buyButtons(),
+              const SizedBox(height: 14),
+            ] else
             SectionCard(
               child: Row(children: [
                 Text('Quantity',
@@ -481,8 +527,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         fontWeight: FontWeight.w700,
                         color: context.bc.text)),
               ),
-              GridView.count(
-                crossAxisCount: 2,
+              GridView.extent(
+                maxCrossAxisExtent: Responsive.productTileMaxFor(context),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 childAspectRatio: 0.56,
@@ -495,8 +541,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               ),
             ],
           ]),
-        ),
-      ]),
+        );
+
+    return RefreshIndicator(
+      color: kOrange,
+      onRefresh: _load,
+      // Tablet: the website's product page, photos on the left and the details on the right.
+      child: Responsive.isWide(context)
+          ? ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+              // The website's breadcrumb: Home / Category / Product.
+              WebWidth(
+                child: Container(
+                  width: double.infinity,   // on the left, like the website
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  child: Text.rich(
+                    TextSpan(style: TextStyle(fontSize: 13, color: context.bc.muted), children: [
+                      const TextSpan(text: 'Home  /  '),
+                      if (asMap(p!['details'])['Category'] != null) TextSpan(text: '${asMap(p!['details'])['Category']}  /  '),
+                      TextSpan(text: '${p!['title']}', style: TextStyle(color: context.bc.text, fontWeight: FontWeight.w600)),
+                    ]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              WebWidth(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  SizedBox(
+                    width: (MediaQuery.sizeOf(context).width.clamp(0, Responsive.maxContent) * 0.42).toDouble(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(12), child: gallery),
+                    ),
+                  ),
+                  Expanded(child: info),
+                ]),
+              ),
+            ])
+          : ListView(padding: const EdgeInsets.only(bottom: 24), children: [gallery, info]),
     );
   }
 
@@ -688,6 +770,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         decoration: BoxDecoration(
             color: context.bc.surface,
             border: Border(top: BorderSide(color: context.bc.border))),
+        child: _buyButtons(label, optionMissing, optionOut),
+      ),
+    );
+  }
+
+  /// Add to Cart / Buy Now (or why it can't be bought): the phone's bottom bar, the tablet's page (website).
+  Widget _buyButtons([String? label, bool? missing, bool? out]) {
+    final v = variation;
+    final optionMissing = missing ?? (hasOptions && v == null);
+    final optionOut = out ?? (v != null && asNum(v['stock']) <= 0);
+    label ??= p!['on_vacation'] == true ? 'Store on vacation' : (p!['can_buy'] != true ? 'Sold out' : null);
+    return Container(
         child: label != null
             ? SizedBox(
                 height: 46,
@@ -729,7 +823,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ),
                 ),
               ]),
-      ),
     );
   }
 }

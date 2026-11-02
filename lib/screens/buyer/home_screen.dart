@@ -1,4 +1,6 @@
+import '../../widgets/responsive.dart';
 import 'all_categories_screen.dart';
+import '../../widgets/web_banner_carousel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -93,6 +95,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
           onRefresh: _load,
           child: CustomScrollView(slivers: [
             // The website's header: navy, the logo, quick links, and the white search bar with the orange button.
+            // (On a tablet the main screen shows the full web header instead.)
+            if (!Responsive.isWide(context))
             SliverAppBar(
               pinned: true,
               automaticallyImplyLeading: false,
@@ -136,7 +140,24 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
                 ),
               ),
             ),
-            SliverToBoxAdapter(child: _hero(first)),
+            // Tablet: the website's photo banner (the phone keeps the orange card).
+            SliverToBoxAdapter(
+              child: Responsive.isWide(context)
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                      child: WebBannerCarousel(
+                        onShop: (s) => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => s.categorySlug == null
+                                ? const AllCategoriesScreen()
+                                : ShopScreen(categorySlug: s.categorySlug, categoryName: s.categoryName),
+                          ),
+                        ),
+                      ),
+                    )
+                  : _hero(first),
+            ),
             SliverToBoxAdapter(child: _perks()),
             if (categories.isNotEmpty) ...[
               // "See all" opens the website's All Categories page.
@@ -225,8 +246,45 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
     );
   }
 
+  /// Tablet: the website's category row, round photos with the name under each (no card around it).
+  Widget _categoryCircles() {
+    final c = context.bc;
+    return SizedBox(
+      height: 138,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        itemBuilder: (_, i) {
+          final cat = categories[i];
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen(categorySlug: cat['slug'], categoryName: cat['name']))),
+            child: SizedBox(
+              width: 116,
+              child: Column(children: [
+                const SizedBox(height: 6),
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: Alvy.orangeSoft, border: Border.all(color: c.border, width: 3)),
+                  clipBehavior: Clip.antiAlias,
+                  child: NetImage(cat['image_url'], fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.category_outlined, color: kOrange)),
+                ),
+                const SizedBox(height: 8),
+                Text(cat['name'], maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.text)),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _categoryGrid() {
     final c = context.bc;
+    if (Responsive.isWide(context)) return _categoryCircles();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
@@ -289,8 +347,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh {
         )
       : SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          sliver: SliverGrid.count(
-            crossAxisCount: 2,
+          sliver: SliverGrid.extent(
+            maxCrossAxisExtent: Responsive.productTileMaxFor(context),
             childAspectRatio: 0.56,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
