@@ -71,6 +71,9 @@ class BuyerApi {
   static Future<ApiResponse> received(int id) => ApiClient.post('/orders/$id/received');
   static Future<ApiResponse> escalate(int id, String note) => ApiClient.post('/orders/$id/escalate', {'dispute_note': note});
   static Future<ApiResponse> pay(int id) => ApiClient.post('/orders/$id/pay');
+  /// A rejected GCash payment: the right receipt screenshot and its 13-number Ref No.
+  static Future<ApiResponse> gcashResubmit(int id, String reference, String receiptPath) =>
+      ApiClient.multipart('/orders/$id/gcash-receipt', {'payment_reference': reference}, files: {'payment_proof': receiptPath});
   static Future<ApiResponse> requestReturn(int id, Map<String, String> fields, List<String> photos) => ApiClient.multipart(
       '/orders/$id/return', fields, files: {for (var i = 0; i < photos.length; i++) 'evidence_photos[$i]': photos[i]});
   static Future<ApiResponse> review(int itemId, Map<String, String> fields, List<String> photos) => ApiClient.multipart(

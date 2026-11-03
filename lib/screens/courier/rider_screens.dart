@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_client.dart';
 import '../../services/rider_api.dart';
@@ -564,6 +565,23 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
         child: Column(children: [
           row('Buyer', '${d['receiver']} · ${d['phone'] ?? ''}'),
           row('Address', '${d['address'] ?? ''}'),
+          // Google Maps: to the pin the buyer dropped on their address, or a search for the written address.
+          if (d['maps_url'] != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 120, bottom: 4),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  OutlinedButton.icon(
+                    onPressed: () => launchUrl(Uri.parse('${d['maps_url']}'), mode: LaunchMode.externalApplication),
+                    icon: const Icon(Icons.directions, size: 18),
+                    label: Text(d['has_pin'] == true ? "Directions to the buyer's pin" : 'Find the address in Maps'),
+                  ),
+                  if (d['has_pin'] != true)
+                    Text("The buyer didn't pin this address on the map; call them if you can't find it.", style: TextStyle(fontSize: 11.5, color: c.muted)),
+                ]),
+              ),
+            ),
           row('Payment', cod != null ? 'COD — collect ${peso(cod)}' : '₱0.00 · Paid (no cash to collect)'),
           row('Assigned', formatDateTime(d['assigned_at'])),
           if (d['out_at'] != null) row('Out for delivery', formatDateTime(d['out_at'])),

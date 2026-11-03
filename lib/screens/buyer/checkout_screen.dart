@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../widgets/voucher_ticket.dart';
 import 'account/collections_screens.dart' show VoucherCenterScreen;
 
@@ -8,6 +7,7 @@ import '../../services/buyer_api.dart';
 import '../../theme/buyer_colors.dart';
 import '../../widgets/buyer_kit.dart';
 import '../../widgets/net_image.dart';
+import '../../widgets/gcash_pay_box.dart';
 import 'add_address_screen.dart';
 import 'order_confirmation_screen.dart';
 
@@ -145,8 +145,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _place() async {
-    if (payment == 'gcash_receipt' && _receipt == null) {
-      return showError(context, 'Upload the screenshot of your GCash receipt.');
+    if (payment == 'gcash_receipt') {
+      final problem = GcashPayBox.problem(_receipt, _gcashRef.text);
+      if (problem != null) return showError(context, problem);
     }
     setState(() => placing = true);
     final body = {
@@ -155,7 +156,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       'checkout_token': page!['checkout_token'],
       'prices': page!['prices'],
       'buyer_notes': {for (final e in _notes.entries) if (e.value.text.trim().isNotEmpty) e.key: e.value.text.trim()},
-      if (payment == 'gcash_receipt' && _gcashRef.text.trim().isNotEmpty) 'payment_reference': _gcashRef.text.trim(),
+      if (payment == 'gcash_receipt') 'payment_reference': _gcashRef.text.trim(),
     };
     final r = payment == 'gcash_receipt' ? await BuyerApi.placeOrderWithReceipt(body, _receipt!) : await BuyerApi.placeOrder(body);
     if (!mounted) return;
@@ -188,42 +189,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => OrderConfirmationScreen(orders: orders, message: r.body['message'])));
   }
 
-  Widget _gcashBox(Map<String, dynamic> account) {
-    final total = totals?['total'];
-    return Container(
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFBFDBFE))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Send ${total == null ? 'the total' : peso(total)} by GCash to', style: TextStyle(color: context.bc.textSecondary)),
-        SelectableText('${account['number']} · ${account['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text('Then attach the screenshot of the GCash receipt. The seller checks it before shipping (For verification).',
-            style: TextStyle(fontSize: 12, color: context.bc.muted)),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () async {
-            try {
-              final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2000, imageQuality: 85);
-              if (x != null) setState(() => _receipt = x.path);
-            } on PlatformException {
-              if (mounted) showError(context, 'Photo access is off for ALVY. Allow it in Settings › Apps › ALVY › Permissions.');
-            }
-          },
-          icon: Icon(_receipt == null ? Icons.upload_file : Icons.check_circle, color: _receipt == null ? kOrange : const Color(0xFF15803D)),
-          label: Text(_receipt == null ? 'Attach GCash receipt' : 'Receipt attached — change'),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _gcashRef,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')), LengthLimitingTextInputFormatter(20)],
-          decoration: InputDecoration(labelText: 'GCash Ref No. (optional)', isDense: true, border: const OutlineInputBorder(),
-              errorText: fieldErrors['payment_reference'], helperText: 'The 13-digit "Ref No." on your receipt'),
-        ),
-      ]),
-    );
-  }
+  Widget _gcashBox(Map<String, dynamic> account) => GcashPayBox(
+        account: account,
+        // The live preview's amount after a quantity or voucher change; the page's own until then.
+        amount: (totals?['gcash_total'] ?? account['amount']) as num?,
+        ordersTotal: (totals?['gcash_orders'] ?? account['orders_total']) as num?,
+        receipt: _receipt,
+        onReceipt: (path) => setState(() => _receipt = path),
+        reference: _gcashRef,
+        referenceError: fieldErrors['payment_reference'],
+        stores: List.from(page?['stores'] ?? const []).length,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +287,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: Column(children: [
             const RadioListTile<String>(value: 'cod', title: Text('Cash on Delivery'), dense: true, activeColor: kOrange),
             if (page!['gcash_account'] != null)
-              const RadioListTile<String>(value: 'gcash_receipt', title: Text('GCash (send, then upload the receipt)'), dense: true, activeColor: kOrange),
+              const RadioListTile<String>(value: 'gcash_receipt', title: Text('GCash'),
+                  subtitle: Text("Scan ALVY's GCash QR, send the amount shown, then upload the receipt and its Ref No. ALVY checks it, then the seller prepares your order.", style: TextStyle(fontSize: 12)),
+                  dense: true, activeColor: kOrange),
             for (final m in page!['payment_methods'])
               if (m['key'] != 'gcash_receipt')
                 RadioListTile<String>(value: m['key'], title: Text(m['label'] ?? m['key']), dense: true, activeColor: kOrange),

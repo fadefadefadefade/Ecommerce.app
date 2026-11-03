@@ -14,8 +14,6 @@ class LogisticsApi {
   static Future<ApiResponse> pickupRequests({String tab = 'pending', int page = 1}) => ApiClient.get('$_p/pickup-requests', query: {'tab': tab, 'page': page});
   static Future<ApiResponse> approvePickup(int id) => ApiClient.post('$_p/pickup-requests/$id/approve');
   static Future<ApiResponse> rejectPickup(int id, String reason) => ApiClient.post('$_p/pickup-requests/$id/reject', {'reason': reason});
-  static Future<ApiResponse> incoming({String tab = 'all', String? search, int page = 1}) =>
-      ApiClient.get('$_p/incoming', query: {'tab': tab, 'search': search, 'page': page});
   static Future<ApiResponse> scan(String tracking, {int? hubId}) => ApiClient.post('$_p/incoming/scan', {'tracking_number': tracking, if (hubId != null) 'hub_id': hubId});
   static Future<ApiResponse> receive(int id, {int? hubId}) => ApiClient.post('$_p/incoming/$id/receive', {if (hubId != null) 'hub_id': hubId});
   static Future<ApiResponse> sorting() => ApiClient.get('$_p/sorting');
@@ -26,9 +24,8 @@ class LogisticsApi {
   static Future<ApiResponse> overrideStatus(int deliveryId, String status, String remarks) =>
       ApiClient.post('$_p/deliveries/$deliveryId/status', {'status': status, 'remarks': remarks});
   static Future<ApiResponse> reschedule(int deliveryId) => ApiClient.post('$_p/deliveries/$deliveryId/reschedule');
+  /// A failed delivery given up on: the order is cancelled and the parcel stays at the hub (Return to Sender was removed).
   static Future<ApiResponse> returnToSender(int deliveryId) => ApiClient.post('$_p/deliveries/$deliveryId/return');
-  static Future<ApiResponse> rts() => ApiClient.get('$_p/rts');
-  static Future<ApiResponse> assignRts(int parcelId, int riderId) => ApiClient.post('$_p/rts/$parcelId', {'rider_id': riderId});
   static Future<ApiResponse> transfers({String? search}) => ApiClient.get('$_p/transfers', query: {'search': search});
   static Future<ApiResponse> initiateTransfer(int parcelId, int toId, String reason, {int? transporterId}) => ApiClient.post('$_p/transfers',
       {'parcel_id': parcelId, 'to_sorting_center_id': toId, 'reason': reason, if (transporterId != null) 'transporter_rider_id': transporterId});

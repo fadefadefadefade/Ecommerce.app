@@ -58,6 +58,37 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     _load();
   }
 
+  /// Warnings from ALVY (an admin set a violation): shown until the seller taps "I understand".
+  Widget _violation(Map v) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+            const SizedBox(width: 6),
+            Expanded(child: Text('${v['action']} from ALVY · ${v['type']}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF991B1B)))),
+          ]),
+          const SizedBox(height: 4),
+          Text('${v['product'] != null ? '"${v['product']}": ' : ''}${v['note']}', style: const TextStyle(color: Color(0xFF7F1D1D))),
+          const SizedBox(height: 2),
+          Text('${formatDateTime(v['at'])} · Repeated violations can lead to suspension.', style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C))),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+              onPressed: () async {
+                final r = await SellerApi.acknowledgeViolation(asInt(v['id']));
+                if (!mounted) return;
+                if (!r.ok) showError(context, r.message);
+                _load();
+              },
+              child: const Text('I understand'),
+            ),
+          ),
+        ]),
+      );
+
   /// The warning at the top when products are at the low-stock line (10 or fewer) or sold out.
   Widget _stockWarning(Map<String, dynamic> d) {
     final low = asInt(d['low_stock_count']);
@@ -139,6 +170,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     final rateText = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
 
     return ListView(padding: const EdgeInsets.all(14), children: [
+      for (final v in List<Map>.from(d['violations'] ?? const [])) _violation(v),
       Text('Welcome back, $name', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
       const SizedBox(height: 8),
       // The period the numbers cover (the website's Today / This week / This month / Custom).

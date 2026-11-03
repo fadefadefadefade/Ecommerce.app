@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../services/logistics_api.dart';
-import '../../theme/buyer_colors.dart';
 import 'hub_screens.dart';
 import 'hub_waybill.dart';
 import 'logistics_kit.dart';
@@ -107,106 +106,15 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
               OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
                 onPressed: () async {
-                  if (await confirmAction(ctx, 'Return to the seller?', 'The parcel goes to the Return-to-Sender queue.', confirm: 'Return', danger: true)) {
+                  if (await confirmAction(ctx, 'Cancel this order?', 'The order is cancelled and the parcel stays at your hub for the seller to collect.', confirm: 'Cancel order', danger: true)) {
                     if (ctx.mounted) act(ctx, () => LogisticsApi.returnToSender(asInt(d['id'])), then: reload);
                   }
                 },
-                child: const Text('Return to seller'),
+                child: const Text('Cancel order'),
               ),
           ],
         );
       },
-    );
-  }
-}
-
-// ── Return to Sender ───────────────────────────────────────────
-
-class RtsScreen extends StatefulWidget {
-  const RtsScreen({super.key});
-  @override
-  State<RtsScreen> createState() => _RtsScreenState();
-}
-
-class _RtsScreenState extends State<RtsScreen> {
-  Map<String, dynamic>? _d;
-  String? _error;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final r = await LogisticsApi.rts();
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      if (r.ok) {
-        _d = r.body;
-        _error = null;
-      } else {
-        _error = r.message;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final d = _d;
-    final c = context.bc;
-    return Scaffold(
-      backgroundColor: c.background,
-      appBar: sellerBar('Return to Sender', actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
-      body: LoadState(
-        loading: _loading,
-        error: _error,
-        onRetry: _load,
-        child: d == null
-            ? const SizedBox()
-            : RefreshIndicator(
-                color: kOrange,
-                onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Text('Going back to the seller', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-                  const SizedBox(height: 6),
-                  if (asList(d['parcels']).isEmpty) const EmptyNote(Icons.assignment_return_outlined, 'No parcels waiting to go back.'),
-                  for (final p in asList(d['parcels']))
-                    ParcelCard(
-                      p,
-                      onTap: () => openParcel(context, asInt(p['id']), _load),
-                      extra: [
-                        p['rts_rider'] != null ? 'Rider ${p['rts_rider']}' : 'No rider yet',
-                        for (final a in asList(p['attempts'])) 'Attempt ${a['attempt']}: ${a['reason'] ?? a['status']}',
-                      ],
-                      actions: [
-                        FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: kOrange),
-                          onPressed: () async {
-                            final id = await pickRider(context, asList(d['riders']), note: 'Riders who can take a job now');
-                            if (id != null && context.mounted) {
-                              final r = await LogisticsApi.assignRts(asInt(p['id']), id);
-                              if (!context.mounted) return;
-                              showResult(context, r);
-                              if (r.ok) setState(() => _d = r.body);
-                              if (r.broken) _load();
-                            }
-                          },
-                          child: Text(p['rts_rider'] != null ? 'Change rider' : 'Assign rider'),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 12),
-                  Text('Handed back, waiting for the seller to confirm', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-                  const SizedBox(height: 6),
-                  if (asList(d['awaiting']).isEmpty) Text('None.', style: TextStyle(color: c.muted)),
-                  for (final p in asList(d['awaiting']))
-                    ParcelCard(p, extra: [if (p['returned_at'] != null) 'Handed back ${formatDateTime(p['returned_at'])}'], onTap: () => openParcel(context, asInt(p['id']), _load)),
-                ]),
-              ),
-      ),
     );
   }
 }

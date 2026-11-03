@@ -107,13 +107,11 @@ class _HubMenu extends StatelessWidget {
   const _HubMenu();
   @override
   Widget build(BuildContext context) => const _Menu('Hub', [
-        (Icons.view_list_outlined, 'Shipment Board', 'Every shipment you hold or expect, by stage', TrackingBoardScreen()),
+        (Icons.view_list_outlined, 'Shipment Board', 'Scan, receive and follow every shipment', TrackingBoardScreen()),
         (Icons.assignment_outlined, 'Pickup Requests', 'Confirm or reject sellers\' pickups', PickupRequestsScreen()),
-        (Icons.move_to_inbox_outlined, 'Incoming Parcels', 'Scan and receive parcels at the hub', IncomingScreen()),
         (Icons.sort, 'Parcel Sorting', 'Sort received parcels by barangay', SortingScreen()),
         (Icons.assignment_ind_outlined, 'Delivery Assignment', 'Give sorted parcels to riders', AssignmentScreen()),
         (Icons.radar, 'Delivery Monitoring', 'Attempts, overrides, reschedules', MonitoringScreen()),
-        (Icons.assignment_return_outlined, 'Return to Sender', 'Parcels going back to sellers', RtsScreen()),
         (Icons.inventory_2_outlined, 'Shipments', 'Every parcel, by status and date', ShipmentsScreen()),
         (Icons.swap_horiz, 'Transfers', 'Send or receive parcels from other hubs', TransfersScreen()),
       ]);

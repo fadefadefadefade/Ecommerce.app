@@ -8,6 +8,8 @@ class SellerApi {
   /// period: today, week, month (default) or custom with from / to (Y-m-d) — the website's dashboard range.
   static Future<ApiResponse> dashboard({String period = 'month', String? from, String? to}) =>
       ApiClient.get('/seller/dashboard', query: {'period': period, 'from': from, 'to': to});
+  /// "I understand" on a warning from ALVY (it leaves the dashboard).
+  static Future<ApiResponse> acknowledgeViolation(int id) => ApiClient.post('/seller/violations/$id/acknowledge');
   static Future<ApiResponse> commissions({String period = 'month', String? from, String? to, String? status, int page = 1}) =>
       ApiClient.get('/seller/commissions', query: {'period': period, 'from': from, 'to': to, 'status': status, 'page': page});
   static Future<ApiDownload> exportCommissions(String format, {String period = 'month', String? from, String? to, String? status}) =>

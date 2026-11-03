@@ -7,6 +7,7 @@ import '../../../services/buyer_api.dart';
 import '../../../theme/buyer_colors.dart';
 import '../../../widgets/buyer_kit.dart';
 import '../../../widgets/net_image.dart';
+import '../../../widgets/gcash_pay_box.dart';
 import '../../../widgets/shipment_tracking.dart';
 import '../../logistics/rider_admin_screens.dart' show showDocument;
 import '../chat_screen.dart';
@@ -27,11 +28,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool loading = true;
   String? error;
   bool busy = false;
+  // A rejected GCash payment: the right receipt and its Ref No.
+  String? _fixReceipt;
+  final _fixRef = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _fixRef.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -235,7 +245,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ]),
       const SizedBox(height: 10),
 
-      if (o!['status'] == 'Awaiting Payment') _toPay(a, pay),
+      if (o!['gcash'] != null && ['checking', 'rejected'].contains(o!['gcash']['state']))
+        _gcashState(Map<String, dynamic>.from(o!['gcash']))
+      else if (o!['status'] == 'Awaiting Payment')
+        _toPay(a, pay),
 
       SectionCard(
         title: 'Items',
@@ -376,6 +389,79 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           child: OutlinedButton(onPressed: _messageSeller, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)), child: const Text('Message the seller')),
         ),
     ]);
+  }
+
+  /// GCash paid to ALVY: being checked, or rejected with why, how to fix it and the form for the right receipt.
+  Widget _gcashState(Map<String, dynamic> g) {
+    if (g['state'] == 'checking') {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFF5F9FF), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFBFDBFE))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('ALVY is checking your GCash payment', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A))),
+          const SizedBox(height: 2),
+          Text('We match your receipt${g['reference'] != null ? ' (Ref No. ${g['reference']})' : ''} with the money in ALVY\'s GCash. '
+              'Once it\'s confirmed, the seller prepares your order. If something doesn\'t match, you\'re told why and how to fix it.',
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF3B5B8C))),
+        ]),
+      );
+    }
+    const red = Color(0xFF991B1B);
+    final problems = List<Map>.from(g['problems'] ?? const []);
+    final fixes = problems.map((p) => '${p['fix']}').toSet();
+    final account = g['account'] != null ? Map<String, dynamic>.from(g['account']) : null;
+    final orders = List.from(g['orders'] ?? const []);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFCA5A5))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Your GCash payment was rejected', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
+        const SizedBox(height: 8),
+        const Text('WHY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
+        for (final p in problems) Text('• ${p['reason']}', style: const TextStyle(fontSize: 12.5, color: Color(0xFF7F1D1D))),
+        const SizedBox(height: 8),
+        const Text('HOW TO FIX IT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
+        for (final f in fixes) Text('• $f', style: const TextStyle(fontSize: 12.5, color: Color(0xFF7F1D1D))),
+        const SizedBox(height: 6),
+        Text(
+          'Upload the right receipt${g['fix_by'] != null ? ' by ${formatDateTime(g['fix_by'])}' : ''}, or the order is cancelled. '
+          'Try ${g['try']} of ${g['max_tries']}.${orders.length > 1 ? ' This payment covers orders ${orders.join(', ')}.' : ''}',
+          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C)),
+        ),
+        if (g['can_resubmit'] == true && account != null) ...[
+          GcashPayBox(
+            account: account,
+            amount: g['amount'] as num?,
+            receipt: _fixReceipt,
+            onReceipt: (path) => setState(() => _fixReceipt = path),
+            reference: _fixRef,
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: busy ? null : _resubmitGcash,
+            style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white),
+            child: const Text('Send the new receipt'),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Future<void> _resubmitGcash() async {
+    final problem = GcashPayBox.problem(_fixReceipt, _fixRef.text);
+    if (problem != null) return showError(context, problem);
+    setState(() => busy = true);
+    final r = await BuyerApi.gcashResubmit(widget.orderId, _fixRef.text, _fixReceipt!);
+    if (!mounted) return;
+    setState(() => busy = false);
+    showResult(context, r);
+    if (r.ok) {
+      _fixReceipt = null;
+      _fixRef.clear();
+      _load();
+    }
   }
 
   Widget _toPay(Map a, Map pay) {

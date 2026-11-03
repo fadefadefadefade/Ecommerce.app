@@ -125,11 +125,11 @@ Widget? _logisticsScreen(List<String> seg) {
   return switch (page) {
     'dashboard' || '' => const LogisticsDashboardScreen(),
     'pickup-requests' => const PickupRequestsScreen(),
-    'incoming-parcels' => const IncomingScreen(),
+    'incoming-parcels' => const TrackingBoardScreen(),   // removed on the web: parcels are received on the Shipment Board
     'parcel-sorting' => const SortingScreen(),
     'delivery-assignment' => const AssignmentScreen(),
     'delivery-monitoring' => const MonitoringScreen(),
-    'rts' => const RtsScreen(),
+    'rts' => const ShipmentsScreen(),   // Return to Sender was removed
     'shipments' => const ShipmentsScreen(),
     'transfers' => const TransfersScreen(),
     'tracking' when _id(seg, 2) != null => TrackingDetailScreen(parcelId: _id(seg, 2)!),

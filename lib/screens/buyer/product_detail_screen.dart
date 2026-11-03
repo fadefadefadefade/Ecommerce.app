@@ -2,6 +2,7 @@ import '../../widgets/responsive.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/buyer_api.dart';
 import '../../theme/buyer_colors.dart';
@@ -236,6 +237,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 padding: const EdgeInsets.all(8),
                 child: Text('${image + 1} / ${images.length}',
                     style: TextStyle(color: context.bc.muted, fontSize: 12)),
+              ),
+            // The seller's product video (as on the website's gallery): plays in the phone's video player.
+            if (p!['video_url'] != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse('${p!['video_url']}'), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.play_circle_outline, color: kOrange),
+                  label: const Text('Watch the product video'),
+                ),
               ),
           ]),
     );
