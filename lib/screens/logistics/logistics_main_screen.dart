@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
-import 'dashboard/logistics_dashboard_screen.dart';
-import 'pickups/pickup_requests_screen.dart';
-import 'parcels/parcels_screen.dart';
-import 'deliveries/deliveries_screen.dart';
-import 'more/logistics_more_screen.dart';
-import 'widgets/logistics_ui.dart';
 
-/// Mobile version of the web "ParcelOps" logistics panel (admin role).
+import '../../providers/auth_provider.dart';
+import '../../widgets/profile_kit.dart';
+import '../auth/login_screen.dart';
+import '../buyer/account/notifications_screen.dart';
+import '../buyer/account/policy_screens.dart';
+import '../buyer/account/security_screen.dart';
+import 'company_screens.dart';
+import 'hub_more_screens.dart';
+import 'hub_screens.dart';
+import 'rider_admin_screens.dart';
+import 'staff_screens.dart';
+import 'tracking_screens.dart';
+import 'trip_screens.dart';
+
+/// The logistics company's portal (the web's sorting-center panel): dashboard, the hub's parcel work, riders, and the company.
 class LogisticsMainScreen extends StatefulWidget {
   const LogisticsMainScreen({super.key});
 
@@ -18,118 +24,132 @@ class LogisticsMainScreen extends StatefulWidget {
 }
 
 class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
-  int _currentIndex = 0;
+  int _index = 0;
   bool _redirecting = false;
-
-  static const tabDashboard = 0;
-  static const tabPickups = 1;
-  static const tabParcels = 2;
-  static const tabDeliveries = 3;
-  static const tabMore = 4;
-
-  void _goTo(int index) => setState(() => _currentIndex = index);
+  // Opening a tab loads it fresh, like opening the page on the website.
+  final Map<int, int> _opened = {};
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        if (!authProvider.isAuthenticated || authProvider.user?.isAdmin != true) {
+      builder: (context, auth, _) {
+        if (!auth.isAuthenticated || auth.user?.isLogistics != true) {
           if (!_redirecting) {
             _redirecting = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (route) => false);
             });
           }
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
-        final screens = [
-          LogisticsDashboardScreen(
-            onOpenPickups: () => _goTo(tabPickups),
-            onOpenParcels: () => _goTo(tabParcels),
-            onOpenDeliveries: () => _goTo(tabDeliveries),
-          ),
-          const PickupRequestsScreen(),
-          const ParcelsScreen(),
-          const DeliveriesScreen(),
-          const LogisticsMoreScreen(),
+        const tabs = [
+          (Icons.dashboard_outlined, 'Dashboard', LogisticsDashboardScreen()),
+          (Icons.warehouse_outlined, 'Hub', _HubMenu()),
+          (Icons.two_wheeler, 'Riders', _RidersMenu()),
+          (Icons.more_horiz, 'More', _MoreMenu()),
         ];
-
         return Scaffold(
-          body: IndexedStack(index: _currentIndex, children: screens),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(icon: Icons.dashboard, label: 'Dashboard', index: tabDashboard),
-                    _buildNavItem(icon: Icons.move_to_inbox, label: 'Pickups', index: tabPickups),
-                    _buildNavItem(icon: Icons.inventory_2, label: 'Parcels', index: tabParcels),
-                    _buildNavItem(icon: Icons.local_shipping, label: 'Deliveries', index: tabDeliveries),
-                    _buildNavItem(icon: Icons.person, label: 'Account', index: tabMore),
-                  ],
-                ),
-              ),
-            ),
+          body: IndexedStack(index: _index, children: [
+            for (var i = 0; i < tabs.length; i++)
+              TickerMode(enabled: i == _index, child: KeyedSubtree(key: ValueKey('tab-$i-${_opened[i] ?? 0}'), child: tabs[i].$3)),
+          ]),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _index,
+            indicatorColor: const Color(0xFFFA4E1C).withValues(alpha: 0.12),
+            onDestinationSelected: (i) => setState(() {
+              if (i != _index) _opened[i] = (_opened[i] ?? 0) + 1;
+              _index = i;
+            }),
+            destinations: [
+              for (final t in tabs) NavigationDestination(icon: Icon(t.$1), selectedIcon: Icon(t.$1, color: const Color(0xFFFA4E1C)), label: t.$2),
+            ],
           ),
         );
       },
     );
   }
+}
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-  }) {
-    final isActive = _currentIndex == index;
+/// A portal menu (Hub, Riders, More): icons with the label under them (3 per row on phones, small tiles on tablets).
+class _Menu extends StatelessWidget {
+  final String title;
+  final List<(IconData, String, String, Widget)> items;
+  /// A Log out tile at the end (More).
+  final bool logout;
+  const _Menu(this.title, this.items, {this.logout = false});
 
-    return GestureDetector(
-      onTap: () => _goTo(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? LogisticsColors.primary.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? LogisticsColors.primary : LogisticsColors.muted,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? LogisticsColors.primary : LogisticsColors.muted,
-              ),
-            ),
-          ],
-        ),
-      ),
+  static const _colors = [
+    Color(0xFFFA4E1C), Color(0xFF2563EB), Color(0xFF059669), Color(0xFF9333EA), Color(0xFFF59E0B),
+    Color(0xFF0EA5E9), Color(0xFFDC2626), Color(0xFF0F766E), Color(0xFF5C4039),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tiles = <(IconData, String, Color, VoidCallback)>[
+      for (var i = 0; i < items.length; i++)
+        (items[i].$1, items[i].$2, _colors[i % _colors.length], () => Navigator.push(context, MaterialPageRoute(builder: (_) => items[i].$4))),
+      if (logout) (Icons.logout, 'Log out', const Color(0xFFDC2626), () => confirmLogout(context)),
+    ];
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        ProfileActionGrid(actions: [
+          for (final (icon, label, color, onTap) in tiles) ProfileAction(icon: icon, label: label, color: color, onTap: onTap),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _HubMenu extends StatelessWidget {
+  const _HubMenu();
+  @override
+  Widget build(BuildContext context) => const _Menu('Hub', [
+        (Icons.view_list_outlined, 'Shipment Board', 'Scan, receive and follow every shipment', TrackingBoardScreen()),
+        (Icons.assignment_outlined, 'Pickup Requests', 'Confirm or reject sellers\' pickups', PickupRequestsScreen()),
+        (Icons.sort, 'Parcel Sorting', 'Sort received parcels by barangay', SortingScreen()),
+        (Icons.assignment_ind_outlined, 'Delivery Assignment', 'Give sorted parcels to riders', AssignmentScreen()),
+        (Icons.radar, 'Delivery Monitoring', 'Attempts, overrides, reschedules', MonitoringScreen()),
+        (Icons.inventory_2_outlined, 'Shipments', 'Every parcel, by status and date', ShipmentsScreen()),
+        (Icons.swap_horiz, 'Transfers', 'Send or receive parcels from other hubs', TransfersScreen()),
+      ]);
+}
+
+class _RidersMenu extends StatelessWidget {
+  const _RidersMenu();
+  @override
+  Widget build(BuildContext context) => const _Menu('Riders', [
+        (Icons.send_outlined, 'Dispatch', 'Offers, manual and bulk assignment', DispatchScreen()),
+        (Icons.groups_outlined, 'Riders', 'Add riders, activation, suspend, documents', RidersScreen()),
+        (Icons.account_balance_wallet_outlined, 'COD Remittances', 'Confirm the cash riders hand over', RemittancesScreen()),
+        (Icons.add_road, 'Hub-to-hub Trips', 'Create, assign, follow and receive trips', TripsScreen()),
+        (Icons.local_shipping_outlined, 'Couriers', 'Add couriers, duty, activation, applications', CouriersScreen()),
+        (Icons.warehouse_outlined, 'Hubs', 'Your hubs; each courier has a home hub', HubsScreen()),
+      ]);
+}
+
+class _MoreMenu extends StatelessWidget {
+  const _MoreMenu();
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    return _Menu(
+      user?.name ?? 'More',
+      const [
+        (Icons.payments_outlined, 'Commission & Earnings', 'Your share of shipping fees, commission and net', LogisticsCommissionsScreen()),
+        (Icons.map_outlined, 'Coverage', 'Barangays you deliver to', CoverageScreen()),
+        (Icons.local_shipping_outlined, 'Shipping Rates', 'Rates by route and delivery zones', RatesScreen()),
+        (Icons.analytics_outlined, 'Reports', 'Daily, riders, areas and COD', LogisticsReportsScreen()),
+        (Icons.history, 'Activity Log', 'Everything your account changed', ActivityScreen()),
+        (Icons.chat_bubble_outline, 'Messages', 'Riders, couriers, sellers and ALVY', LogisticsChatScreen()),
+        (Icons.notifications_outlined, 'Notifications', 'Updates for your company', NotificationsScreen()),
+        (Icons.person_outline, 'Account', 'Name and email', LogisticsAccountScreen()),
+        (Icons.shield_outlined, 'Security', 'Change your password', SecurityScreen()),
+        (Icons.policy_outlined, 'Policies', 'Terms, privacy, prohibited items and more', PoliciesScreen()),
+      ],
+      logout: true,
     );
   }
 }

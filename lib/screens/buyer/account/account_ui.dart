@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/buyer_colors.dart';
+import '../../../widgets/buyer_kit.dart' show cardBox;
+export '../../../widgets/order_progress.dart';
 
 // Small shared pieces for the buyer account screens (orders, security, etc.).
 
@@ -30,19 +33,19 @@ Color orderStatusColor(String status) {
   switch (status.toLowerCase()) {
     case 'delivered':
     case 'completed':
-      return const Color(0xFF2E7D32);
+      return const Color(0xFF15803D);
     case 'shipped':
     case 'in_transit':
     case 'out_for_delivery':
       return const Color(0xFF1565C0);
     case 'processing':
-      return const Color(0xFF6A1B9A);
+      return const Color(0xFF9333EA);
     case 'cancelled':
     case 'failed':
     case 'returned':
-      return const Color(0xFFC62828);
+      return const Color(0xFFDC2626);
     default:
-      return const Color(0xFFEF6C00);
+      return const Color(0xFFB45309);
   }
 }
 
@@ -78,18 +81,14 @@ class AccountCard extends StatelessWidget {
     final c = context.bc;
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c.border),
-      ),
+      decoration: cardBox(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Text(title!, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.text)),
+              child: Text(title!, style: GoogleFonts.plusJakartaSans(fontSize: 15.5, fontWeight: FontWeight.w800, color: c.text)),
             ),
           Padding(padding: padding, child: child),
         ],
@@ -101,8 +100,6 @@ class AccountCard extends StatelessWidget {
 PreferredSizeWidget accountAppBar(String title, {List<Widget>? actions, PreferredSizeWidget? bottom}) {
   return AppBar(
     title: Text(title),
-    backgroundColor: BuyerPalette.primary,
-    foregroundColor: Colors.white,
     actions: actions,
     bottom: bottom,
   );
@@ -149,7 +146,7 @@ void showAccountSnack(BuildContext context, String message, {bool error = false}
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
       content: Text(message),
-      backgroundColor: error ? const Color(0xFFC62828) : const Color(0xFF059669),
+      backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF059669),
     ));
 }
 

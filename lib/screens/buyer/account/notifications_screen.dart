@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../services/api_service.dart';
+import '../../../services/buyer_api.dart';
+import '../../../widgets/web_links.dart';
 import '../../../theme/buyer_colors.dart';
 import 'account_ui.dart';
 
@@ -48,14 +49,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_loading || _page >= _lastPage) return;
     setState(() => _loading = true);
     try {
-      final data = ApiService.unwrap(await ApiService.get('/notifications?page=${_page + 1}'));
+      // Every role reads its notifications from the web API (/api/v1/notifications).
+      final r = await BuyerApi.notifications(page: _page + 1);
       if (!mounted) return;
-      final pagination = Map<String, dynamic>.from(data['pagination'] ?? {});
+      if (!r.ok) throw Exception(r.message);
       setState(() {
-        _items.addAll((data['notifications'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)));
-        _page = toNum(pagination['current_page']).toInt();
-        _lastPage = toNum(pagination['last_page']).toInt();
-        _unread = toNum(data['unread_count']).toInt();
+        _items.addAll((r.body['data'] as List).map((e) {
+          final n = Map<String, dynamic>.from(e);
+          n['read_at'] = n['read'] == true ? n['created_at'] : null;
+          return n;
+        }));
+        _page = toNum(r.body['meta']['current_page']).toInt();
+        _lastPage = toNum(r.body['meta']['last_page']).toInt();
+        _unread = toNum(r.body['unread']).toInt();
       });
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
@@ -65,21 +71,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markRead(Map<String, dynamic> n) async {
-    if (n['read_at'] != null) return;
-    setState(() {
-      n['read_at'] = DateTime.now().toIso8601String();
-      _unread = (_unread - 1).clamp(0, 1 << 30);
-    });
-    try {
-      ApiService.unwrap(await ApiService.post('/notifications/${n['id']}/read'));
-    } catch (_) {
-      // Not critical; it will show as unread again on the next refresh.
+    // Like the website: opening marks it read and goes to what it is about.
+    if (n['read_at'] == null) {
+      setState(() {
+        n['read_at'] = DateTime.now().toIso8601String();
+        _unread = (_unread - 1).clamp(0, 1 << 30);
+      });
     }
+    final r = await BuyerApi.openNotification(n['id']);
+    if (mounted && r.ok) await openWebPath(context, r.body['redirect'] ?? n['link']);
   }
 
   Future<void> _markAllRead() async {
     try {
-      ApiService.unwrap(await ApiService.post('/notifications/read-all'));
+      final r = await BuyerApi.readAllNotifications();
+      if (!r.ok) throw Exception(r.message);
       if (!mounted) return;
       final now = DateTime.now().toIso8601String();
       setState(() {

@@ -21,26 +21,27 @@ class BuyerPalette {
     required this.border,
   });
 
-  static const primary = Color(0xFFfa4e1c);
+  static const primary = Color(0xFFFA4E1C);
 
+  // The design's tokens (see theme/app_theme.dart): warm ink text, cream page, white cards, warm beige fills.
   static const light = BuyerPalette(
-    background: Color(0xFFF5F5F5),
+    background: Color(0xFFFFF8F2),
     surface: Colors.white,
-    subtle: Color(0xFFF5F5F5),
-    text: Color(0xFF222222),
-    textSecondary: Color(0xFF555555),
-    muted: Color(0xFF8a7a70),
-    border: Color(0xFFE6E6E6),
+    subtle: Color(0xFFF4EDE6),
+    text: Color(0xFF1E1B17),
+    textSecondary: Color(0xFF5C4039),
+    muted: Color(0xFF8A716A),
+    border: Color(0xFFEEE7E0),
   );
 
   static const dark = BuyerPalette(
-    background: Color(0xFF121212),
-    surface: Color(0xFF1E1E1E),
-    subtle: Color(0xFF2A2A2A),
-    text: Color(0xFFEDEDED),
-    textSecondary: Color(0xFFC4C4C4),
-    muted: Color(0xFF9E9E9E),
-    border: Color(0xFF333333),
+    background: Color(0xFF15110E),
+    surface: Color(0xFF211C18),
+    subtle: Color(0xFF2B2520),
+    text: Color(0xFFF2E6DE),
+    textSecondary: Color(0xFFD6C2B8),
+    muted: Color(0xFFA48F85),
+    border: Color(0xFF3A322C),
   );
 }
 

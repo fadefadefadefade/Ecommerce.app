@@ -1,15 +1,21 @@
+import 'assistant_screen.dart';
 import 'package:flutter/material.dart';
-import '../../theme/buyer_colors.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import '../../services/buyer_api.dart';
 import '../auth/login_screen.dart';
 import 'home_screen.dart';
 import 'shop_screen.dart';
 import 'cart_screen.dart';
 import 'profile_screen.dart';
+import 'chat_screen.dart';
+import 'account/notifications_screen.dart';
+import 'account/collections_screens.dart' show WishlistScreen;
+import '../../widgets/buyer_web_header.dart';
+import '../../widgets/responsive.dart';
 
-/// Bottom-nav shell for buyers, same layout as SellerMainScreen.
+/// Bottom-nav shell for buyers, same layout as SellerMainScreen. On a tablet it also has the website's
+/// header (BuyerWebHeader: search, messages, notifications, cart, account) and keeps the pages at the website's width.
 class BuyerMainScreen extends StatefulWidget {
   final int initialIndex;
 
@@ -35,36 +41,48 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   int _cartCount = 0;
   // Bumped each time the Cart tab opens so it reloads items added elsewhere.
   int _cartReloadToken = 0;
+  DateTime _cartCountAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  @override
-  void initState() {
-    super.initState();
-    refreshCartCount();
+  // No load in initState: the IndexedStack builds the Cart tab right away, and its first load sets the badge.
+
+  void _setCartCount(int count) {
+    _cartCountAt = DateTime.now();
+    if (mounted && count != _cartCount) setState(() => _cartCount = count);
   }
 
+  /// After something was added to the cart (product cards).
   Future<void> refreshCartCount() async {
-    try {
-      final data = ApiService.unwrap(await ApiService.get('/cart'));
-      if (!mounted) return;
-      setState(() => _cartCount = (data['count'] as num?)?.toInt() ?? (data['items'] as List?)?.length ?? 0);
-    } catch (_) {
-      // Badge is best-effort; the cart screen shows real errors.
-    }
+    // Badge is best-effort; the cart screen shows real errors.
+    final r = await BuyerApi.cart();
+    if (!mounted || !r.ok) return;
+    _setCartCount((r.body['count'] as num?)?.toInt() ?? 0);
+  }
+
+  /// The tab on screen, for screens that react when the user comes back to theirs (Home's category tiles).
+  late final tabNotifier = ValueNotifier<int>(widget.initialIndex);
+
+  @override
+  void dispose() {
+    tabNotifier.dispose();
+    super.dispose();
   }
 
   void goTo(int index) {
+    tabNotifier.value = index;
     setState(() {
-      if (index == tabCart) _cartReloadToken++;
+      if (index == tabCart) _cartReloadToken++;   // the reloaded cart updates the badge itself
       _currentIndex = index;
     });
-    refreshCartCount();
+    // Other tabs: only re-check a badge older than 30 s (catches items added on a product page).
+    if (index != tabCart && DateTime.now().difference(_cartCountAt).inSeconds > 30) refreshCartCount();
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        if (!authProvider.isAuthenticated || authProvider.user?.isBuyer != true) {
+        if (!authProvider.isAuthenticated ||
+            authProvider.user?.isBuyer != true) {
           if (!_redirecting) {
             _redirecting = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -80,8 +98,31 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
           );
         }
 
+        final wide = Responsive.isWide(context);
+        void push(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
         return Scaffold(
-          body: IndexedStack(
+          appBar: wide
+              ? BuyerWebHeader(
+                  currentTab: _currentIndex,
+                  cartCount: _cartCount,
+                  onTab: goTo,
+                  onMessages: () => push(const ChatListScreen()),
+                  onNotifications: () => push(const NotificationsScreen()),
+                  onWishlist: () => push(const WishlistScreen()),
+                  onSearch: (q) => push(ShopScreen(initialSearch: q)),
+                  accountName: authProvider.user?.name,
+                )
+              : null,
+          // The website's ALVY Assistant bubble, on Home and Shop.
+          floatingActionButton: _currentIndex <= 1
+              ? FloatingActionButton(
+                  heroTag: 'alvy-assistant',
+                  tooltip: 'ALVY Assistant',
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssistantScreen())),
+                  child: const Icon(Icons.support_agent),
+                )
+              : null,
+          body: (wide ? (Widget w) => WebWidth(child: w) : (Widget w) => w)(IndexedStack(
             index: _currentIndex,
             children: [
               const BuyerHomeScreen(),
@@ -89,85 +130,32 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
               CartScreen(
                 key: ValueKey(_cartReloadToken),
                 onBrowse: () => goTo(tabShop),
-                onChanged: refreshCartCount,
+                onCount: _setCartCount,
               ),
               const ProfileScreen(),
             ],
-          ),
-          bottomNavigationBar: Container(
+          )),
+          bottomNavigationBar: DecoratedBox(
             decoration: BoxDecoration(
-              color: context.bc.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
+              boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
             ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(icon: Icons.home, label: 'Home', index: tabHome),
-                    _buildNavItem(icon: Icons.storefront, label: 'Shop', index: tabShop),
-                    _buildNavItem(
-                      icon: Icons.shopping_cart,
-                      label: 'Cart',
-                      index: tabCart,
-                      badge: _cartCount,
-                    ),
-                    _buildNavItem(icon: Icons.person, label: 'Account', index: tabAccount),
-                  ],
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: goTo,
+              destinations: [
+                const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+                const NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'Shop'),
+                NavigationDestination(
+                  icon: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart_outlined)),
+                  selectedIcon: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart)),
+                  label: 'Cart',
                 ),
-              ),
+                const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),
+              ],
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-    int badge = 0,
-  }) {
-    final isActive = _currentIndex == index;
-    final color = isActive ? const Color(0xFFfa4e1c) : context.bc.muted;
-
-    return GestureDetector(
-      onTap: () => goTo(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFfa4e1c).withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Badge(
-              isLabelVisible: badge > 0,
-              label: Text(badge > 99 ? '99+' : '$badge'),
-              backgroundColor: const Color(0xFFfa4e1c),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
