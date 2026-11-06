@@ -43,15 +43,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const orange = Color(0xFFfa4e1c);
+    const orange = Color(0xFFFA4E1C);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF7F3),
+      backgroundColor: const Color(0xFFFFF3EE),
       appBar: AppBar( title: const Text('Forgot password'), elevation: 0),
       body: ListView(padding: const EdgeInsets.all(24), children: [
-        const Text('Reset your password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF002B4D))),
+        const Text('Reset your password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E1B17))),
         const SizedBox(height: 6),
         const Text("Enter the email of your ALVY account. We'll send you a link to choose a new password.",
-            style: TextStyle(color: Color(0xFF4A7A94))),
+            style: TextStyle(color: Color(0xFF5C4039))),
         const SizedBox(height: 20),
         TextField(
           controller: _email,
@@ -77,7 +77,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 12),
           const Text('Open the link in the email on this phone, choose your new password, then come back and log in.',
-              style: TextStyle(color: Color(0xFF4A7A94), fontSize: 12)),
+              style: TextStyle(color: Color(0xFF5C4039), fontSize: 12)),
           const SizedBox(height: 16),
           OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Back to login')),
         ] else

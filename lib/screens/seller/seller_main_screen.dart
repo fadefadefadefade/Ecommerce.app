@@ -80,14 +80,8 @@ class SellerMainScreenState extends State<SellerMainScreen> {
           ),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
+              color: Theme.of(context).colorScheme.surface,
+              boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
             ),
             child: SafeArea(
               child: Padding(
@@ -144,7 +138,7 @@ class SellerMainScreenState extends State<SellerMainScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFfa4e1c).withValues(alpha: 0.1) : Colors.transparent,
+          color: isActive ? const Color(0xFFFA4E1C).withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -152,7 +146,7 @@ class SellerMainScreenState extends State<SellerMainScreen> {
           children: [
             Icon(
               icon,
-              color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF6B90AA),
+              color: isActive ? const Color(0xFFFA4E1C) : const Color(0xFF5C4039),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -163,7 +157,7 @@ class SellerMainScreenState extends State<SellerMainScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF6B90AA),
+                color: isActive ? const Color(0xFFFA4E1C) : const Color(0xFF5C4039),
               ),
             ),
           ],

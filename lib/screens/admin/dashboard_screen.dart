@@ -10,7 +10,7 @@ class AdminDashboardScreen extends StatelessWidget {
     final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFFFF8F2),
       body: SafeArea(
         child: Column(
           children: [
@@ -20,7 +20,7 @@ class AdminDashboardScreen extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE6EDF2)),
+                  bottom: BorderSide(color: Color(0xFFEEE7E0)),
                 ),
               ),
               child: Row(
@@ -33,7 +33,7 @@ class AdminDashboardScreen extends StatelessWidget {
                         'Admin Dashboard',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF6B90AA),
+                          color: Color(0xFF8A716A),
                         ),
                       ),
                       Text(
@@ -41,7 +41,7 @@ class AdminDashboardScreen extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF002B4D),
+                          color: Color(0xFF1E1B17),
                         ),
                       ),
                     ],
@@ -49,7 +49,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => context.read<AuthProvider>().logout(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFfa4e1c),
+                      backgroundColor: const Color(0xFFFA4E1C),
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('Logout'),
@@ -61,7 +61,7 @@ class AdminDashboardScreen extends StatelessWidget {
               child: Center(
                 child: Text(
                   'Admin Dashboard - Coming Soon',
-                  style: TextStyle(fontSize: 18, color: Color(0xFF6B90AA)),
+                  style: TextStyle(fontSize: 18, color: Color(0xFF8A716A)),
                 ),
               ),
             ),

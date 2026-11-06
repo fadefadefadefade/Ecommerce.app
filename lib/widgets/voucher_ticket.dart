@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../theme/buyer_colors.dart';
+import 'buyer_kit.dart' show cardBox;
 
 /// The website's voucher ticket (components/voucher-ticket): a coloured stub with FREE SHIPPING / 10% OFF / ₱50 OFF,
 /// the headline, min. spend, where it works, when it ends (red in the last 3 days), how much is used up, and — at
@@ -82,12 +83,12 @@ class VoucherTicket extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
+        decoration: cardBox(context),
         child: IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
               width: 92,
-              color: grey ? const Color(0xFF6B90AA) : tone,
+              color: grey ? const Color(0xFF8A716A) : tone,
               padding: const EdgeInsets.all(8),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 if (ship) const Icon(Icons.local_shipping_outlined, color: Colors.white, size: 20),

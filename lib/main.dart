@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
+import 'widgets/route_watch.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'config/api_config.dart';
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
           darkTheme: Alvy.dark(),
           // Only buyer screens are theme-aware so far; other roles stay light.
           themeMode: auth.user?.isBuyer == true ? theme.mode : ThemeMode.light,
+          navigatorObservers: [appRouteObserver],
           home: const AuthWrapper(),
         ),
       ),
@@ -92,12 +94,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (authProvider.isLoading) {
           debugPrint('⏳ Showing loading spinner');
           return const Scaffold(
-            backgroundColor: Color(0xFFF5F5F5),
+            backgroundColor: Color(0xFFFFF8F2),
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Color(0xFFfa4e1c)),
+                  CircularProgressIndicator(color: Color(0xFFFA4E1C)),
                   SizedBox(height: 16),
                   Text('Logging in...', style: TextStyle(color: Color(0xFF6b90aa))),
                 ],

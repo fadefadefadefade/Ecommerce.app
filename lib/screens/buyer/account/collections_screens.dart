@@ -58,7 +58,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
               : GridView.extent(
                   padding: const EdgeInsets.all(12),
                   maxCrossAxisExtent: Responsive.productTileMaxFor(context),
-                  childAspectRatio: 0.56,
+                  childAspectRatio: 0.6,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
                   children: [for (final p in items) BuyerProductCard(product: Map<String, dynamic>.from(p))],
@@ -342,7 +342,7 @@ class _FollowingScreenState extends State<FollowingScreen> {
             Row(children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: const Color(0xFFF4F7FA),
+                backgroundColor: const Color(0xFFF4EDE6),
                 child: s['logo_url'] != null
                     ? ClipOval(child: NetImage(s['logo_url'], width: 44, height: 44, fit: BoxFit.cover))
                     : Text(name.isEmpty ? '?' : name.substring(0, 1)),
@@ -383,7 +383,7 @@ class _FollowingScreenState extends State<FollowingScreen> {
                           borderRadius: BorderRadius.circular(8),
                           child: (p['thumb_url'] ?? p['image_url']) != null
                               ? NetImage(p['thumb_url'] ?? p['image_url'], fit: BoxFit.cover)
-                              : Container(color: const Color(0xFFF4F7FA)),
+                              : Container(color: const Color(0xFFF4EDE6)),
                         ),
                       ),
                     ),

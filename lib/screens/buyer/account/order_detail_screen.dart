@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -119,7 +120,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               height: 50,
               margin: const EdgeInsets.only(right: 6),
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFFFF7F3), border: Border.all(color: const Color(0xFFFBD5C5), width: 2), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: const Color(0xFFFFF3EE), border: Border.all(color: const Color(0xFFFBD5C5), width: 2), borderRadius: BorderRadius.circular(10)),
               child: Text(digit, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: kOrange)),
             ),
         ]),
@@ -203,7 +204,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           Container(
             margin: const EdgeInsets.only(top: 10),
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFFFF7F3), border: Border.all(color: const Color(0xFFFBD5C5)), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: const Color(0xFFFFF3EE), border: Border.all(color: const Color(0xFFFBD5C5)), borderRadius: BorderRadius.circular(10)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Got everything in good condition?', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
               const SizedBox(height: 2),
@@ -234,16 +235,46 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final delivery = o!['delivery'];
     final ret = o!['return'];
 
-    return ListView(padding: const EdgeInsets.all(12), children: [
-      Row(children: [
-        Expanded(child: Text('${o!['store']} · placed ${formatDateTime(o!['created_at'])}', style: TextStyle(color: context.bc.muted, fontSize: 12.5))),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(color: const Color(0xFFFFF1EE), borderRadius: BorderRadius.circular(20)),
-          child: Text(o!['status_label'], style: const TextStyle(color: kOrange, fontWeight: FontWeight.w600, fontSize: 12)),
-        ),
-      ]),
-      const SizedBox(height: 10),
+    final c = context.bc;
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+      // The order reference card (the design's "ORDER REFERENCE #ALV-…").
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: cardBox(context),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text('ORDER REFERENCE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: c.textSecondary))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.circle, size: 7, color: kOrange),
+                const SizedBox(width: 5),
+                Text(o!['status_label'], style: const TextStyle(color: kOrange, fontWeight: FontWeight.w700, fontSize: 11.5)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+              child: Text('${o!['number'] ?? '#${widget.orderId}'}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w700)),
+            ),
+            Text(formatDateTime(o!['created_at']), style: TextStyle(fontSize: 12, color: c.textSecondary)),
+          ]),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.storefront_outlined, size: 20, color: Alvy.slate),
+              const SizedBox(width: 10),
+              Expanded(child: Text('${o!['store']}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+            ]),
+          ),
+        ]),
+      ),
 
       if (o!['gcash'] != null && ['checking', 'rejected'].contains(o!['gcash']['state']))
         _gcashState(Map<String, dynamic>.from(o!['gcash']))
@@ -262,30 +293,55 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
       if (o!['tracking'] != null) ShipmentTrackingCard(Map<String, dynamic>.from(o!['tracking'])),
 
+      // The tracking milestones: newest first, the current step in orange, earlier ones checked, joined by a line.
       SectionCard(
-        title: 'Order timeline',
-        child: Column(children: [
-          for (var i = 0; i < (o!['timeline'] as List).length; i++)
-            Builder(builder: (_) {
-              final e = o!['timeline'][i];
-              final lastOne = i == (o!['timeline'] as List).length - 1;
-              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.circle, size: 10, color: lastOne ? kOrange : const Color(0xFFE6EDF2)),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(e['label'], style: const TextStyle(fontWeight: FontWeight.w600)),
-                      Text('${formatDateTime(e['at'])}${e['note'] != null ? ' — ${e['note']}' : ''}', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+        title: 'Tracking Milestones',
+        child: Builder(builder: (_) {
+          final steps = List<Map>.from(o!['timeline'] as List).reversed.toList();
+          return Column(children: [
+            for (var i = 0; i < steps.length; i++)
+              IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  SizedBox(
+                    width: 26,
+                    child: Column(children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: i == 0 ? Alvy.orangeSoft : const Color(0xFF406185),
+                          shape: BoxShape.circle,
+                          border: i == 0 ? Border.all(color: kOrange, width: 2) : null,
+                        ),
+                        child: Icon(i == 0 ? Icons.radio_button_checked : Icons.check, size: 13, color: i == 0 ? kOrange : Colors.white),
+                      ),
+                      if (i < steps.length - 1) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 2), color: c.border)),
                     ]),
                   ),
-                ),
-              ]);
-            }),
-        ]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(
+                            child: Text('${steps[i]['label']}',
+                                style: TextStyle(fontWeight: FontWeight.w700, color: i == 0 ? kOrange : c.text)),
+                          ),
+                          Text(formatDate(steps[i]['at'], 'MMM d · h:mm a'), style: TextStyle(fontSize: 11.5, color: c.textSecondary)),
+                        ]),
+                        if (steps[i]['note'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text('${steps[i]['note']}', style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+                          ),
+                      ]),
+                    ),
+                  ),
+                ]),
+              ),
+          ]);
+        }),
       ),
 
       if (ret != null)
@@ -324,7 +380,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
 
       SectionCard(
-        title: 'Payment',
+        title: 'Payment Summary',
         child: Column(children: [
           _row('Merchandise', peso(pay['merchandise'])),
           _row('Shipping${pay['shipping_weight_kg'] != null ? ' (${pay['shipping_weight_kg']} kg)' : ''}', peso(pay['shipping'])),
@@ -333,7 +389,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           if (asNum(pay['alvy_voucher']) > 0) _row('ALVY voucher ${pay['alvy_voucher_code'] ?? ''}', '−${peso(pay['alvy_voucher'])}', green: true),
           if (asNum(pay['shipping_voucher']) > 0) _row('Shipping voucher ${pay['shipping_voucher_code'] ?? ''}', '−${peso(pay['shipping_voucher'])}', green: true),
           const Divider(),
-          _row('Total', peso(pay['total']), bold: true),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+              Text(peso(pay['total']), style: Alvy.display(size: 22, color: kOrange, weight: FontWeight.w700)),
+            ]),
+          ),
           _row('Method', '${pay['method']} · ${pay['status']}'),
           // GCash paid by receipt: the screenshot sent at checkout (and its reference number).
           if (o!['payment_proof'] != null) ...[
@@ -354,17 +416,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       SectionCard(
         title: 'Deliver to',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${o!['deliver_to']['name']} · ${o!['deliver_to']['phone']}'),
-          Text(o!['deliver_to']['address'] ?? '', style: TextStyle(color: context.bc.muted)),
+          Row(children: [
+            const Icon(Icons.location_on_outlined, size: 18, color: kOrange),
+            const SizedBox(width: 6),
+            Expanded(child: Text('${o!['deliver_to']['name']} · ${o!['deliver_to']['phone']}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+          ]),
+          const SizedBox(height: 4),
+          Text(o!['deliver_to']['address'] ?? '', style: TextStyle(color: c.textSecondary)),
           if (o!['deliver_to']['note'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Your note: ${o!['deliver_to']['note']}', style: const TextStyle(fontSize: 12))),
         ]),
       ),
 
       if (a['confirm_received'] == true) ...[
-        ElevatedButton(
+        FilledButton.icon(
           onPressed: busy ? null : _received,
-          style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(46)),
-          child: const Text('Order Received'),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          icon: const Icon(Icons.verified_outlined, size: 20),
+          label: const Text('Order Received'),
         ),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 12),
@@ -374,7 +442,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (a['cancel'] == true)
         OutlinedButton(
           onPressed: busy ? null : () => _cancel(List<String>.from(a['cancel_reasons'])),
-          style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFB91C1C), side: const BorderSide(color: Color(0xFFFCA5A5)), minimumSize: const Size.fromHeight(44)),
+          style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFB91C1C), minimumSize: const Size.fromHeight(48)),
           child: const Text('Cancel order'),
         )
       else if (a['cancel_blocked_note'] != null)
@@ -386,7 +454,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (a['message_seller'] == true)
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: OutlinedButton(onPressed: _messageSeller, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)), child: const Text('Message the seller')),
+          child: OutlinedButton.icon(
+            onPressed: _messageSeller,
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+            label: const Text('Message the seller'),
+          ),
         ),
     ]);
   }

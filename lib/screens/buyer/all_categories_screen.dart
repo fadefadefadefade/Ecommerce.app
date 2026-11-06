@@ -6,8 +6,8 @@ import '../../widgets/buyer_kit.dart';
 import '../../widgets/net_image.dart';
 import 'shop_screen.dart';
 
-/// The website's All Categories (categories): every category with its subcategories.
-/// A category opens its page; a subcategory opens that part of it.
+/// All Categories: every category on one screen as a grid of round photos with names. A tile opens the category,
+/// whose page has its subcategories as pills.
 class AllCategoriesScreen extends StatefulWidget {
   const AllCategoriesScreen({super.key});
 
@@ -51,47 +51,66 @@ class _AllCategoriesScreenState extends State<AllCategoriesScreen> {
         loading: _loading,
         error: _error,
         onRetry: _load,
-        child: RefreshIndicator(
-          color: kOrange,
-          onRefresh: _load,
-          child: ListView(padding: const EdgeInsets.all(12), children: [
-            for (final cat in _categories)
-              Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                clipBehavior: Clip.antiAlias,
-                child: Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: cat['image_url'] != null
-                            ? NetImage(cat['image_url'], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFFF4F7FA)))
-                            : Container(color: const Color(0xFFF4F7FA)),
-                      ),
-                    ),
-                    title: Text('${cat['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text('${(cat['subcategories'] as List? ?? []).length} subcategories', style: TextStyle(fontSize: 12, color: c.muted)),
-                    childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    children: [
-                      Wrap(spacing: 6, runSpacing: 6, children: [
-                        ActionChip(
-                          label: const Text('All items'),
-                          avatar: const Icon(Icons.grid_view, size: 16),
-                          onPressed: () => _open(cat),
-                        ),
-                        for (final s in (cat['subcategories'] as List? ?? []))
-                          ActionChip(label: Text('$s'), onPressed: () => _open(cat, '$s')),
-                      ]),
-                    ],
+        child: _categories.isEmpty
+            ? Center(child: Text('No categories yet.', style: TextStyle(color: c.muted)))
+            : LayoutBuilder(builder: (context, box) {
+                // Every category on one screen: 3 per row on phones (4–6 on tablets), the tile height
+                // stretched to fill the screen, so nothing needs scrolling.
+                const pad = 12.0, gap = 10.0;
+                final cols = box.maxWidth >= 900 ? 6 : (box.maxWidth >= 600 ? 4 : 3);
+                final rows = (_categories.length / cols).ceil();
+                final w = (box.maxWidth - pad * 2 - gap * (cols - 1)) / cols;
+                final h = ((box.maxHeight - pad * 2 - gap * (rows - 1)) / rows).clamp(92.0, w * 1.35);
+                return GridView.builder(
+                  padding: const EdgeInsets.all(pad),
+                  physics: const ClampingScrollPhysics(),   // only scrolls if it can't fit (very small screens)
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: cols,
+                    mainAxisSpacing: gap,
+                    crossAxisSpacing: gap,
+                    childAspectRatio: w / h,
                   ),
+                  itemCount: _categories.length,
+                  itemBuilder: (_, i) => _tile(_categories[i]),
+                );
+              }),
+      ),
+    );
+  }
+
+  /// A category: its round photo and name on a white tile. Its subcategories are pills on the category page.
+  Widget _tile(Map<String, dynamic> cat) {
+    final c = context.bc;
+    return Material(
+      color: c.surface,
+      borderRadius: BorderRadius.circular(16),
+      elevation: Theme.of(context).brightness == Brightness.dark ? 0 : 1,
+      shadowColor: const Color(0x262A1A10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _open(cat),
+        child: LayoutBuilder(builder: (context, box) {
+          final size = (box.maxHeight * .5).clamp(40.0, 68.0);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: size,
+                height: size,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: c.subtle, shape: BoxShape.circle),
+                child: ClipOval(
+                  child: cat['image_url'] != null
+                      ? NetImage(cat['image_url'], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(Icons.category_outlined, color: c.muted))
+                      : Icon(Icons.category_outlined, color: c.muted),
                 ),
               ),
-          ]),
-        ),
+              const SizedBox(height: 6),
+              Text('${cat['name']}', textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, height: 1.2, fontWeight: FontWeight.w600, color: c.text)),
+            ]),
+          );
+        }),
       ),
     );
   }

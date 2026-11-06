@@ -30,13 +30,12 @@ class Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.1)),
+      child: Text(text.toUpperCase(), style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
     );
   }
 }
@@ -54,24 +53,20 @@ class StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.bc;
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border), boxShadow: Alvy.cardShadow),
+      padding: const EdgeInsets.all(16),
+      decoration: cardBox(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, size: 17, color: color),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textSecondary))),
+        // The design's metric card: the label with its icon on the right, then the big figure.
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: c.textSecondary))),
+          const SizedBox(width: 6),
+          Icon(icon, size: 20, color: color),
         ]),
         const SizedBox(height: 10),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(value, style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w900)),
+          child: Text(value, style: Alvy.display(size: 24, color: c.text, weight: FontWeight.w700)),
         ),
         if (hint != null) ...[
           const SizedBox(height: 2),
@@ -90,8 +85,8 @@ class StatGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, box) {
-      final w = (box.maxWidth - 10) / 2;
-      return Wrap(spacing: 10, runSpacing: 10, children: [for (final t in tiles) SizedBox(width: w, child: t)]);
+      final w = (box.maxWidth - 12) / 2;
+      return Wrap(spacing: 12, runSpacing: 12, children: [for (final t in tiles) SizedBox(width: w, child: t)]);
     });
   }
 }
@@ -194,9 +189,9 @@ class BusyButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(6), boxShadow: busy || onPressed == null || color != kOrange ? null : Alvy.buttonShadow),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), boxShadow: busy || onPressed == null || color != kOrange ? null : Alvy.buttonShadow),
       child: FilledButton.icon(
-        style: FilledButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14)),
+        style: FilledButton.styleFrom(backgroundColor: color, minimumSize: const Size.fromHeight(50), padding: const EdgeInsets.symmetric(vertical: 14)),
         onPressed: busy ? null : onPressed,
         icon: busy
             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))

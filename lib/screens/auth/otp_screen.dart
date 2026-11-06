@@ -28,7 +28,7 @@ class _OtpScreenState extends State<OtpScreen> {
   int _wait = 0;
   Timer? _timer;
 
-  static const _orange = Color(0xFFfa4e1c);
+  static const _orange = Color(0xFFFA4E1C);
 
   @override
   void initState() {
@@ -108,8 +108,8 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: const Color(0xFF002B4D)),
+      backgroundColor: const Color(0xFFFFF8F2),
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: const Color(0xFF1E1B17)),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -118,7 +118,7 @@ class _OtpScreenState extends State<OtpScreen> {
               constraints: const BoxConstraints(maxWidth: 440),
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F7FA),
+                color: const Color(0xFFF4EDE6),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 4))],
               ),
@@ -129,10 +129,10 @@ class _OtpScreenState extends State<OtpScreen> {
                   const SizedBox(height: 16),
                   const Text('Verify Your Account',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF002B4D))),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1E1B17))),
                   const SizedBox(height: 6),
                   const Text('Enter the 6-digit code we emailed you',
-                      textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF6B90AA))),
+                      textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8A716A))),
                   const SizedBox(height: 16),
                   if (_info.isNotEmpty)
                     Container(
@@ -145,7 +145,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     Text('Sent to ${widget.maskedEmail}. The code expires in 10 minutes.',
                         textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF5a4d45), fontSize: 13)),
                   const SizedBox(height: 20),
-                  const Text('Verification Code', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF002B4D))),
+                  const Text('Verification Code', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E1B17))),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _code,
@@ -180,7 +180,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Didn't get the code?", style: TextStyle(color: Color(0xFF6B90AA))),
+                      const Text("Didn't get the code?", style: TextStyle(color: Color(0xFF8A716A))),
                       TextButton(
                         onPressed: _busy || _wait > 0 ? null : _resend,
                         child: Text(_wait > 0 ? 'Resend code (in ${_wait}s)' : 'Resend code'),

@@ -107,7 +107,7 @@ class _StoreScreenState extends State<StoreScreen> {
                         child: Row(children: [
                           CircleAvatar(
                             radius: 26,
-                            backgroundColor: const Color(0xFFF4F7FA),
+                            backgroundColor: const Color(0xFFF4EDE6),
                             child: store['logo_url'] != null
                                 ? ClipOval(child: NetImage(store['logo_url'], width: 52, height: 52, fit: BoxFit.cover))
                                 : Text((store['name'] as String).substring(0, 1)),
@@ -178,7 +178,7 @@ class _StoreScreenState extends State<StoreScreen> {
                       maxCrossAxisExtent: Responsive.productTileMaxFor(context),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 0.56,
+                      childAspectRatio: 0.6,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
                       children: [for (final p in products) BuyerProductCard(product: Map<String, dynamic>.from(p))],

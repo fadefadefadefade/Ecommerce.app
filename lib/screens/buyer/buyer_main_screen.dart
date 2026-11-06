@@ -1,6 +1,5 @@
 import 'assistant_screen.dart';
 import 'package:flutter/material.dart';
-import '../../theme/buyer_colors.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/buyer_api.dart';
@@ -11,6 +10,7 @@ import 'cart_screen.dart';
 import 'profile_screen.dart';
 import 'chat_screen.dart';
 import 'account/notifications_screen.dart';
+import 'account/collections_screens.dart' show WishlistScreen;
 import '../../widgets/buyer_web_header.dart';
 import '../../widgets/responsive.dart';
 
@@ -58,7 +58,17 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
     _setCartCount((r.body['count'] as num?)?.toInt() ?? 0);
   }
 
+  /// The tab on screen, for screens that react when the user comes back to theirs (Home's category tiles).
+  late final tabNotifier = ValueNotifier<int>(widget.initialIndex);
+
+  @override
+  void dispose() {
+    tabNotifier.dispose();
+    super.dispose();
+  }
+
   void goTo(int index) {
+    tabNotifier.value = index;
     setState(() {
       if (index == tabCart) _cartReloadToken++;   // the reloaded cart updates the badge itself
       _currentIndex = index;
@@ -98,6 +108,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
                   onTab: goTo,
                   onMessages: () => push(const ChatListScreen()),
                   onNotifications: () => push(const NotificationsScreen()),
+                  onWishlist: () => push(const WishlistScreen()),
                   onSearch: (q) => push(ShopScreen(initialSearch: q)),
                   accountName: authProvider.user?.name,
                 )
@@ -126,8 +137,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
           )),
           bottomNavigationBar: DecoratedBox(
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: context.bc.border)),
-              boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, -2))],
+              boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
             ),
             child: NavigationBar(
               selectedIndex: _currentIndex,

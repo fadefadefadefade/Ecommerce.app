@@ -28,7 +28,7 @@ class PoliciesScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Policies')),
       body: ListView(padding: const EdgeInsets.all(12), children: [
         Container(
-          decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
+          decoration: cardBox(context),
           child: Column(children: [
             for (final (i, p) in kPolicies.indexed) ...[
               if (i > 0) Divider(height: 1, color: c.border),
@@ -97,7 +97,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: c.border)),
+                  decoration: cardBox(context),
                   child: html == null
                       ? Column(children: [
                           const SizedBox(height: 12),

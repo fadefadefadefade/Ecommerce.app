@@ -76,7 +76,7 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
                   height: 4,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    color: i <= reached ? (trouble && i == reached ? const Color(0xFFDC2626) : kOrange) : const Color(0xFFE6EDF2),
+                    color: i <= reached ? (trouble && i == reached ? const Color(0xFFDC2626) : kOrange) : const Color(0xFFEEE7E0),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -101,7 +101,7 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(children: [
-              Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE6EDF2), width: 2))),
+              Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFEEE7E0), width: 2))),
               const SizedBox(width: 10),
               Text('$step (expected)', style: TextStyle(fontSize: 13, color: c.muted)),
             ]),
@@ -113,12 +113,12 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
   Widget _event(Map<String, dynamic> e, {required bool latest, required bool line}) {
     final c = context.bc;
     final warn = e['warning'] == true;
-    final color = warn ? const Color(0xFFDC2626) : (latest ? (e['type'] == 'delivered' ? const Color(0xFF059669) : kOrange) : const Color(0xFFE6EDF2));
+    final color = warn ? const Color(0xFFDC2626) : (latest ? (e['type'] == 'delivered' ? const Color(0xFF059669) : kOrange) : const Color(0xFFEEE7E0));
     return IntrinsicHeight(
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Column(children: [
           Container(margin: const EdgeInsets.only(top: 4), width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          if (line) Expanded(child: Container(width: 1, color: const Color(0xFFE6EDF2))),
+          if (line) Expanded(child: Container(width: 1, color: const Color(0xFFEEE7E0))),
         ]),
         const SizedBox(width: 10),
         Expanded(

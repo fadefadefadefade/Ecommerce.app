@@ -2,6 +2,7 @@ import '../../widgets/responsive.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/buyer_api.dart';
@@ -36,6 +37,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   int quantity = 1;
   List<String?> chosen = [];
   int image = 0;
+  final gallery = PageController();
   bool busy = false;
   List<dynamic> reviews = [];
   int reviewPage = 1;
@@ -56,6 +58,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   @override
   void dispose() {
     ticker?.cancel();
+    gallery.dispose();
     super.dispose();
   }
 
@@ -141,6 +144,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   }
 
   Future<void> _toggleWish() async {
+    // Taking it out of the wishlist: ask first (adding needs no question).
+    if (p!['wished'] == true &&
+        !await confirmRemoval(context, title: 'Remove from wishlist?', message: '"${p!['title']}" will be taken out of your wishlist.')) {
+      return;
+    }
+    if (!mounted) return;
     final r = await BuyerApi.toggleWish(p!['id'], on: p!['wished'] != true);
     if (!mounted) return;
     if (r.ok) setState(() => p!['wished'] = r.body['wished']);
@@ -216,69 +225,126 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     final upcoming = p!['upcoming'];
     final wide = Responsive.isWide(context);   // tablet: the website's product page
 
-    // Photos
-    final gallery = Container(
-          color: Colors.white,
-          child: Column(children: [
-            AspectRatio(
-              aspectRatio: 1,
-              child: images.isEmpty
-                  ? Icon(Icons.image_not_supported,
-                      size: 64, color: context.bc.muted)
-                  : PageView.builder(
-                      itemCount: images.length,
+    // Photos, then the seller's video: swipe, or tap the arrows, like the website's gallery.
+    final hasVideo = p!['video_url'] != null;
+    final slides = images.length + (hasVideo ? 1 : 0);
+    Widget arrow(IconData icon, int step) => Material(
+          color: Colors.white.withValues(alpha: .92),
+          shape: const CircleBorder(),
+          elevation: 2,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => gallery.animateToPage((image + step + slides) % slides,
+                duration: const Duration(milliseconds: 250), curve: Curves.easeOut),
+            child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 22, color: const Color(0xFF222222))),
+          ),
+        );
+    final galleryBox = Container(
+          color: context.bc.surface,
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: slides == 0
+                ? Icon(Icons.image_not_supported, size: 64, color: context.bc.muted)
+                : Stack(children: [
+                    PageView.builder(
+                      controller: gallery,
+                      itemCount: slides,
                       onPageChanged: (i) => setState(() => image = i),
-                      itemBuilder: (_, i) =>
-                          NetImage(images[i]['url'], fit: BoxFit.contain),
+                      itemBuilder: (_, i) => i < images.length
+                          ? NetImage(images[i]['url'], fit: BoxFit.contain)
+                          // The video slide: the cover with a play button; it plays in the phone's video player.
+                          : GestureDetector(
+                              onTap: () => launchUrl(Uri.parse('${p!['video_url']}'), mode: LaunchMode.externalApplication),
+                              child: Container(
+                                color: Colors.black,
+                                child: Stack(alignment: Alignment.center, children: [
+                                  if (images.isNotEmpty)
+                                    Positioned.fill(child: Opacity(opacity: .45, child: NetImage(images.first['url'], fit: BoxFit.cover))),
+                                  Column(mainAxisSize: MainAxisSize.min, children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: const BoxDecoration(color: kOrange, shape: BoxShape.circle),
+                                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Text('Tap to play the product video',
+                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                  ]),
+                                ]),
+                              ),
+                            ),
                     ),
-            ),
-            if (images.length > 1)
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text('${image + 1} / ${images.length}',
-                    style: TextStyle(color: context.bc.muted, fontSize: 12)),
-              ),
-            // The seller's product video (as on the website's gallery): plays in the phone's video player.
-            if (p!['video_url'] != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                child: OutlinedButton.icon(
-                  onPressed: () => launchUrl(Uri.parse('${p!['video_url']}'), mode: LaunchMode.externalApplication),
-                  icon: const Icon(Icons.play_circle_outline, color: kOrange),
-                  label: const Text('Watch the product video'),
-                ),
-              ),
-          ]),
+                    if (slides > 1) ...[
+                      Positioned(left: 8, top: 0, bottom: 0, child: Center(child: arrow(Icons.chevron_left, -1))),
+                      Positioned(right: 8, top: 0, bottom: 0, child: Center(child: arrow(Icons.chevron_right, 1))),
+                      // Dots: the current slide is a long orange pill.
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 12,
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          for (var i = 0; i < slides && slides <= 10; i++)
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: i == image ? 20 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: i == image ? kOrange : Colors.white.withValues(alpha: .85),
+                                borderRadius: BorderRadius.circular(3),
+                                boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 3)],
+                              ),
+                            ),
+                        ]),
+                      ),
+                      Positioned(
+                        right: 12,
+                        top: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(color: const Color(0x991E1B17), borderRadius: BorderRadius.circular(99)),
+                          child: Text(hasVideo && image == images.length ? 'Video · ${image + 1} / $slides' : '${image + 1} / $slides',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ]),
+          ),
     );
 
     final info = Padding(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.fromLTRB(16, wide ? 12 : 4, 16, 12),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (asMap(p!['details'])['Category'] != null)
-              Text(wide ? '${asMap(p!['details'])['Category']}'.toUpperCase() : asMap(p!['details'])['Category'],
-                  style: wide
-                      ? const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Color(0xFF6B90AA))
-                      : const TextStyle(fontSize: 12, color: Color(0xFF6B90AA))),
-            // Tablet: the website's big product name.
-            Text(p!['title'],
-                style: TextStyle(
-                    fontSize: wide ? 28 : 19,
-                    fontWeight: wide ? FontWeight.w900 : FontWeight.w700,
-                    height: wide ? 1.2 : null,
-                    color: context.bc.text)),
-            const SizedBox(height: 6),
+            // Store / category line with the rating chip on the right (the design's product header).
             Row(children: [
-              if (p!['rating'] != null) ...[
-                Stars(asNum(p!['rating'])),
-                Text(
-                    ' ${asNum(p!['rating']).toStringAsFixed(1)} (${p!['rating_count']})',
-                    style: TextStyle(fontSize: 12, color: context.bc.muted)),
-                Text('  ·  ', style: TextStyle(color: context.bc.muted)),
-              ],
-              Text('${p!['sold']} sold',
-                  style: TextStyle(fontSize: 12, color: context.bc.muted)),
+              Expanded(
+                child: Text(
+                  [
+                    if (p!['seller'] != null) '${p!['seller']['name']}',
+                    if (asMap(p!['details'])['Category'] != null) '${asMap(p!['details'])['Category']}',
+                  ].join('  ·  '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Alvy.slate),
+                ),
+              ),
+              if (p!['rating'] != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(20)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
+                    Text(' ${asNum(p!['rating']).toStringAsFixed(1)} (${p!['rating_count']})',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.bc.text)),
+                  ]),
+                ),
             ]),
+            const SizedBox(height: 6),
+            Text(p!['title'],
+                style: Alvy.display(size: wide ? 30 : 24, color: context.bc.text, weight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('${p!['sold']} sold', style: TextStyle(fontSize: 12.5, color: context.bc.muted)),
             const SizedBox(height: 12),
 
             // Price (tablet: on the page like the website, with "In stock · N available"; phone: in a card)
@@ -310,10 +376,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         v == null && p!['price_range'] != null
                             ? '${peso(p!['price_range'][0])} – ${peso(p!['price_range'][1])}'
                             : peso(price),
-                        style: TextStyle(
-                            fontSize: wide ? 30 : 24,
-                            fontWeight: FontWeight.w800,
-                            color: kOrange),
+                        style: Alvy.display(size: wide ? 32 : 26, color: kOrange, weight: FontWeight.w700),
                       ),
                       if (p!['original_price'] != null &&
                           (v == null && p!['price_range'] == null)) ...[
@@ -322,11 +385,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             style: TextStyle(
                                 decoration: TextDecoration.lineThrough,
                                 color: context.bc.muted)),
-                        const SizedBox(width: 6),
-                        Text('-${p!['discount_percent']}%',
-                            style: const TextStyle(
-                                color: Color(0xFFE0431A),
-                                fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 8),
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(20)),
+                          child: Text('${p!['discount_percent']}% OFF',
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFFBA1A1A), fontWeight: FontWeight.w700)),
+                        ),
                       ],
                     ]),
                     if (p!['sale_ends_at'] != null && flash == null)
@@ -345,7 +411,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               const SizedBox(height: 8),
               Row(children: [
                 Container(
-                  decoration: BoxDecoration(border: Border.all(color: context.bc.border), borderRadius: BorderRadius.circular(10), color: context.bc.surface),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: context.bc.subtle),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     IconButton(onPressed: quantity > 1 ? () => setState(() => quantity--) : null, icon: const Icon(Icons.remove, size: 18)),
                     SizedBox(width: 36, child: Text('$quantity', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
@@ -445,14 +511,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     children: [
                       Row(children: [
                         CircleAvatar(
-                          backgroundColor: const Color(0xFFF4F7FA),
+                          radius: 24,
+                          backgroundColor: const Color(0xFFFFDBD1),
                           child: Text(
                               (p!['seller']['name'] as String)
                                   .substring(0, 1)
                                   .toUpperCase(),
-                              style: const TextStyle(color: Color(0xFF4A7A94))),
+                              style: Alvy.display(size: 19, color: kOrange)),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,25 +527,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                                 const Text('Sold by',
                                     style: TextStyle(
                                         fontSize: 11,
-                                        color: Color(0xFF6B90AA))),
+                                        color: Color(0xFF8A716A))),
                                 Text(p!['seller']['name'],
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: context.bc.text)),
+                                    style: Alvy.display(size: 17, color: context.bc.text, weight: FontWeight.w700)),
                               ]),
                         ),
                       ]),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 14),
                       Row(children: [
                         Expanded(
-                            child: OutlinedButton(
+                            child: OutlinedButton.icon(
                           onPressed: _chat,
-                          style: OutlinedButton.styleFrom(
-                              foregroundColor: kOrange,
-                              side: const BorderSide(color: kOrange)),
-                          child: const Text('Chat'),
+                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                          label: const Text('Chat'),
                         )),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
                             child: OutlinedButton(
                           onPressed: () => Navigator.push(
@@ -486,7 +549,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                               MaterialPageRoute(
                                   builder: (_) => StoreScreen(
                                       sellerId: p!['seller']['id']))),
-                          child: const Text('View store'),
+                          style: OutlinedButton.styleFrom(backgroundColor: Colors.transparent, side: BorderSide(color: context.bc.border, width: 1.5)),
+                          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Text('View Store'),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward, size: 16),
+                          ]),
                         )),
                       ]),
                     ]),
@@ -530,21 +598,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             _reviews(),
 
             if ((p!['related'] as List).isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text('You may also like',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: context.bc.text)),
-              ),
+              const SectionTitle('You may also like', padding: EdgeInsets.fromLTRB(0, 12, 0, 12)),
               GridView.extent(
                 maxCrossAxisExtent: Responsive.productTileMaxFor(context),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 0.56,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
+                childAspectRatio: 0.6,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
                 children: [
                   for (final r in p!['related'])
                     BuyerProductCard(product: Map<String, dynamic>.from(r))
@@ -582,14 +643,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     width: (MediaQuery.sizeOf(context).width.clamp(0, Responsive.maxContent) * 0.42).toDouble(),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: ClipRRect(borderRadius: BorderRadius.circular(12), child: gallery),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(12), child: galleryBox),
                     ),
                   ),
                   Expanded(child: info),
                 ]),
               ),
             ])
-          : ListView(padding: const EdgeInsets.only(bottom: 24), children: [gallery, info]),
+          : ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+              galleryBox,
+              // Thumbnails under the photo (the design's gallery strip).
+              if (slides > 1)
+                Container(
+                  color: context.bc.surface,
+                  height: 76,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    itemCount: slides,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) => GestureDetector(
+                      onTap: () => gallery.animateToPage(i, duration: const Duration(milliseconds: 250), curve: Curves.easeOut),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 60,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: i == image ? kOrange : context.bc.border, width: i == image ? 2 : 1),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: i < images.length
+                            ? NetImage(images[i]['url'], fit: BoxFit.cover)
+                            : Container(color: Colors.black87, child: const Icon(Icons.play_circle_fill, color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 12),
+              info,
+            ]),
     );
   }
 
@@ -601,7 +695,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration:
-          BoxDecoration(color: kOrange, borderRadius: BorderRadius.circular(6)),
+          BoxDecoration(gradient: Alvy.gradient, borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
         const Icon(Icons.flash_on, color: Colors.white, size: 18),
         const Text(' FLASH SALE',
@@ -623,7 +717,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
           color: const Color(0xFFFFF7ED),
-          borderRadius: BorderRadius.circular(6)),
+          borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
         Expanded(
           child: Text(
@@ -644,16 +738,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     return SectionCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         for (var g = 0; g < groups.length; g++) ...[
-          Text(labels[g],
-              style: TextStyle(
-                  fontWeight: FontWeight.w600, color: context.bc.text)),
-          const SizedBox(height: 6),
+          Text.rich(TextSpan(children: [
+            TextSpan(text: '${labels[g]}: ', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.textSecondary)),
+            TextSpan(text: chosen[g] ?? 'Choose one', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
+          ])),
+          const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final part in groups[g])
               ChoiceChip(
                 label: Text('$part'),
                 selected: chosen[g] == part,
-                selectedColor: const Color(0xFFFFF1EE),
+                showCheckmark: false,
+                selectedColor: kOrange,
+                labelStyle: TextStyle(fontWeight: FontWeight.w600, color: chosen[g] == part ? Colors.white : context.bc.text),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 onSelected: (_) => setState(() {
                   chosen[g] = chosen[g] == part ? null : '$part';
                   quantity = 1;
@@ -687,8 +786,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         else ...[
           Row(children: [
             Text(asNum(p!['rating']).toStringAsFixed(1),
-                style:
-                    const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                style: Alvy.display(size: 32, color: context.bc.text)),
             const SizedBox(width: 8),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Stars(asNum(p!['rating'])),
@@ -725,8 +823,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   }
 
   Widget _review(Map<String, dynamic> r) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFFFAF2EB), borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(r['user'] ?? 'Buyer',
@@ -740,7 +840,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         if ((r['comment'] ?? '').toString().isNotEmpty)
           Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(r['comment'])),
+              child: Text('"${r['comment']}"', style: TextStyle(color: context.bc.text, height: 1.45))),
         if ((r['photos'] as List).isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -757,8 +857,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             margin: const EdgeInsets.only(top: 6),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-                color: context.bc.subtle,
-                borderRadius: BorderRadius.circular(6)),
+                color: context.bc.surface,
+                borderRadius: BorderRadius.circular(10)),
             child: Text('Seller: ${r['seller_reply']}',
                 style: const TextStyle(fontSize: 12.5)),
           ),
@@ -777,10 +877,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
         decoration: BoxDecoration(
             color: context.bc.surface,
-            border: Border(top: BorderSide(color: context.bc.border))),
+            boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))]),
         child: _buyButtons(label, optionMissing, optionOut),
       ),
     );
@@ -809,12 +909,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         : () => optionMissing
                             ? showError(context, 'Please select a variation.')
                             : _buy(buyNow: false),
-                    icon: const Icon(Icons.add_shopping_cart),
+                    icon: const Icon(Icons.add_shopping_cart, size: 20),
                     label: const Text('Add to Cart'),
-                    style: OutlinedButton.styleFrom(
-                        foregroundColor: kOrange,
-                        side: const BorderSide(color: kOrange),
-                        minimumSize: const Size.fromHeight(46)),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -825,12 +922,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         : () => optionMissing
                             ? showError(context, 'Please select a variation.')
                             : _buy(buyNow: true),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: kOrange,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(46)),
-                    child: const Text('Buy Now',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                    child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text('Buy Now', style: TextStyle(fontWeight: FontWeight.w700)),
+                      SizedBox(width: 6),
+                      Icon(Icons.arrow_forward, size: 18),
+                    ]),
                   ),
                 ),
               ]),

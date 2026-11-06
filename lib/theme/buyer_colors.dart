@@ -21,27 +21,27 @@ class BuyerPalette {
     required this.border,
   });
 
-  static const primary = Color(0xFFfa4e1c);
+  static const primary = Color(0xFFFA4E1C);
 
-  // The website's tokens (see theme/app_theme.dart): navy text scale, grey page, white cards, hairline borders.
+  // The design's tokens (see theme/app_theme.dart): warm ink text, cream page, white cards, warm beige fills.
   static const light = BuyerPalette(
-    background: Color(0xFFF5F5F5),
+    background: Color(0xFFFFF8F2),
     surface: Colors.white,
-    subtle: Color(0xFFF4F7FA),
-    text: Color(0xFF002B4D),
-    textSecondary: Color(0xFF4A7A94),
-    muted: Color(0xFF6B90AA),
-    border: Color(0xFFE6EDF2),
+    subtle: Color(0xFFF4EDE6),
+    text: Color(0xFF1E1B17),
+    textSecondary: Color(0xFF5C4039),
+    muted: Color(0xFF8A716A),
+    border: Color(0xFFEEE7E0),
   );
 
   static const dark = BuyerPalette(
-    background: Color(0xFF0E1621),
-    surface: Color(0xFF16212E),
-    subtle: Color(0xFF1D2A3A),
-    text: Color(0xFFE8EEF4),
-    textSecondary: Color(0xFFB5C6D6),
-    muted: Color(0xFF8AA3B8),
-    border: Color(0xFF26354A),
+    background: Color(0xFF15110E),
+    surface: Color(0xFF211C18),
+    subtle: Color(0xFF2B2520),
+    text: Color(0xFFF2E6DE),
+    textSecondary: Color(0xFFD6C2B8),
+    muted: Color(0xFFA48F85),
+    border: Color(0xFF3A322C),
   );
 }
 

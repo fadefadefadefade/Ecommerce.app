@@ -376,7 +376,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     ChoiceChip(
                       label: Text(label),
                       selected: _selectedLabel == label,
-                      selectedColor: const Color(0xFFfa4e1c).withValues(alpha: 0.15),
+                      selectedColor: const Color(0xFFFA4E1C).withValues(alpha: 0.15),
                       onSelected: (_) => setState(() => _selectedLabel = label),
                     ),
                 ],
@@ -427,7 +427,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.place_outlined, color: Color(0xFFfa4e1c)),
+                  leading: const Icon(Icons.place_outlined, color: Color(0xFFFA4E1C)),
                   title: Text('${pl['label']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
                   onTap: () => _pinAt((pl['lat'] as num).toDouble(), (pl['lon'] as num).toDouble()),
                 ),
@@ -465,7 +465,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                                       });
                                     },
                               onPanEnd: _locating ? null : (_) => _pinAt(_lat!, _lng!),
-                              child: const Icon(Icons.location_pin, size: 40, color: Color(0xFFfa4e1c)),
+                              child: const Icon(Icons.location_pin, size: 40, color: Color(0xFFFA4E1C)),
                             ),
                           ),
                         ]),
@@ -481,7 +481,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 onPressed: _locating ? null : _useMyLocation,
                 icon: _locating
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.my_location, color: Color(0xFFfa4e1c)),
+                    : const Icon(Icons.my_location, color: Color(0xFFFA4E1C)),
                 label: Text(_lat == null ? 'Use my current location' : 'Update the pin to my location'),
               ),
               if (_pinned != null)
@@ -497,11 +497,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: context.bc.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: context.bc.border),
-                ),
+                decoration: cardBox(context),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedRegion,
@@ -542,11 +538,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: context.bc.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: context.bc.border),
-                          ),
+                          decoration: cardBox(context),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedProvince,
@@ -590,11 +582,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: context.bc.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: context.bc.border),
-                          ),
+                          decoration: cardBox(context),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedMunicipality,
@@ -644,11 +632,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: context.bc.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: context.bc.border),
-                          ),
+                          decoration: cardBox(context),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedBarangay,
@@ -754,7 +738,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Set as default address', style: TextStyle(fontSize: 14)),
                 value: _isDefault,
-                activeThumbColor: const Color(0xFFfa4e1c),
+                activeThumbColor: const Color(0xFFFA4E1C),
                 onChanged: (v) => setState(() => _isDefault = v),
               ),
               const SizedBox(height: 20),
@@ -766,7 +750,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFfa4e1c),
+                    backgroundColor: const Color(0xFFFA4E1C),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),

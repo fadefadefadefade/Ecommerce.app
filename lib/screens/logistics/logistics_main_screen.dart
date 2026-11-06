@@ -82,7 +82,7 @@ class _Menu extends StatelessWidget {
 
   static const _colors = [
     Color(0xFFFA4E1C), Color(0xFF2563EB), Color(0xFF059669), Color(0xFF9333EA), Color(0xFFF59E0B),
-    Color(0xFF0EA5E9), Color(0xFFDC2626), Color(0xFF0F766E), Color(0xFF4A7A94),
+    Color(0xFF0EA5E9), Color(0xFFDC2626), Color(0xFF0F766E), Color(0xFF5C4039),
   ];
 
   @override
@@ -93,7 +93,7 @@ class _Menu extends StatelessWidget {
       if (logout) (Icons.logout, 'Log out', const Color(0xFFDC2626), () => confirmLogout(context)),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(title), foregroundColor: Colors.white),
+      appBar: AppBar(title: Text(title)),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         ProfileActionGrid(actions: [
           for (final (icon, label, color, onTap) in tiles) ProfileAction(icon: icon, label: label, color: color, onTap: onTap),

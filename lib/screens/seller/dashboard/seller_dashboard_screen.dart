@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/auth_provider.dart';
@@ -99,16 +100,36 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
       if (low > 0) '$low product${low == 1 ? '' : 's'} with $limit or fewer left',
       if (out > 0) '$out sold out',
     ];
-    return Card(
-      color: const Color(0xFFFEF2F2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFFCA5A5))),
-      child: ListTile(
-        leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 30),
-        title: const Text('Low stock warning', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF991B1B))),
-        subtitle: Text('${parts.join(' · ')}. Restock so buyers can keep ordering.', style: const TextStyle(color: Color(0xFF991B1B))),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFF991B1B)),
-        onTap: () => _open(SellerProductsScreen(initialStatus: low > 0 ? 'low_stock' : 'out_of_stock')),
-      ),
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(16)),
+      child: Row(children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: const BoxDecoration(color: Color(0xFFFFDAD6), shape: BoxShape.circle),
+          child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFBA1A1A), size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Low stock warning', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFBA1A1A), fontSize: 13)),
+            Text('${parts.join(' · ')}. Restock so buyers can keep ordering.', style: TextStyle(color: context.bc.text, fontSize: 13)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: context.bc.surface,
+            foregroundColor: context.bc.text,
+            minimumSize: const Size(0, 38),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          ),
+          onPressed: () => _open(SellerProductsScreen(initialStatus: low > 0 ? 'low_stock' : 'out_of_stock')),
+          child: const Text('Manage'),
+        ),
+      ]),
     );
   }
 
@@ -169,28 +190,55 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
     final rate = asNum(d['commission_rate']);
     final rateText = rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1);
 
-    return ListView(padding: const EdgeInsets.all(14), children: [
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
       for (final v in List<Map>.from(d['violations'] ?? const [])) _violation(v),
-      Text('Welcome back, $name', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
-      const SizedBox(height: 8),
-      // The period the numbers cover (the website's Today / This week / This month / Custom).
-      Wrap(spacing: 6, children: [
-        for (final (key, label) in const [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('custom', 'Custom')])
-          ChoiceChip(label: Text(label), selected: _period == key, selectedColor: kOrange.withValues(alpha: .15), onSelected: (_) => _pickPeriod(key)),
-      ]),
-      Padding(padding: const EdgeInsets.only(top: 4, bottom: 8), child: Text('${d['range_label'] ?? ''}', style: TextStyle(color: c.muted, fontSize: 12))),
-      _stockWarning(d),
+      // The store name, big, like the design's dashboard header.
+      Text('Welcome back,', style: TextStyle(fontSize: 14, color: c.textSecondary)),
+      Text(name, style: Alvy.display(size: 26, color: c.text, weight: FontWeight.w700)),
+      const SizedBox(height: 14),
+      // The period the numbers cover (Today / This week / This month / Custom).
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          for (final (key, label) in const [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('custom', 'Custom')])
+            Padding(padding: const EdgeInsets.only(right: 8), child: FilterPill(label, selected: _period == key, onTap: () => _pickPeriod(key))),
+        ]),
+      ),
+      Padding(padding: const EdgeInsets.only(top: 8), child: Text('${d['range_label'] ?? ''}', style: TextStyle(color: c.muted, fontSize: 12))),
+      // Orders waiting to ship: the design's urgent orange card.
       if (asInt(d['to_ship']) > 0)
-        Card(
-          color: const Color(0xFFFFF7ED),
-          child: ListTile(
-            leading: const Icon(Icons.local_shipping_outlined, color: kOrange),
-            title: Text('${d['to_ship']} order(s) to ship', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF9A3412))),
-            subtitle: const Text('Accept, pack and book the pickup.', style: TextStyle(color: Color(0xFF9A3412))),
-            trailing: const Icon(Icons.chevron_right, color: Color(0xFF9A3412)),
-            onTap: () => SellerMainScreen.of(context)?.goTo(SellerMainScreenState.tabOrders),
-          ),
+        Container(
+          margin: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(gradient: Alvy.gradient, borderRadius: BorderRadius.circular(20), boxShadow: Alvy.buttonShadow),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .2), borderRadius: BorderRadius.circular(20)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.schedule, size: 14, color: Colors.white),
+                SizedBox(width: 6),
+                Text('TO SHIP', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .6)),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            Text('${d['to_ship']} order${asInt(d['to_ship']) == 1 ? '' : 's'} to ship', style: Alvy.display(size: 22, color: Colors.white, weight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('Accept, pack and book the pickup.', style: TextStyle(color: Colors.white.withValues(alpha: .9), fontSize: 13.5)),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: kOrange),
+                onPressed: () => SellerMainScreen.of(context)?.goTo(SellerMainScreenState.tabOrders),
+                icon: const Icon(Icons.inventory_2_outlined, size: 19),
+                label: const Text('Go to orders'),
+              ),
+            ),
+          ]),
         ),
+      _stockWarning(d),
+      const SectionTitle('Overview Metrics', padding: EdgeInsets.fromLTRB(0, 22, 0, 12)),
       StatGrid([
         StatTile(label: 'Sales', value: peso(money['gross']), icon: Icons.payments_outlined, color: const Color(0xFF2563EB),
             hint: asNum(money['refunds']) > 0 ? '${peso(money['refunds'])} refunded' : 'What buyers paid for your items'),
@@ -203,10 +251,49 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         alignment: Alignment.centerRight,
         child: TextButton.icon(
           onPressed: () => _open(SellerCommissionsScreen(period: _period, custom: _custom)),
-          icon: const Icon(Icons.percent, size: 18, color: kOrange),
-          label: const Text('Commission details', style: TextStyle(color: kOrange)),
+          icon: const Icon(Icons.percent, size: 18),
+          label: const Text('Commission details'),
         ),
       ),
+      // Quick actions (the design's round tiles).
+      const SectionTitle('Quick Actions', padding: EdgeInsets.fromLTRB(0, 8, 0, 12)),
+      Row(children: [
+        for (final (icon, label, onTap) in <(IconData, String, VoidCallback)>[
+          (Icons.add_box_outlined, 'New Item', () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddEditProductScreen()));
+            _load();
+          }),
+          (Icons.inventory_2_outlined, 'Products', () => SellerMainScreen.of(context)?.goTo(SellerMainScreenState.tabProducts)),
+          (Icons.receipt_long_outlined, 'Orders', () => SellerMainScreen.of(context)?.goTo(SellerMainScreenState.tabOrders)),
+          (Icons.percent, 'Commission', () => _open(SellerCommissionsScreen(period: _period, custom: _custom))),
+        ]) ...[
+          Expanded(
+            child: Material(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Column(children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(color: c.subtle, shape: BoxShape.circle),
+                      child: Icon(icon, color: kOrange, size: 22),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.text)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+          if (label != 'Commission') const SizedBox(width: 10),
+        ],
+      ]),
+      const SizedBox(height: 20),
       SectionCard(title: 'Net earnings by month', child: _Chart(chart)),
       SectionCard(
         title: 'Orders',
@@ -214,7 +301,7 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           for (final (key, label, color) in const [
             ('in_progress', 'In progress', Color(0xFFF59E0B)),
             ('completed', 'Completed', Color(0xFF059669)),
-            ('cancelled', 'Cancelled', Color(0xFF6B90AA)),
+            ('cancelled', 'Cancelled', Color(0xFF8A716A)),
             ('refunded', 'Refunded', Color(0xFFEF4444)),
           ])
             Padding(

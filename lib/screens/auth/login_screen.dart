@@ -110,95 +110,77 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const ink = Alvy.navy;
+    Widget label(String t) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(t, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: ink)),
+        );
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Alvy.page,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+            child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE6EDF2)),
-                boxShadow: Alvy.liftShadow,
-              ),
-              padding: const EdgeInsets.all(32),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Logo
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Image.asset('assets/images/logo-mark.png', width: 52, height: 52),
-                      const SizedBox(width: 10),
-                      Text('ALVY', style: Alvy.display(size: 30)),
-                    ]),
-                    const SizedBox(height: 24),
-
-                    // Title
-                    Text('Welcome back', style: Alvy.display(size: 26)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Enter your details to login',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF6B90AA),
+                    // The brand mark in a soft orange disc, then ALVY and the welcome line.
+                    Center(
+                      child: Container(
+                        width: 104,
+                        height: 104,
+                        padding: const EdgeInsets.all(22),
+                        decoration: const BoxDecoration(color: Color(0xFFFFDBD1), shape: BoxShape.circle),
+                        child: Image.asset('assets/images/logo-mark.png', fit: BoxFit.contain),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
-
-                    if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text('ALVY', style: Alvy.display(size: 36, weight: FontWeight.w800)),
                       Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF2F2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFECACA)),
-                        ),
-                        child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13)),
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(left: 3, bottom: 11),
+                        decoration: const BoxDecoration(color: Alvy.orange, shape: BoxShape.circle),
                       ),
-                      const SizedBox(height: 16),
-                    ],
+                    ]),
+                    const SizedBox(height: 4),
+                    const Text('Welcome back to ALVY', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: Alvy.textSub)),
+                    const SizedBox(height: 26),
 
-                    // Email Field
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Email Address',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF002B4D),
+                    // The credentials card.
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: Alvy.cardShadow),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                        Text('Log in to your account', style: Alvy.display(size: 17, weight: FontWeight.w700)),
+                        const SizedBox(height: 18),
+                        if (_error != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(12)),
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              const Icon(Icons.error_outline, size: 18, color: Color(0xFF93000A)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFF93000A), fontSize: 13, height: 1.35))),
+                            ]),
                           ),
-                        ),
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 16),
+                        ],
+
+                        label('Email Address'),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: 'example@gmail.com',
-                            hintStyle: const TextStyle(color: Color(0xFF6B90AA)),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFfa4e1c), width: 2),
-                            ),
-                            contentPadding: const EdgeInsets.all(14),
+                            prefixIcon: Icon(Icons.mail_outline_rounded, size: 20),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 16),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -210,49 +192,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+                        const SizedBox(height: 18),
 
-                    // Password Field
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Password',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF002B4D),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        label('Password'),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            hintText: '••••••••',
-                            hintStyle: const TextStyle(color: Color(0xFF6B90AA)),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE6EDF2)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFfa4e1c), width: 2),
-                            ),
-                            contentPadding: const EdgeInsets.all(14),
+                            hintText: 'Enter your password',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
                             suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                color: const Color(0xFF6B90AA),
-                              ),
+                              icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                               onPressed: () {
                                 setState(() => _obscurePassword = !_obscurePassword);
                               },
@@ -265,73 +216,44 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
-                        // The website's "Forgot password?" (an emailed reset link).
+                        // "Forgot password?" (an emailed reset link).
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () => Navigator.push(context, MaterialPageRoute(
                               builder: (_) => ForgotPasswordScreen(email: _emailController.text.trim()),
                             )),
-                            child: const Text('Forgot password?', style: TextStyle(color: Color(0xFFfa4e1c), fontWeight: FontWeight.w600)),
+                            child: const Text('Forgot Password?', style: TextStyle(fontWeight: FontWeight.w700)),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                        const SizedBox(height: 6),
 
-                    // Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFfa4e1c),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                        // Login button
+                        Container(
+                          height: 54,
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), boxShadow: _isLoading ? null : Alvy.buttonShadow),
+                          child: FilledButton(
+                            onPressed: _isLoading ? null : _handleLogin,
+                            style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            child: _isLoading
+                                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                    Text('Log In to ALVY', style: Alvy.display(size: 17, color: Colors.white, weight: FontWeight.w700)),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.arrow_forward, size: 20),
+                                  ]),
                           ),
-                          elevation: 0,
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Log In',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward, size: 20),
-                                ],
-                              ),
-                      ),
+                      ]),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 26),
 
-
-                    // Register Link
+                    // Register link
                     Wrap(
                       alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF6B90AA),
-                          ),
-                        ),
+                        const Text("Don't have an account?  ", style: TextStyle(fontSize: 15, color: Alvy.textSub)),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
@@ -346,17 +268,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: const Text(
-                            'Create an Account',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF002B4D),
-                            ),
-                          ),
+                          child: const Text('Sign Up', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 18),
+                    const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.verified_user_outlined, size: 15, color: Alvy.textMuted),
+                      SizedBox(width: 6),
+                      Text('Your account is protected by ALVY', style: TextStyle(fontSize: 12.5, color: Alvy.textMuted, fontWeight: FontWeight.w600)),
+                    ]),
                   ],
                 ),
               ),

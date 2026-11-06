@@ -30,10 +30,10 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  static const _orange = Color(0xFFfa4e1c);
-  static const _ink = Color(0xFF002B4D);
-  static const _muted = Color(0xFF6B90AA);
-  static const _line = Color(0xFFE6EDF2);
+  static const _orange = Color(0xFFFA4E1C);
+  static const _ink = Color(0xFF1E1B17);
+  static const _muted = Color(0xFF8A716A);
+  static const _line = Color(0xFFEEE7E0);
 
   late String _role = widget.initialRole;
   int _step = 0;
@@ -514,7 +514,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (!didPop) _back();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: const Color(0xFFFFF8F2),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -712,7 +712,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              decoration: BoxDecoration(color: const Color(0xFFF4F7FA), borderRadius: BorderRadius.circular(6), border: Border.all(color: _line)),
+              decoration: BoxDecoration(color: const Color(0xFFF4EDE6), borderRadius: BorderRadius.circular(6), border: Border.all(color: _line)),
               child: Row(children: [
                 Expanded(child: Text('${widget.google!['email']}', style: const TextStyle(color: _ink, fontWeight: FontWeight.w600))),
                 const Icon(Icons.verified, size: 18, color: Color(0xFF15803D)),
@@ -828,7 +828,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _label(String text, {bool required = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Text('$text${required ? '*' : ''}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF002B4D))),
+        child: Text('$text${required ? '*' : ''}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B17))),
       );
 
   InputDecoration _decoration({String? hint, Widget? suffix, String? error}) => InputDecoration(
@@ -913,7 +913,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF002B4D))),
+        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B17))),
         Text(hint, style: const TextStyle(fontSize: 12, color: _muted)),
         const SizedBox(height: 6),
         InkWell(

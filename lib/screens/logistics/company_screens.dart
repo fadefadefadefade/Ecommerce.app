@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
@@ -57,7 +58,7 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
       backgroundColor: c.background,
       appBar: sellerBar('Dashboard', actions: [
         IconButton(
-          icon: Icon(Icons.date_range, color: _from != null ? Colors.yellowAccent : null),
+          icon: Icon(Icons.date_range, color: _from != null ? kOrange : null),
           onPressed: () async {
             final r = await showDateRangePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime.now());
             _from = r == null ? null : ymd(r.start);
@@ -76,20 +77,27 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Text(name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
+                  Text('Logistics command', style: TextStyle(fontSize: 14, color: c.textSecondary)),
+                  Text(name, style: Alvy.display(size: 26, color: c.text, weight: FontWeight.w700)),
                   if (_from != null) Text('${formatDate(_from)} – ${formatDate(_to)}', style: TextStyle(color: c.muted)),
-                  const SizedBox(height: 10),
-                  SectionCard(
-                    title: 'Shipments',
-                    child: Wrap(spacing: 8, runSpacing: 8, children: [
+                  const SectionTitle('Shipments', padding: EdgeInsets.fromLTRB(0, 18, 0, 12)),
+                  // Each status with its count: tap to open that list.
+                  SizedBox(
+                    height: 44,
+                    child: ListView(scrollDirection: Axis.horizontal, children: [
                       for (final b in asList(d['shipment_counts']))
-                        ActionChip(
-                          label: Text('${b['label']}: ${b['count']}'),
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShipmentsScreen(status: '${b['key']}'))),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterPill(
+                            '${b['label']}  ${b['count']}',
+                            selected: false,
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShipmentsScreen(status: '${b['key']}'))),
+                          ),
                         ),
                     ]),
                   ),
+                  const SectionTitle('Today at the hub', padding: EdgeInsets.fromLTRB(0, 18, 0, 12)),
                   StatGrid([
                     StatTile(label: 'Parcels received today', value: '${asMap(d['stats'])['total_parcels_today']}', icon: Icons.move_to_inbox_outlined),
                     StatTile(label: 'Out for delivery', value: '${asMap(d['stats'])['in_transit']}', icon: Icons.local_shipping_outlined, color: const Color(0xFF2563EB)),

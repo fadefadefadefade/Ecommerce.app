@@ -224,7 +224,7 @@ class AuthProvider with ChangeNotifier {
 
   Widget _statusBody({required IconData icon, required String title, required String body, required VoidCallback onLogout}) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFFFF8F2),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -240,13 +240,13 @@ class AuthProvider with ChangeNotifier {
               const SizedBox(height: 24),
               Text(title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF002B4D))),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E1B17))),
               const SizedBox(height: 12),
               Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: Color(0xFF6b90aa))),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: onLogout,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFfa4e1c), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFA4E1C), foregroundColor: Colors.white),
                 child: const Text('Logout'),
               ),
             ],

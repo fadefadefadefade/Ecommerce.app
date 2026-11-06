@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/api_client.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/buyer_colors.dart';
 import '../seller/seller_kit.dart';
 
@@ -110,16 +111,15 @@ class PagedListState extends State<PagedList> {
       body: Column(children: [
         if (tabs.isNotEmpty)
           SizedBox(
-            height: 50,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), children: [
+            height: 58,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(16, 10, 16, 8), children: [
               for (final t in tabs)
                 Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text('${t['label']} (${t['count']})'),
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterPill(
+                    '${t['label']} (${t['count']})',
                     selected: (_tab ?? asMap(tabs.first)['key']) == t['key'],
-                    selectedColor: kOrange.withValues(alpha: 0.15),
-                    onSelected: (_) {
+                    onTap: () {
                       _tab = '${t['key']}';
                       reload();
                     },
@@ -137,7 +137,7 @@ class PagedListState extends State<PagedList> {
               onRefresh: reload,
               child: ListView.builder(
                 controller: _scroll,
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 90),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
                 itemCount: _items.length + 1 + (widget.header != null ? 1 : 0),
                 itemBuilder: (ctx, i) {
                   if (widget.header != null) {
@@ -170,33 +170,36 @@ class ParcelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.bc;
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      color: c.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: cardBox(context),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text('${p['tracking']}', style: TextStyle(fontWeight: FontWeight.w800, color: c.text))),
               Pill('${p['status_label']}', color: parcelColor('${p['status']}')),
+              const SizedBox(width: 8),
+              Expanded(child: Text('#${p['tracking']}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate))),
+              if (p['cod'] != null) Text(peso(p['cod']), style: Alvy.display(size: 18, color: kOrange, weight: FontWeight.w700)),
             ]),
             if (p['order_number'] != null || p['seller'] != null)
               Text([if (p['order_number'] != null) 'Order ${p['order_number']}', if (p['seller'] != null) '${p['seller']}'].join(' · '),
                   style: TextStyle(fontSize: 12, color: c.muted)),
+            const SizedBox(height: 10),
+            // The route: an orange dot for the pickup, a slate dot for the drop-off.
+            if (p['pickup_address'] != null) _stop(context, kOrange, 'Pickup', '${p['pickup_address']}'),
+            _stop(context, Alvy.slate, '${p['receiver'] ?? 'Receiver'}', '${p['dropoff_address'] ?? p['destination'] ?? ''}'),
             const SizedBox(height: 4),
-            if (p['pickup_address'] != null) Text('From: ${p['pickup_address']}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-            Text('To: ${p['receiver'] ?? ''} — ${p['dropoff_address'] ?? p['destination'] ?? ''}',
-                maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.textSecondary)),
             Text(
               [
                 if (asMap(p['area'])['name'] != null) 'Area: ${asMap(p['area'])['name']}',
                 if (p['weight_kg'] != null) '${p['weight_kg']} kg',
-                p['cod'] != null ? 'COD ${peso(p['cod'])}' : 'Paid',
+                p['cod'] != null ? 'Collect on delivery' : 'Paid',
                 ...extra,
               ].join(' · '),
               style: TextStyle(fontSize: 12, color: c.muted),
@@ -204,14 +207,34 @@ class ParcelCard extends StatelessWidget {
             if ((p['failure_reason'] ?? '').toString().isNotEmpty)
               Text('${p['failure_reason']}', style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
             if (actions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 6, alignment: WrapAlignment.end, children: actions),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.end, children: actions),
             ],
           ]),
         ),
       ),
+      ),
     );
   }
+
+  Widget _stop(BuildContext context, Color dot, String title, String address) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 10,
+            height: 10,
+            margin: const EdgeInsets.only(top: 4, right: 10),
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.bc.text)),
+              if (address.isNotEmpty)
+                Text(address, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: context.bc.textSecondary)),
+            ]),
+          ),
+        ]),
+      );
 }
 
 Color parcelColor(String s) => switch (s) {
@@ -240,6 +263,7 @@ Future<int?> pickRider(BuildContext context, List<Map<String, dynamic>> riders, 
                   leading: Icon(Icons.two_wheeler, color: r['online'] == true ? const Color(0xFF15803D) : ctx.bc.muted),
                   title: Text('${r['full_name']}'),
                   subtitle: Text([
+                    if (r['km'] != null) '${r['km']} km away',
                     if (r['area'] != null) '${r['area']}',
                     r['suspended'] == true ? 'Suspended' : (r['online'] == true ? 'Online' : 'Offline'),
                     if (r['active_jobs'] != null) '${r['active_jobs']} active job(s)',

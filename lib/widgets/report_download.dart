@@ -146,7 +146,7 @@ class _PdfView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(name, overflow: TextOverflow.ellipsis), foregroundColor: Colors.white),
+      appBar: AppBar(title: Text(name, overflow: TextOverflow.ellipsis)),
       body: PdfPreview(
         build: (_) async => bytes,
         pdfFileName: name,

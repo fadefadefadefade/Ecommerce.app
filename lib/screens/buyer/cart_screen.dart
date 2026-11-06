@@ -1,5 +1,7 @@
 import '../../widgets/responsive.dart';
 import 'package:flutter/material.dart';
+import '../seller/seller_kit.dart' show Pill;
+import '../../theme/app_theme.dart';
 
 import '../../services/buyer_api.dart';
 import '../../theme/buyer_colors.dart';
@@ -63,6 +65,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _remove(Map line) async {
+    final name = '${line['product']?['title'] ?? 'this item'}';
+    if (!await confirmRemoval(context, title: 'Remove from cart?', message: '"$name" will be taken out of your cart.')) return;
+    if (!mounted) return;
     setState(() => busy = true);
     final r = await BuyerApi.removeFromCart(line['id']);
     if (!mounted) return;
@@ -93,7 +98,7 @@ class _CartScreenState extends State<CartScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-            Text('Order Summary', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: c.text)),
+            Text('Order Summary', style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700)),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(child: Text('Selected items', style: TextStyle(color: c.muted))),
@@ -141,18 +146,24 @@ class _CartScreenState extends State<CartScreen> {
         onRetry: _load,
         child: stores.isEmpty
             ? Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.shopping_cart_outlined, size: 64, color: context.bc.muted),
-                  const SizedBox(height: 12),
-                  Text('Your cart is empty.', style: TextStyle(color: context.bc.muted)),
-                  const SizedBox(height: 12),
-                  if (widget.onBrowse != null)
-                    ElevatedButton(
-                      onPressed: widget.onBrowse,
-                      style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white),
-                      child: const Text('Browse Items'),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: const BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+                      child: const Icon(Icons.shopping_cart_outlined, size: 44, color: kOrange),
                     ),
-                ]),
+                    const SizedBox(height: 16),
+                    Text('Your cart is empty', style: Alvy.display(size: 20, color: context.bc.text, weight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text('Find something you like and add it here.', textAlign: TextAlign.center, style: TextStyle(color: context.bc.textSecondary)),
+                    const SizedBox(height: 18),
+                    if (widget.onBrowse != null)
+                      FilledButton.icon(onPressed: widget.onBrowse, icon: const Icon(Icons.storefront_outlined, size: 19), label: const Text('Browse Items')),
+                  ]),
+                ),
               )
             : RefreshIndicator(
                 color: kOrange,
@@ -173,26 +184,50 @@ class _CartScreenState extends State<CartScreen> {
                           _summaryCard(),
                         ]),
                       )
-                    : ListView(padding: const EdgeInsets.all(12), children: [for (final s in stores) _store(Map.from(s))]),
+                    : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
+                        SectionTitle('Items in Cart (${_lines.length})', padding: const EdgeInsets.fromLTRB(0, 12, 0, 14)),
+                        for (final s in stores) _store(Map.from(s)),
+                        // Shipping and vouchers come at checkout.
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+                          child: Row(children: [
+                            Icon(Icons.verified_user_outlined, size: 18, color: context.bc.textSecondary),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text('Shipping and vouchers are added at checkout.', style: TextStyle(fontSize: 12.5, color: context.bc.textSecondary))),
+                          ]),
+                        ),
+                      ]),
               ),
       ),
       bottomNavigationBar: stores.isEmpty || wide
           ? null
           : SafeArea(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-                decoration: BoxDecoration(color: context.bc.surface, border: Border(top: BorderSide(color: context.bc.border))),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                decoration: BoxDecoration(
+                  color: context.bc.surface,
+                  boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
+                ),
                 child: Row(children: [
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text('Total (${selected.length} item${selected.length == 1 ? '' : 's'})', style: TextStyle(fontSize: 12, color: context.bc.muted)),
-                      Text(peso(_total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kOrange)),
+                      Text('Total (${selected.length} item${selected.length == 1 ? '' : 's'})', style: TextStyle(fontSize: 12, color: context.bc.textSecondary)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(peso(_total), style: Alvy.display(size: 22, color: kOrange, weight: FontWeight.w700)),
+                      ),
                     ]),
                   ),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: selected.isEmpty || busy ? null : _checkout,
-                    style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size(140, 46)),
-                    child: Text('Check Out (${selected.length})'),
+                    style: FilledButton.styleFrom(minimumSize: const Size(150, 50)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('Check Out (${selected.length})'),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.arrow_forward, size: 18),
+                    ]),
                   ),
                 ]),
               ),
@@ -201,76 +236,130 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _store(Map s) {
+    final c = context.bc;
     final lines = List<Map>.from(s['lines']);
     final ids = lines.where((l) => l['unavailable'] == null).map((l) => l['id'] as int);
     final all = ids.isNotEmpty && ids.every(selected.contains);
-    return SectionCard(
-      padding: const EdgeInsets.fromLTRB(4, 0, 8, 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: cardBox(context),
       child: Column(children: [
-        Row(children: [
-          Checkbox(
-            value: all,
-            activeColor: kOrange,
-            onChanged: ids.isEmpty ? null : (v) => setState(() => v == true ? selected.addAll(ids) : selected.removeAll(ids)),
-          ),
-          const Icon(Icons.storefront, size: 18, color: kOrange),
-          const SizedBox(width: 6),
-          Expanded(child: Text(s['name'] ?? '', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text))),
-          if (s['on_vacation'] == true) const Text('On vacation', style: TextStyle(fontSize: 11, color: Color(0xFFB45309))),
-        ]),
-        for (final l in lines) _line(l),
+        // The shop: tick to choose all its items.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 6, 14, 0),
+          child: Row(children: [
+            Checkbox(
+              value: all,
+              onChanged: ids.isEmpty ? null : (v) => setState(() => v == true ? selected.addAll(ids) : selected.removeAll(ids)),
+            ),
+            const Icon(Icons.storefront_outlined, size: 18, color: Alvy.slate),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(s['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: Alvy.slate)),
+            ),
+            if (s['on_vacation'] == true) const Pill('On vacation', color: Color(0xFFB45309)),
+          ]),
+        ),
+        for (var i = 0; i < lines.length; i++) ...[
+          if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: c.border),
+          _line(lines[i]),
+        ],
+        const SizedBox(height: 4),
       ]),
     );
   }
 
   Widget _line(Map l) {
+    final c = context.bc;
     final product = l['product'];
     final reason = l['unavailable'];
     final qty = asNum(l['quantity']).toInt();
     final stock = asNum(l['stock']).toInt();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.fromLTRB(6, 8, 14, 10),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Checkbox(
-          value: selected.contains(l['id']),
-          activeColor: kOrange,
-          onChanged: (v) => setState(() => v == true ? selected.add(l['id']) : selected.remove(l['id'])),
+        Padding(
+          padding: const EdgeInsets.only(top: 22),
+          child: Checkbox(
+            value: selected.contains(l['id']),
+            onChanged: (v) => setState(() => v == true ? selected.add(l['id']) : selected.remove(l['id'])),
+          ),
         ),
         InkWell(
+          borderRadius: BorderRadius.circular(12),
           onTap: product == null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(slug: product['slug']))),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              width: 64,
-              height: 64,
-              color: context.bc.subtle,
-              child: product?['image_url'] != null ? NetImage(product['image_url'], fit: BoxFit.cover) : const Icon(Icons.image_not_supported),
+              width: 82,
+              height: 82,
+              color: c.subtle,
+              child: product?['image_url'] != null ? NetImage(product['image_url'], fit: BoxFit.cover) : Icon(Icons.image_not_supported, color: c.muted),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(product?['title'] ?? 'Removed item', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.bc.text)),
-            if (l['variation'] != null) Text(l['variation']['name'], style: TextStyle(fontSize: 12, color: context.bc.muted)),
-            Text(peso(l['unit_price']), style: const TextStyle(color: kOrange, fontWeight: FontWeight.w700)),
-            if (reason != null) Text(reason, style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
+            Text(product?['title'] ?? 'Removed item', maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: Alvy.display(size: 14.5, color: c.text, weight: FontWeight.w600)),
+            if (l['variation'] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(l['variation']['name'], style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+              ),
+            if (reason != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Pill('$reason', color: const Color(0xFFDC2626)),
+              )
+            else if (stock > 0 && stock <= 5)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Pill('Only $stock left', color: const Color(0xFFB45309)),
+              ),
+            const SizedBox(height: 8),
             Row(children: [
-              _qtyButton(Icons.remove, qty > 1 && !busy ? () => _setQty(l, qty - 1) : null),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('$qty', style: const TextStyle(fontWeight: FontWeight.w700))),
-              _qtyButton(Icons.add, qty < stock && !busy ? () => _setQty(l, qty + 1) : null),
-              const Spacer(),
-              IconButton(onPressed: busy ? null : () => _remove(l), icon: Icon(Icons.delete_outline, color: context.bc.muted), tooltip: 'Remove'),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(peso(l['unit_price']), style: Alvy.display(size: 18, color: kOrange, weight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // The quantity stepper: a beige pill with − and +.
+              Container(
+                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(10)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  _qtyButton(Icons.remove, qty > 1 && !busy ? () => _setQty(l, qty - 1) : null),
+                  SizedBox(width: 28, child: Text('$qty', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+                  _qtyButton(Icons.add, qty < stock && !busy ? () => _setQty(l, qty + 1) : null),
+                ]),
+              ),
             ]),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: busy ? null : () => _remove(l),
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626), padding: const EdgeInsets.symmetric(horizontal: 4), minimumSize: const Size(0, 34)),
+                icon: const Icon(Icons.delete_outline, size: 17),
+                label: const Text('Remove item', style: TextStyle(fontSize: 12.5)),
+              ),
+            ),
           ]),
         ),
       ]),
     );
   }
 
-  Widget _qtyButton(IconData icon, VoidCallback? onTap) => SizedBox(
-        width: 30,
-        height: 30,
-        child: OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(padding: EdgeInsets.zero), child: Icon(icon, size: 16)),
+  Widget _qtyButton(IconData icon, VoidCallback? onTap) => Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: SizedBox(width: 34, height: 34, child: Icon(icon, size: 17, color: onTap == null ? context.bc.muted.withValues(alpha: .5) : context.bc.text)),
+        ),
       );
 }

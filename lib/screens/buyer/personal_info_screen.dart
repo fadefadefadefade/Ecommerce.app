@@ -162,7 +162,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                             width: 100,
                             height: 100,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF002B4D),
+                              color: const Color(0xFF1E1B17),
                               shape: BoxShape.circle,
                               image: _selectedImage != null
                                   ? DecorationImage(

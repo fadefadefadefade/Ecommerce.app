@@ -132,7 +132,7 @@ class _MoreScreen extends StatelessWidget {
           ProfileAction(icon: Icons.chat_bubble_outline, label: 'Messages', color: const Color(0xFF2563EB), onTap: () => _push(context, const ChatListScreen())),
           ProfileAction(icon: Icons.notifications_outlined, label: 'Notifications', color: const Color(0xFFF59E0B), onTap: () => _push(context, const NotificationsScreen())),
           ProfileAction(icon: Icons.lock_outline, label: 'Security', color: const Color(0xFFDC2626), onTap: () => _push(context, const SecurityScreen())),
-          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF4A7A94), onTap: () => _push(context, const PoliciesScreen())),
+          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF5C4039), onTap: () => _push(context, const PoliciesScreen())),
           ProfileAction.logout(context),
         ]),
       ],

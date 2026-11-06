@@ -38,14 +38,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<_Item> _items(BuildContext context) => [
         (icon: Icons.shopping_bag_outlined, label: 'My Orders', color: const Color(0xFF2563EB), page: const MyOrdersScreen()),
         (icon: Icons.favorite_border, label: 'Wishlist', color: const Color(0xFFE11D48), page: const WishlistScreen()),
-        (icon: Icons.confirmation_number_outlined, label: 'My Vouchers', color: const Color(0xFFfa4e1c), page: const VouchersScreen()),
+        (icon: Icons.confirmation_number_outlined, label: 'My Vouchers', color: const Color(0xFFFA4E1C), page: const VouchersScreen()),
         (icon: Icons.storefront_outlined, label: 'Following', color: const Color(0xFF0EA5E9), page: const FollowingScreen()),
         (icon: Icons.chat_bubble_outline, label: 'Messages', color: const Color(0xFF059669), page: const ChatListScreen()),
         (icon: Icons.notifications_outlined, label: 'Notifications', color: const Color(0xFFF59E0B), page: const NotificationsScreen()),
         (icon: Icons.location_on_outlined, label: 'Addresses', color: const Color(0xFF8B5CF6), page: const AddressesScreen()),
         (icon: Icons.lock_outline, label: 'Security', color: const Color(0xFFDC2626), page: const SecurityScreen()),
         (icon: Icons.settings_outlined, label: 'Settings', color: context.bc.muted, page: const SettingsScreen()),
-        (icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF4A7A94), page: const PoliciesScreen()),
+        (icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF5C4039), page: const PoliciesScreen()),
       ];
 
   /// The overview: who is signed in and their details (the phone's page, the tablet's right side at first).
@@ -77,15 +77,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final items = _items(context);
     if (Responsive.isWide(context)) return _tablet(context, items);
 
+    // Phones: the design's account hub — who is signed in, order shortcuts, then menu cards.
+    final user = context.watch<AuthProvider>().user;
+    void go(Widget page) => _push(context, page);
     return ProfileScaffold(
       title: 'My Account',
       children: [
-        ..._overview(context, open: (page) => _push(context, page)),
+        ProfileHeaderCard(
+          name: user?.name ?? '',
+          email: user?.email ?? '',
+          roleLabel: user?.role ?? 'buyer',
+          roleIcon: Icons.verified_outlined,
+        ),
         const SizedBox(height: 16),
-        ProfileActionGrid(actions: [
-          for (final i in items) ProfileAction(icon: i.icon, label: i.label, color: i.color, onTap: () => _push(context, i.page)),
-          ProfileAction.logout(context),
+        ProfileMenuGroup(
+          title: 'My Orders',
+          trailing: TextButton(
+            onPressed: () => go(const MyOrdersScreen()),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Order History'), Icon(Icons.chevron_right, size: 18)]),
+          ),
+          rows: [
+            ProfileShortcutRow(items: [
+              (icon: Icons.account_balance_wallet_outlined, label: 'To Pay', onTap: () => go(const MyOrdersScreen(initialTab: 'to_pay'))),
+              (icon: Icons.inventory_2_outlined, label: 'To Ship', onTap: () => go(const MyOrdersScreen(initialTab: 'to_ship'))),
+              (icon: Icons.local_shipping_outlined, label: 'To Receive', onTap: () => go(const MyOrdersScreen(initialTab: 'to_receive'))),
+              (icon: Icons.rate_review_outlined, label: 'Done', onTap: () => go(const MyOrdersScreen(initialTab: 'completed'))),
+              (icon: Icons.assignment_return_outlined, label: 'Returns', onTap: () => go(const MyOrdersScreen(initialTab: 'return_refund'))),
+            ]),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ProfileMenuGroup(title: 'Rewards & Discovery', rows: [
+          ProfileMenuRow(icon: Icons.confirmation_number_outlined, color: const Color(0xFFFA4E1C), title: 'My Vouchers', subtitle: 'Vouchers you have claimed', onTap: () => go(const VouchersScreen())),
+          ProfileMenuRow(icon: Icons.favorite_border, color: const Color(0xFFE11D48), title: 'Wishlist', subtitle: 'Items you saved for later', onTap: () => go(const WishlistScreen())),
+          ProfileMenuRow(icon: Icons.storefront_outlined, title: 'Following', subtitle: 'Stores you follow', onTap: () => go(const FollowingScreen())),
+          ProfileMenuRow(icon: Icons.chat_bubble_outline, color: const Color(0xFF059669), title: 'Messages', subtitle: 'Chats with sellers and ALVY', onTap: () => go(const ChatListScreen())),
         ]),
+        const SizedBox(height: 16),
+        ProfileMenuGroup(title: 'Account & Preferences', rows: [
+          ProfileMenuRow(icon: Icons.person_outline, title: 'Personal Information', subtitle: user?.phone ?? user?.email, onTap: () => go(const PersonalInfoScreen())),
+          ProfileMenuRow(icon: Icons.location_on_outlined, title: 'Saved Delivery Addresses', subtitle: 'Where your orders go', onTap: () => go(const AddressesScreen())),
+          ProfileMenuRow(icon: Icons.notifications_outlined, title: 'Notifications', subtitle: 'Order updates and promos', onTap: () => go(const NotificationsScreen())),
+          ProfileMenuRow(icon: Icons.lock_outline, title: 'Account Security', subtitle: 'Password and login sessions', onTap: () => go(const SecurityScreen())),
+          ProfileMenuRow(icon: Icons.settings_outlined, title: 'Settings', subtitle: 'Dark mode and app preferences', onTap: () => go(const SettingsScreen())),
+          ProfileMenuRow(icon: Icons.policy_outlined, title: 'Policies', subtitle: 'Terms, privacy and returns', onTap: () => go(const PoliciesScreen())),
+        ]),
+        const SizedBox(height: 18),
+        TextButton.icon(
+          onPressed: ProfileAction.logout(context).onTap,
+          icon: const Icon(Icons.logout, size: 20),
+          label: const Text('Log Out'),
+        ),
+        Text('Member since ${memberSince(user?.createdAt)}', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+        const SizedBox(height: 24),
       ],
     );
   }

@@ -67,6 +67,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   List<Map<String, dynamic>> _addresses = [];
   List<int> _myCategoryIds = []; // the store's categories (ALVY category ids), listed first
   int _maxImages = 9;
+  int _maxVideoMb = 25;   // the server's limit (from the form); 25 until it says
   int _maxTypes = 2;
   int _maxOptions = 20;
 
@@ -151,6 +152,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     // A new product starts in the store's registered business category (the only one it may use).
     if (!_edit && b['business_category_id'] != null) _categoryId = asInt(b['business_category_id']);
     _maxImages = asInt(b['max_images']) == 0 ? 9 : asInt(b['max_images']);
+    if (asInt(b['max_video_mb']) > 0) _maxVideoMb = asInt(b['max_video_mb']);
     _maxTypes = asInt(b['max_variation_types']) == 0 ? 2 : asInt(b['max_variation_types']);
     _maxOptions = asInt(b['max_variation_options']) == 0 ? 20 : asInt(b['max_variation_options']);
     if (_edit) _fill(asMap(b['product']));
@@ -240,7 +242,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['mp4', 'mov', 'webm']);
     final f = picked?.files.single;
     if (f?.path == null || !mounted) return;
-    if (f!.size > 20 * 1024 * 1024) return showError(context, 'The video must be 20 MB or smaller.');
+    if (f!.size > _maxVideoMb * 1024 * 1024) return showError(context, 'The video must be $_maxVideoMb MB or smaller.');
     setState(() => _video = f.path);
   }
 
@@ -430,7 +432,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       SectionCard(
         title: 'Video',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Optional — MP4, MOV or WebM up to 20 MB.', style: TextStyle(fontSize: 12, color: c.muted)),
+          Text('Optional — MP4, MOV or WebM up to $_maxVideoMb MB.', style: TextStyle(fontSize: 12, color: c.muted)),
           const SizedBox(height: 6),
           Row(children: [
             Icon(Icons.videocam_outlined, color: c.muted),
@@ -554,7 +556,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     ]);
   }
 
-  Widget _fileTile() => Container(width: 84, height: 84, color: const Color(0xFFF4F7FA), child: const Icon(Icons.image_outlined, color: kOrange));
+  Widget _fileTile() => Container(width: 84, height: 84, color: const Color(0xFFF4EDE6), child: const Icon(Icons.image_outlined, color: kOrange));
 
   Widget _photo(Widget image, VoidCallback onRemove) => Stack(children: [
         SizedBox(width: 84, height: 84, child: image),

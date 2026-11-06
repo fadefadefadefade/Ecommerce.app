@@ -4,7 +4,7 @@ import '../theme/app_theme.dart';
 import 'buyer_kit.dart' show kOrange;
 import 'responsive.dart';
 
-/// The website's buyer header for tablets: navy, the logo, the white search bar with the orange button, and
+/// The buyer header for tablets (the design's header shell): white, the logo, the white search bar with the orange button, and
 /// messages / notifications / cart / account on the right. The page links are the bottom tabs, like on phones.
 class BuyerWebHeader extends StatefulWidget implements PreferredSizeWidget {
   final int currentTab;
@@ -12,6 +12,7 @@ class BuyerWebHeader extends StatefulWidget implements PreferredSizeWidget {
   final ValueChanged<int> onTab;          // the main tabs: 0 Home, 1 Shop, 2 Cart, 3 Account
   final VoidCallback onMessages;
   final VoidCallback onNotifications;
+  final VoidCallback? onWishlist;
   final ValueChanged<String> onSearch;
   final String? accountName;   // shown in the account pill, like the website
 
@@ -22,12 +23,13 @@ class BuyerWebHeader extends StatefulWidget implements PreferredSizeWidget {
     required this.onTab,
     required this.onMessages,
     required this.onNotifications,
+    this.onWishlist,
     required this.onSearch,
     this.accountName,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(68);
+  Size get preferredSize => const Size.fromHeight(72);
 
   @override
   State<BuyerWebHeader> createState() => _BuyerWebHeaderState();
@@ -53,13 +55,13 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
   Widget _icon(IconData icon, String tip, VoidCallback onTap, {int badge = 0, bool active = false}) => IconButton(
         tooltip: tip,
         onPressed: onTap,
-        style: IconButton.styleFrom(backgroundColor: active ? Colors.white.withValues(alpha: .15) : null),
+        style: IconButton.styleFrom(backgroundColor: active ? Alvy.orangeSoft : null),
         icon: Badge(
           isLabelVisible: badge > 0,
           label: Text(badge > 99 ? '99+' : '$badge'),
-          backgroundColor: Colors.white,
-          textColor: kOrange,
-          child: Icon(icon, color: Colors.white),
+          backgroundColor: kOrange,
+          textColor: Colors.white,
+          child: Icon(icon, color: active ? kOrange : Alvy.slate),
         ),
       );
 
@@ -67,15 +69,14 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
   Widget build(BuildContext context) {
     final t = widget.currentTab;
     return Material(
-      color: Alvy.navy,
-      elevation: 2,
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 1.5,
+      shadowColor: const Color(0x332A1A10),
       child: SafeArea(
         bottom: false,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // The website's thin orange line along the top of the header.
-          Container(height: 3, color: kOrange),
           SizedBox(
-          height: widget.preferredSize.height - 3,
+          height: widget.preferredSize.height,
           child: WebWidth(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -87,21 +88,21 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                       width: 36,
                       height: 36,
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: Alvy.subtle, borderRadius: BorderRadius.circular(12)),
                       child: Image.asset('assets/images/logo-mark.png', fit: BoxFit.contain),
                     ),
                     if (!_compact) ...[
                       const SizedBox(width: 10),
-                      Text('ALVY', style: Alvy.display(size: 22, color: Colors.white)),
+                      Text('ALVY', style: Alvy.display(size: 22, color: Theme.of(context).colorScheme.onSurface)),
                     ],
                   ]),
                 ),
                 SizedBox(width: _compact ? 12 : 24),
                 Expanded(
                   child: Container(
-                    height: 42,
+                    height: 46,
                     constraints: const BoxConstraints(maxWidth: 640),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14)),
                     child: Row(children: [
                       const SizedBox(width: 12),
                       const Icon(Icons.search, color: Alvy.textMuted, size: 20),
@@ -110,7 +111,7 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                           controller: _search,
                           textInputAction: TextInputAction.search,
                           onSubmitted: (_) => _submit(),
-                          style: const TextStyle(color: Alvy.navy, fontSize: 14),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
                           decoration: const InputDecoration(
                             hintText: 'Search products, brands, categories…',
                             filled: false,
@@ -125,9 +126,9 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                         padding: const EdgeInsets.all(4),
                         child: Material(
                           color: kOrange,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(10),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(10),
                             onTap: _submit,
                             child: const SizedBox(width: 44, height: 34, child: Icon(Icons.search, color: Colors.white, size: 20)),
                           ),
@@ -138,6 +139,7 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                 ),
                 SizedBox(width: _compact ? 2 : 8),
                 _icon(Icons.chat_bubble_outline, 'Messages', widget.onMessages),
+                if (widget.onWishlist != null) _icon(Icons.favorite_border_rounded, 'Wishlist', widget.onWishlist!),
                 _icon(Icons.notifications_none, 'Notifications', widget.onNotifications),
                 _icon(Icons.shopping_cart_outlined, 'Cart', () => widget.onTab(2), badge: widget.cartCount, active: t == 2),
                 const SizedBox(width: 6),
@@ -156,8 +158,8 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
     final name = (widget.accountName ?? '').trim();
     final first = name.isEmpty ? 'Account' : name.split(' ').first;
     return Material(
-      color: Colors.white,
-      shape: StadiumBorder(side: BorderSide(color: active ? kOrange : Colors.white, width: 2)),
+      color: active ? Alvy.orangeSoft : Theme.of(context).colorScheme.surfaceContainer,
+      shape: StadiumBorder(side: BorderSide(color: active ? kOrange : Colors.transparent, width: 1.5)),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: () => widget.onTab(3),
@@ -175,10 +177,10 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 110),
                 child: Text(first, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: kOrange, fontWeight: FontWeight.w700, fontSize: 14)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700, fontSize: 14)),
               ),
             ],
-            const Icon(Icons.keyboard_arrow_down, color: kOrange, size: 18),
+            Icon(Icons.keyboard_arrow_down, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 18),
           ]),
         ),
       ),

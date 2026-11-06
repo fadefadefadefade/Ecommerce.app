@@ -60,7 +60,7 @@ class SellerProfileScreen extends StatelessWidget {
               onTap: () => _push(context, const SellerAccountScreen())),
           ProfileAction(icon: Icons.lock_outline, label: 'Security', color: const Color(0xFF6B7280),
               onTap: () => _push(context, const SecurityScreen())),
-          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF4A7A94),
+          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF5C4039),
               onTap: () => _push(context, const PoliciesScreen())),
           ProfileAction.logout(context),
         ]),

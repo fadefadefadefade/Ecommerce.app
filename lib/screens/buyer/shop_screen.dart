@@ -1,5 +1,6 @@
 import '../../widgets/responsive.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 import '../../services/buyer_api.dart';
 import '../../theme/buyer_colors.dart';
@@ -51,6 +52,9 @@ class _ShopScreenState extends State<ShopScreen> {
   List<Map<String, dynamic>> matchedStores = [];
   List<String> notes = [];
   String? suggestion;
+  // Category page: its subcategories as pills ("All" + each), and the one chosen.
+  List<String> subcategories = [];
+  late String? sub = widget.subcategory;
   int page = 1;
   int last = 1;
   int total = 0;   // every match, not just this page (the website's "300 items")
@@ -76,14 +80,15 @@ class _ShopScreenState extends State<ShopScreen> {
     if (!more) setState(() => loading = true);
 
     if (categorySlug != null) {
-      final r = await BuyerApi.category(categorySlug!, sort: sort.isEmpty ? null : sort, sub: widget.subcategory);
+      final r = await BuyerApi.category(categorySlug!, sort: sort.isEmpty ? null : sort, sub: sub);
       if (!mounted) return;
       setState(() {
         loading = false;
         error = r.ok ? null : r.message;
         if (!r.ok) return;
         products = r.body['data'];
-        categoryTitle = r.body['subcategory'] != null ? '${r.body['category']['name']} · ${r.body['subcategory']}' : r.body['category']['name'];
+        categoryTitle = r.body['category']['name'];
+        subcategories = [for (final x in (r.body['subcategories'] as List? ?? const [])) '$x'];
         page = last = 1;
         suggestion = null;
         notes = [];
@@ -140,18 +145,7 @@ class _ShopScreenState extends State<ShopScreen> {
       backgroundColor: context.bc.background,
       appBar: wide && isTab ? null : AppBar(
         automaticallyImplyLeading: Navigator.canPop(context),
-        title: inCategory
-            ? Text(categoryTitle ?? 'Category')
-            : TextField(
-                controller: _search,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: 'Search products...',
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.search, color: context.bc.muted),
-                ),
-                onSubmitted: (_) => _load(),
-              ),
+        title: Text(inCategory ? (categoryTitle ?? 'Category') : 'Shop'),
         actions: [
           if (inCategory)
             IconButton(
@@ -161,10 +155,74 @@ class _ShopScreenState extends State<ShopScreen> {
                 categorySlug = null;
                 _load();
               }),
-            )
-          else if (!wide)
-            IconButton(tooltip: 'Filters', icon: const Icon(Icons.tune), onPressed: _filters),
+            ),
         ],
+        // The design's search row: a beige search shell and a Filters pill beside it.
+        bottom: inCategory || wide
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(62),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Row(children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+                        child: Row(children: [
+                          const SizedBox(width: 12),
+                          Icon(Icons.search, color: context.bc.muted, size: 21),
+                          Expanded(
+                            child: TextField(
+                              controller: _search,
+                              textInputAction: TextInputAction.search,
+                              style: TextStyle(color: context.bc.text, fontSize: 14.5),
+                              decoration: const InputDecoration(
+                                hintText: 'Search products…',
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+                              ),
+                              onSubmitted: (_) => _load(),
+                            ),
+                          ),
+                          if (_search.text.isNotEmpty)
+                            IconButton(
+                              tooltip: 'Clear',
+                              icon: Icon(Icons.close, size: 19, color: context.bc.muted),
+                              onPressed: () {
+                                _search.clear();
+                                _load();
+                              },
+                            ),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Material(
+                      color: context.bc.subtle,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: _filters,
+                        child: SizedBox(
+                          height: 48,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Row(children: [
+                              Icon(Icons.tune, size: 20, color: context.bc.text),
+                              const SizedBox(width: 6),
+                              Text('Filters', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.text)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
       ),
       body: LoadState(
         loading: loading && products.isEmpty,
@@ -174,7 +232,7 @@ class _ShopScreenState extends State<ShopScreen> {
           color: kOrange,
           onRefresh: _load,
           child: (wide ? (Widget list) => WebWidth(child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [_sidebar(), Expanded(child: list)])) : (Widget list) => list)(
-            ListView(padding: const EdgeInsets.all(12), children: [
+            ListView(padding: EdgeInsets.fromLTRB(wide ? 12 : 16, 12, wide ? 12 : 16, 24), children: [
             // Tablet: the website's "All products — 300 items" line and the Sort by pills.
             if (wide) ...[
               Padding(
@@ -185,13 +243,44 @@ class _ShopScreenState extends State<ShopScreen> {
               ),
               _sortPills(),
             ] else
-            Row(children: [
-              Text(inCategory ? '${products.length} products' : (_search.text.trim().isEmpty ? 'All products' : 'Results for "${_search.text.trim()}"'),
-                  style: TextStyle(color: context.bc.muted)),
-              const Spacer(),
-              DropdownButton<String>(
+            if (inCategory && subcategories.isNotEmpty)
+              SizedBox(
+                height: 46,
+                child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(bottom: 8), children: [
+                  for (final x in [null, ...subcategories])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterPill(x ?? 'All', selected: sub == x, onTap: () {
+                        setState(() => sub = x);
+                        _load();
+                      }),
+                    ),
+                ]),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+              const Icon(Icons.inventory_2_outlined, size: 17, color: kOrange),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                    inCategory
+                        ? '${products.length} items'
+                        : (_search.text.trim().isEmpty ? '$total items' : '$total results for "${_search.text.trim()}"'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.text)),
+              ),
+              // Sort: a white pill with a dropdown.
+              Container(
+                padding: const EdgeInsets.only(left: 12, right: 4),
+                decoration: cardBox(context, radius: 20),
+                child: DropdownButton<String>(
                 value: sort,
                 underline: const SizedBox(),
+                borderRadius: BorderRadius.circular(14),
+                icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                isDense: true,
                 items: [
                   for (final e in _sorts.entries)
                     if (!inCategory || ['', 'newest', 'price_low', 'price_high'].contains(e.key)) DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))),
@@ -201,7 +290,9 @@ class _ShopScreenState extends State<ShopScreen> {
                   _load();
                 },
               ),
+              ),
             ]),
+            ),
             if (suggestion != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -210,13 +301,13 @@ class _ShopScreenState extends State<ShopScreen> {
             for (final n in notes) Text(n, style: TextStyle(fontSize: 12, color: context.bc.muted)),
             // Stores whose name matches the search, above the products (like the website).
             if (!inCategory && matchedStores.isNotEmpty) ...[
-              Text('Stores', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
-              const SizedBox(height: 6),
+              const SectionTitle('Stores', padding: EdgeInsets.fromLTRB(0, 4, 0, 12)),
               for (final st in matchedStores)
-                Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 6),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: cardBox(context),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     leading: CircleAvatar(
                       backgroundColor: const Color(0xFFFFF1EE),
                       backgroundImage: st['logo_url'] != null ? NetworkImage('${st['logo_url']}') : null,
@@ -231,15 +322,29 @@ class _ShopScreenState extends State<ShopScreen> {
               const SizedBox(height: 8),
             ],
             if (products.isEmpty && !loading)
-              Padding(padding: const EdgeInsets.all(40), child: Center(child: Text('No products found.', style: TextStyle(color: context.bc.muted))))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+                child: Column(children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: const BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+                    child: const Icon(Icons.search_off_rounded, size: 40, color: kOrange),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('No products found', style: Alvy.display(size: 18, color: context.bc.text, weight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text('Try other words or fewer filters.', style: TextStyle(color: context.bc.textSecondary)),
+                ]),
+              )
             else
               GridView.extent(
                 maxCrossAxisExtent: Responsive.productTileMaxFor(context),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 0.56,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
+                childAspectRatio: 0.6,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
                 children: [for (final p in products) BuyerProductCard(product: Map<String, dynamic>.from(p), onCartChanged: _refreshCart)],
               ),
             if (page < last) TextButton(onPressed: () => _load(more: true), child: const Text('Load more')),
@@ -426,7 +531,7 @@ class _ShopScreenState extends State<ShopScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: context.bc.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: context.bc.border)),
+      decoration: cardBox(context),
       child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
         Text('Sort by', style: TextStyle(color: context.bc.muted)),
         for (final e in web.entries)

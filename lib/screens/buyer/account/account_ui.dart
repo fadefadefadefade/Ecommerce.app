@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/buyer_colors.dart';
+import '../../../widgets/buyer_kit.dart' show cardBox;
 export '../../../widgets/order_progress.dart';
 
 // Small shared pieces for the buyer account screens (orders, security, etc.).
@@ -80,19 +81,14 @@ class AccountCard extends StatelessWidget {
     final c = context.bc;
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.border),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1))],
-      ),
+      decoration: cardBox(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Text(title!, style: GoogleFonts.nunito(fontSize: 15.5, fontWeight: FontWeight.w800, color: c.text)),
+              child: Text(title!, style: GoogleFonts.plusJakartaSans(fontSize: 15.5, fontWeight: FontWeight.w800, color: c.text)),
             ),
           Padding(padding: padding, child: child),
         ],

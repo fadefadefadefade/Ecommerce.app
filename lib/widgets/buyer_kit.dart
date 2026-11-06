@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import '../services/api_client.dart';
 import '../theme/buyer_colors.dart';
 
-const kOrange = Color(0xFFfa4e1c);
+const kOrange = Color(0xFFFA4E1C);
 
 /// Philippine mobile numbers are 11 digits (09XXXXXXXXX), as on the website.
 const kPhoneLength = 11;
@@ -70,6 +70,28 @@ void showError(BuildContext context, String message) {
   ));
 }
 
+/// "Remove …?" before taking something out of the cart or the wishlist. True when the buyer confirms.
+Future<bool> confirmRemoval(BuildContext context, {required String title, required String message}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626), size: 30),
+      title: Text(title, textAlign: TextAlign.center),
+      content: Text(message, textAlign: TextAlign.center),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep it')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Remove'),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
 /// A loading / error / content switch used by the buyer screens.
 class LoadState extends StatelessWidget {
   final bool loading;
@@ -91,7 +113,7 @@ class LoadState extends StatelessWidget {
               width: 76,
               height: 76,
               decoration: const BoxDecoration(color: Color(0xFFFFF1EE), shape: BoxShape.circle),
-              child: const Icon(Icons.cloud_off_outlined, size: 36, color: kOrange),
+              child: const Icon(Icons.wifi_off_rounded, size: 34, color: kOrange),
             ),
             const SizedBox(height: 14),
             Text(error!, textAlign: TextAlign.center, style: TextStyle(color: context.bc.textSecondary, height: 1.45)),
@@ -105,37 +127,108 @@ class LoadState extends StatelessWidget {
   }
 }
 
-/// Section card in the website's style.
+/// The design's card: white, 16 rounded, a soft warm shadow (a hairline in dark mode, where shadows don't show).
+BoxDecoration cardBox(BuildContext context, {double radius = 16, Color? color}) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return BoxDecoration(
+    color: color ?? context.bc.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: dark ? Border.all(color: context.bc.border) : null,
+    boxShadow: dark ? null : const [BoxShadow(color: Color(0x0F2A1A10), blurRadius: 14, offset: Offset(0, 3))],
+  );
+}
+
+/// A section heading: a bold title with a short orange bar under it, and an optional link on the right.
+class SectionTitle extends StatelessWidget {
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+  final Widget? badge;
+  final EdgeInsetsGeometry padding;
+  const SectionTitle(this.title, {super.key, this.action, this.onAction, this.badge, this.padding = const EdgeInsets.fromLTRB(16, 24, 12, 12)});
+
+  @override
+  Widget build(BuildContext context) {
+    final action = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: padding,
+      child: Row(children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: context.bc.text, letterSpacing: -0.2)),
+          const SizedBox(height: 4),
+          Container(width: 32, height: 3, decoration: BoxDecoration(color: action, borderRadius: BorderRadius.circular(2))),
+        ]),
+        if (badge != null) ...[const SizedBox(width: 10), badge!],
+        const Spacer(),
+        if (this.action != null && onAction != null)
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onAction,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(this.action!, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: action)),
+                const SizedBox(width: 2),
+                Icon(Icons.arrow_forward, size: 16, color: action),
+              ]),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
+/// Section card in the design's style: a white rounded card, an optional title row.
 class SectionCard extends StatelessWidget {
   final String? title;
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Widget? trailing;
 
-  const SectionCard({super.key, this.title, required this.child, this.padding = const EdgeInsets.all(14), this.trailing});
+  const SectionCard({super.key, this.title, required this.child, this.padding = const EdgeInsets.all(16), this.trailing});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: context.bc.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.bc.border),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1))],
-      ),
+      decoration: cardBox(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (title != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 13, 14, 0),
+            padding: const EdgeInsets.fromLTRB(16, 15, 16, 0),
             child: Row(children: [
-              Container(width: 3, height: 15, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: kOrange, borderRadius: BorderRadius.circular(2))),
-              Expanded(child: Text(title!, style: GoogleFonts.nunito(fontSize: 15.5, fontWeight: FontWeight.w800, color: context.bc.text))),
+              Expanded(child: Text(title!, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: context.bc.text))),
               if (trailing != null) trailing!,
             ]),
           ),
         Padding(padding: padding, child: child),
       ]),
+    );
+  }
+}
+
+/// A filter pill (the design's tabs: "All Dispatches (4)", "Pickups (2)"…): solid orange when chosen, beige otherwise.
+class FilterPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const FilterPill(this.label, {super.key, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final action = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: selected ? action : context.bc.subtle,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          child: Text(label,
+              style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w700 : FontWeight.w600, color: selected ? Colors.white : context.bc.text)),
+        ),
+      ),
     );
   }
 }

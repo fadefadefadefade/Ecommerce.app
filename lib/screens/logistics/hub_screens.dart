@@ -220,8 +220,16 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
             onPressed: () async {
               final all = asList(_list.currentState?.body['riders']);
               final area = asMap(p['area'])['id'];
-              final riders = all.where((r) => area == null || r['area_id'] == area).toList();
-              final id = await pickRider(ctx, riders, note: 'Riders of ${asMap(p['area'])['name'] ?? 'this barangay'}');
+              var riders = all.where((r) => area == null || r['area_id'] == area).map((r) => asMap(r)).toList();
+              var note = 'Riders of ${asMap(p['area'])['name'] ?? 'this barangay'}';
+              // No rider in this barangay: the company's riders, nearest to the buyer first (like the website).
+              final nearest = asList(p['nearest_riders']);
+              if (riders.isEmpty && nearest.isNotEmpty) {
+                final byId = {for (final r in all) asInt(r['id']): asMap(r)};
+                riders = [for (final n in nearest) {...?byId[asInt(n['rider_id'])], 'km': n['km']}];
+                note = 'No rider in ${asMap(p['area'])['name'] ?? 'this barangay'} — the nearest riders, closest first.';
+              }
+              final id = await pickRider(ctx, riders, note: note);
               if (id != null && ctx.mounted) act(ctx, () => LogisticsApi.assign(asInt(p['id']), id), then: reload);
             },
             child: const Text('Assign rider'),

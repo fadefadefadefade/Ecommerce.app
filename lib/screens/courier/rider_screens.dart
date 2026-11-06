@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
@@ -126,51 +127,100 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
     final online = rider['online'] == true;
     final suspended = rider['suspended'] == true;
 
-    final top = <Widget>[
-      Text('${rider['company']} · ${rider['full_name']}', style: TextStyle(color: c.muted)),
-      const SizedBox(height: 8),
-      SectionCard(
-        child: Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              suspended
-                  ? const Pill('Suspended', color: Color(0xFFDC2626))
-                  : Pill(online ? 'Online' : 'Offline', color: online ? const Color(0xFF15803D) : const Color(0xFF6B7280)),
-              const SizedBox(height: 6),
-              Text(
-                suspended
-                    ? 'Your account is suspended by ${rider['company']}. You can\'t go Online or receive jobs.'
-                    : 'Online riders get job offers. Active jobs: ${rider['active_jobs']} of ${rider['max_active']}.',
-                style: TextStyle(fontSize: 12, color: c.muted),
-              ),
+    final name = '${rider['full_name'] ?? ''}';
+    Widget stat(String value, String label, {Color? color}) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+            child: Column(children: [
+              Text(value, style: Alvy.display(size: 19, color: color ?? c.text, weight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(fontSize: 11.5, color: c.textSecondary)),
             ]),
           ),
-          const SizedBox(width: 8),
+        );
+    // The design's rider card: who, the company, Online/Offline, and today's figures.
+    final top = <Widget>[
+      SectionCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Stack(children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: const Color(0xFFFFDBD1),
+                child: Text(name.isEmpty ? 'R' : name[0].toUpperCase(), style: Alvy.display(size: 20, color: kOrange)),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: suspended ? const Color(0xFFDC2626) : (online ? const Color(0xFF16A34A) : const Color(0xFF9CA3AF)),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700)),
+                Text('${rider['company'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+              ]),
+            ),
+            suspended
+                ? const Pill('Suspended', color: Color(0xFFDC2626))
+                : Pill(online ? 'Online' : 'Offline', color: online ? const Color(0xFF15803D) : const Color(0xFF6B7280)),
+          ]),
+          const SizedBox(height: 14),
+          Row(children: [
+            stat('${rider['active_jobs'] ?? 0}', 'Active jobs', color: kOrange),
+            const SizedBox(width: 8),
+            stat('${rider['max_active'] ?? '-'}', 'Max at a time'),
+            const SizedBox(width: 8),
+            stat('${offers.length}', 'Offers'),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+            suspended
+                ? 'Your account is suspended by ${rider['company']}. You can\'t go Online or receive jobs.'
+                : (online ? 'You are Online: new job offers appear below.' : 'Go Online to receive job offers.'),
+            style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+          ),
+          const SizedBox(height: 10),
           online
-              ? OutlinedButton(onPressed: _busy || suspended ? null : () => _act(() => RiderApi.setOnline(false)), child: const Text('Go Offline'))
-              : FilledButton(
+              ? OutlinedButton.icon(
+                  onPressed: _busy || suspended ? null : () => _act(() => RiderApi.setOnline(false)),
+                  icon: const Icon(Icons.pause_circle_outline, size: 19),
+                  label: const Text('Go Offline'),
+                )
+              : FilledButton.icon(
                   style: FilledButton.styleFrom(backgroundColor: const Color(0xFF15803D)),
                   onPressed: _busy || suspended ? null : () => _act(() => RiderApi.setOnline(true)),
-                  child: const Text('Go Online'),
+                  icon: const Icon(Icons.power_settings_new, size: 19),
+                  label: const Text('Go Online'),
                 ),
         ]),
       ),
     ];
     final offersPart = <Widget>[
-      Text('Offers', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-      const SizedBox(height: 6),
+      const SectionTitle('Job Offers', padding: EdgeInsets.fromLTRB(0, 10, 0, 12)),
       if (offers.isEmpty)
         SectionCard(
           child: Column(children: [
-            const Text('No offers right now', style: TextStyle(fontWeight: FontWeight.w700)),
+            Icon(Icons.inbox_outlined, size: 34, color: c.muted),
+            const SizedBox(height: 6),
+            Text('No offers right now', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
             Text(online ? 'Stay Online; new jobs appear here.' : 'Go Online to receive job offers.', style: TextStyle(color: c.muted)),
           ]),
         ),
       for (final o in offers) _offer(o),
     ];
     final jobsPart = <Widget>[
-      Text('Active jobs', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-      const SizedBox(height: 6),
+      const SectionTitle('Active Jobs', padding: EdgeInsets.fromLTRB(0, 10, 0, 12)),
       if (pickups.isEmpty && deliveries.isEmpty && returns.isEmpty)
         SectionCard(child: Text('No active jobs.', style: TextStyle(color: c.muted))),
       for (final p in pickups)
@@ -206,8 +256,7 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
       // Hub-to-hub parcels this rider carries (riders the hub allowed to transport).
       if (transfers.isNotEmpty) ...[
         const SizedBox(height: 8),
-        Text('Hub transfers to carry', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-        const SizedBox(height: 6),
+        const SectionTitle('Hub Transfers', padding: EdgeInsets.fromLTRB(0, 10, 0, 12)),
         for (final t in transfers)
           Card(
             elevation: 0,
@@ -222,23 +271,26 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
       ],
       if (recent.isNotEmpty) ...[
         const SizedBox(height: 8),
-        Text('Recent deliveries', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-        const SizedBox(height: 6),
-        for (final x in recent)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text('${x['waybill'] ?? x['tracking']} · ${x['receiver'] ?? ''}'),
-            subtitle: Text(formatDateTime(x['updated_at'])),
-            trailing: Pill('${x['status_label']}', color: x['status'] == 'delivered' ? const Color(0xFF15803D) : const Color(0xFFDC2626)),
-          ),
+        const SectionTitle('Recent Deliveries', padding: EdgeInsets.fromLTRB(0, 10, 0, 12)),
+        SectionCard(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Column(children: [
+            for (final x in recent)
+              ListTile(
+                dense: true,
+                title: Text('${x['receiver'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text('#${x['waybill'] ?? x['tracking']} · ${formatDateTime(x['updated_at'])}'),
+                trailing: Pill('${x['status_label']}', color: x['status'] == 'delivered' ? const Color(0xFF15803D) : const Color(0xFFDC2626)),
+              ),
+          ]),
+        ),
       ],
     ];
 
     // Tablet: offers on the left, active jobs and recent deliveries on the right. Phones: one list.
     if (Responsive.isWide(context)) {
       Widget column(List<Widget> children) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
-      return ListView(padding: const EdgeInsets.all(12), children: [
+      return ListView(padding: const EdgeInsets.all(16), children: [
         ...top,
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(flex: 2, child: column(offersPart)),
@@ -247,7 +299,7 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
         ]),
       ]);
     }
-    return ListView(padding: const EdgeInsets.all(12), children: [
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
       ...top,
       ...offersPart,
       const SizedBox(height: 8),
@@ -282,30 +334,72 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
   }
 
   Widget _offer(Map<String, dynamic> o) {
-    final c = context.bc;
     final left = _left(o).clamp(0, 9999);
     final kind = '${o['kind']}';
-    return SectionCard(
+    const white = Colors.white;
+    final soft = Colors.white.withValues(alpha: .85);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(gradient: Alvy.gradient, borderRadius: BorderRadius.circular(20), boxShadow: Alvy.buttonShadow),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(
-            child: Text('${kind[0].toUpperCase()}${kind.substring(1)} · ${o['tracking']}', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-          ),
-          Pill('${left}s', color: const Color(0xFFB45309)),
-        ]),
-        const SizedBox(height: 4),
-        Text('Pickup: ${o['pickup_name']} — ${o['pickup_address'] ?? ''}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-        Text('Drop-off: ${o['dropoff']}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-        Text('COD: ${o['cod'] != null ? peso(o['cod']) : 'None (paid)'} · Pay: ${peso(o['pay'])} $kind', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: OutlinedButton(onPressed: _busy || left <= 0 ? null : () => _act(() => RiderApi.declineOffer(asInt(o['id']))), child: const Text('Decline'))),
+          const Icon(Icons.circle, size: 10, color: white),
           const SizedBox(width: 8),
           Expanded(
-            child: FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: kOrange),
+            child: Text('NEW ${kind.toUpperCase()} OFFER', style: const TextStyle(color: white, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: .6)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(20)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.timer_outlined, size: 14, color: kOrange),
+              const SizedBox(width: 4),
+              Text('${left}s', style: const TextStyle(color: kOrange, fontWeight: FontWeight.w800, fontSize: 12.5)),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Text('${o['pickup_name']}', style: Alvy.display(size: 21, color: white, weight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.location_on_outlined, size: 16, color: soft),
+          const SizedBox(width: 4),
+          Expanded(child: Text('${o['pickup_address'] ?? ''}', style: TextStyle(color: soft, fontSize: 13))),
+        ]),
+        const SizedBox(height: 2),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.flag_outlined, size: 16, color: soft),
+          const SizedBox(width: 4),
+          Expanded(child: Text('To: ${o['dropoff']}', style: TextStyle(color: soft, fontSize: 13))),
+        ]),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Your pay', style: TextStyle(color: soft, fontSize: 12)),
+              Text(peso(o['pay']), style: Alvy.display(size: 24, color: white, weight: FontWeight.w700)),
+            ]),
+          ),
+          Text(o['cod'] != null ? 'COD ${peso(o['cod'])}' : 'Paid · no COD', style: TextStyle(color: soft, fontSize: 12.5, fontWeight: FontWeight.w600)),
+        ]),
+        Text('#${o['tracking']}', style: TextStyle(color: soft, fontSize: 12)),
+        const SizedBox(height: 14),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: .16), foregroundColor: white, side: const BorderSide(color: Colors.transparent)),
+              onPressed: _busy || left <= 0 ? null : () => _act(() => RiderApi.declineOffer(asInt(o['id']))),
+              child: const Text('Decline'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: white, foregroundColor: kOrange),
               onPressed: _busy || left <= 0 ? null : () => _act(() => RiderApi.acceptOffer(asInt(o['id']))),
-              child: const Text('Accept'),
+              icon: const Icon(Icons.check_circle_outline, size: 19),
+              label: const Text('Accept'),
             ),
           ),
         ]),
@@ -315,20 +409,39 @@ class _RiderJobsScreenState extends State<RiderJobsScreen> {
 
   Widget _job({required String title, required String subtitle, required String status, required bool amber, required VoidCallback onTap, List<Widget> actions = const []}) {
     final c = context.bc;
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      color: c.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
-      child: Column(children: [
-        ListTile(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: cardBox(context),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-          trailing: Pill(status, color: amber ? const Color(0xFFB45309) : const Color(0xFF2563EB)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Pill(status, color: amber ? const Color(0xFFB45309) : const Color(0xFF2563EB)),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: c.muted),
+              ]),
+              const SizedBox(height: 8),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: c.text)),
+              const SizedBox(height: 4),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  margin: const EdgeInsets.only(top: 4, right: 8),
+                  decoration: const BoxDecoration(color: Alvy.slate, shape: BoxShape.circle),
+                ),
+                Expanded(child: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: c.textSecondary))),
+              ]),
+              if (actions.isNotEmpty) Row(mainAxisAlignment: MainAxisAlignment.end, children: actions),
+            ]),
+          ),
         ),
-        if (actions.isNotEmpty) Padding(padding: const EdgeInsets.only(right: 8, bottom: 4), child: Row(mainAxisAlignment: MainAxisAlignment.end, children: actions)),
-      ]),
+      ),
     );
   }
 }
@@ -957,7 +1070,8 @@ class _RemittanceReceiptScreenState extends State<RemittanceReceiptScreen> {
                     row('Sent to', '${r['company']}'),
                     row('Sent', formatDateTime(r['sent_at'])),
                     row('Amount', peso(r['amount']), bold: true),
-                    row('Expected', peso(r['expected'])),
+                    row('COD covered', peso(r['expected'])),
+                    if (asNum(r['pay_kept']) > 0) row('Your pay kept', peso(r['pay_kept'])),
                     if (asNum(r['shortfall']) > 0) row('Short', peso(r['shortfall'])),
                     if (asNum(r['carried_over']) > 0) row('Carried over', peso(r['carried_over'])),
                     if (r['confirmed_at'] != null) row('Confirmed', '${formatDateTime(r['confirmed_at'])}${r['confirmed_by'] != null ? ' by ${r['confirmed_by']}' : ''}'),
@@ -1013,8 +1127,10 @@ class _RiderCodScreenState extends State<RiderCodScreen> {
 
   void _show(Map<String, dynamic> d) {
     _d = d;
-    final balance = asNum(d['balance']);
-    _amount.text = balance > 0 ? balance.toStringAsFixed(2) : '';
+    // What to hand over: the COD minus the rider's unpaid pay (worked out by the server, like the website).
+    final next = asMap(d['next']);
+    final remit = next.isEmpty ? asNum(d['balance']) : asNum(next['remit']);
+    _amount.text = remit > 0 ? remit.toStringAsFixed(2) : '';
   }
 
   Future<void> _load() async {
@@ -1069,22 +1185,42 @@ class _RiderCodScreenState extends State<RiderCodScreen> {
                   Text('Hand the COD you collected to ${d['company']} by the end of the day. Only they can confirm it.', style: TextStyle(color: c.muted)),
                   const SizedBox(height: 10),
                   StatGrid([
-                    StatTile(label: 'COD balance (not yet confirmed)', value: peso(d['balance']), icon: Icons.payments_outlined, color: kOrange),
+                    StatTile(label: 'COD on hand (not yet confirmed)', value: peso(d['balance']), icon: Icons.payments_outlined, color: kOrange),
                     StatTile(label: 'Remittance pending confirmation', value: peso(d['pending']), icon: Icons.hourglass_bottom, color: const Color(0xFFB45309)),
                   ]),
                   const SizedBox(height: 12),
-                  SectionCard(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      TextField(
-                        controller: _amount,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(labelText: 'Amount (₱)', errorText: _amountError, errorMaxLines: 3, border: const OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 10),
-                      BusyButton('Remit', busy: _busy, icon: Icons.send_outlined,
-                          onPressed: asNum(d['balance']) <= 0 || asNum(d['pending']) > 0 ? null : _remit),
-                    ]),
-                  ),
+                  Builder(builder: (_) {
+                    final next = asMap(d['next']);
+                    final cod = next.isEmpty ? asNum(d['balance']) : asNum(next['cod']);
+                    final pay = asNum(next['pay']);
+                    final remit = next.isEmpty ? cod : asNum(next['remit']);
+                    Widget line(String label, String value, {Color? color, bool bold = false}) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(children: [
+                            Expanded(child: Text(label, style: TextStyle(fontWeight: bold ? FontWeight.w800 : null, fontSize: bold ? 16 : null))),
+                            Text(value, style: TextStyle(color: color, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 16 : null)),
+                          ]),
+                        );
+                    return SectionCard(
+                      title: 'Next remittance',
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        line("COD you're holding", peso(cod)),
+                        line('Your pay (keep it from the cash)', '− ${peso(pay)}', color: const Color(0xFF047857)),
+                        const Divider(),
+                        line('Hand over to ${d['company']}', peso(remit), bold: true),
+                        if (asNum(next['owed']) > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text('${peso(next['owed'])} more of your pay is kept from your next COD.', style: TextStyle(fontSize: 12, color: c.muted)),
+                          ),
+                        if (_amountError != null)
+                          Padding(padding: const EdgeInsets.only(top: 6), child: Text(_amountError!, style: const TextStyle(color: Color(0xFFB91C1C)))),
+                        const SizedBox(height: 10),
+                        BusyButton('Remit ${peso(remit)}', busy: _busy, icon: Icons.send_outlined,
+                            onPressed: cod <= 0 || asNum(d['pending']) > 0 ? null : _remit),
+                      ]),
+                    );
+                  }),
                   SectionCard(
                     title: 'COD collected',
                     child: asList(d['orders']).isEmpty
@@ -1111,7 +1247,7 @@ class _RiderCodScreenState extends State<RiderCodScreen> {
                                 contentPadding: EdgeInsets.zero,
                                 onTap: r['id'] == null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => RemittanceReceiptScreen(remittanceId: asInt(r['id'])))),
                                 title: Text(peso(r['amount']), style: const TextStyle(fontWeight: FontWeight.w700)),
-                                subtitle: Text('${formatDateTime(r['created_at'])}${asNum(r['shortfall']) > 0 ? ' · shortfall ${peso(r['shortfall'])}' : ''}'),
+                                subtitle: Text('${formatDateTime(r['created_at'])}${asNum(r['pay_kept']) > 0 ? ' · pay kept ${peso(r['pay_kept'])}' : ''}${asNum(r['shortfall']) > 0 ? ' · shortfall ${peso(r['shortfall'])}' : ''}'),
                                 trailing: Pill('${r['status']}'[0].toUpperCase() + '${r['status']}'.substring(1), color: Pill.forState(r['status'])),
                               ),
                           ]),

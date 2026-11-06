@@ -87,7 +87,7 @@ class _ServerDialogState extends State<_ServerDialog> {
             'Phone on USB: run "adb reverse tcp:8000 tcp:8000" on the computer, then use http://127.0.0.1:8000\n'
             'Phone on Wi-Fi: the computer\'s IP, e.g. http://192.168.1.10:8000 (start the site with php artisan serve --host=0.0.0.0)\n'
             'Emulator: http://10.0.2.2:8000',
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B90AA)),
+            style: TextStyle(fontSize: 12, color: Color(0xFF8A716A)),
           ),
           if (_result != null) ...[
             const SizedBox(height: 10),
@@ -103,7 +103,7 @@ class _ServerDialogState extends State<_ServerDialog> {
       actions: [
         TextButton(onPressed: _testing ? null : _test, child: Text(_testing ? 'Testing…' : 'Test')),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFfa4e1c)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFA4E1C)),
           onPressed: () => _save(_typed),
           child: const Text('Save'),
         ),
