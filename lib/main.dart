@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'theme/app_theme.dart';
+import 'widgets/route_watch.dart';
+import 'widgets/staff_shell.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'config/api_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/update_gate.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.load();   // the server picked in the app (Login → Server)
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -27,31 +32,22 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, auth, theme, _) => MaterialApp(
-          title: 'ALVY',
+          title: 'ALVY Shop',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFFfa4e1c),
-              primary: const Color(0xFFfa4e1c),
-            ),
-            scaffoldBackgroundColor: const Color(0xFFfbeee8),
-            textTheme: GoogleFonts.interTextTheme(),
-          ),
-          darkTheme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.dark,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFFfa4e1c),
-              primary: const Color(0xFFfa4e1c),
-              brightness: Brightness.dark,
-            ),
-            scaffoldBackgroundColor: const Color(0xFF121212),
-            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-          ),
-          // Only buyer screens are theme-aware so far; other roles stay light.
-          themeMode: auth.user?.isBuyer == true ? theme.mode : ThemeMode.light,
-          home: const AuthWrapper(),
+          theme: Alvy.light(),
+          darkTheme: Alvy.dark(),
+          // Every role follows the Appearance setting (Light / Dark / System).
+          themeMode: theme.mode,
+          navigatorObservers: [appRouteObserver],
+          // Tablet: the buyer side has its own website-like layout; the seller, rider and logistics portals
+          // get a sidebar (StaffShell), and pages opened over them stay a centred column (StaffPageFrame).
+          builder: (context, child) {
+            // The shared color tokens (Alvy.surface, Alvy.slate…) follow the resolved theme.
+            Alvy.isDark = Theme.of(context).brightness == Brightness.dark;
+            StaffPageFrame.enabled = auth.user != null && !auth.user!.isBuyer;
+            return child!;
+          },
+          home: const UpdateGate(child: AuthWrapper()),
         ),
       ),
     );
@@ -108,12 +104,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (authProvider.isLoading) {
           debugPrint('⏳ Showing loading spinner');
           return const Scaffold(
-            backgroundColor: Color(0xFFfbeee8),
+            backgroundColor: Color(0xFFFFF8F2),
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Color(0xFFfa4e1c)),
+                  CircularProgressIndicator(color: Color(0xFFFA4E1C)),
                   SizedBox(height: 16),
                   Text('Logging in...', style: TextStyle(color: Color(0xFF6b90aa))),
                 ],

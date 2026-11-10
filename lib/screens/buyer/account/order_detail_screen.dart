@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/net_image.dart';
-import '../../../services/api_service.dart';
-import '../../../theme/buyer_colors.dart';
-import 'account_ui.dart';
+import '../../../theme/app_theme.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../services/api_client.dart';
+import '../../../services/buyer_api.dart';
+import '../../../theme/buyer_colors.dart';
+import '../../../widgets/buyer_kit.dart';
+import '../../../widgets/net_image.dart';
+import '../../../widgets/gcash_pay_box.dart';
+import '../../../widgets/shipment_tracking.dart';
+import '../../logistics/rider_admin_screens.dart' show showDocument;
+import '../chat_screen.dart';
+import '../product_detail_screen.dart';
+
+/// The website's order page (profile/order-show): items with ratings, the delivery OTP or proof of
+/// delivery, the timeline, return / refund, payment, address, and the buttons the web shows.
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
-
   const OrderDetailScreen({super.key, required this.orderId});
 
   @override
@@ -14,11 +25,13 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  static const _steps = ['Pending', 'Processing', 'Shipped', 'Delivered'];
-
-  Map<String, dynamic>? _order;
-  bool _loading = true;
-  String? _error;
+  Map<String, dynamic>? o;
+  bool loading = true;
+  String? error;
+  bool busy = false;
+  // A rejected GCash payment: the right receipt and its Ref No.
+  String? _fixReceipt;
+  final _fixRef = TextEditingController();
 
   @override
   void initState() {
@@ -26,266 +39,791 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final data = ApiService.unwrap(await ApiService.get('/orders/${widget.orderId}'));
-      if (!mounted) return;
-      setState(() {
-        _order = Map<String, dynamic>.from(data['order']);
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = errorText(e);
-        _loading = false;
-      });
-    }
+  @override
+  void dispose() {
+    _fixRef.dispose();
+    super.dispose();
   }
 
-  String _address(Map<String, dynamic> o) {
-    final parts = <String>[];
-    final shipping = o['shipping_address'];
-    if (shipping is Map) {
-      for (final key in ['house_number', 'street', 'barangay', 'city', 'province', 'region', 'zip_code']) {
-        final v = shipping[key];
-        if (v != null && '$v'.trim().isNotEmpty) parts.add('$v');
-      }
-    } else if (shipping is String && shipping.isNotEmpty) {
-      parts.add(shipping);
-    }
-    if (parts.isEmpty) {
-      for (final key in ['address_line', 'city', 'province', 'zip_code']) {
-        final v = o[key];
-        if (v != null && '$v'.trim().isNotEmpty) parts.add('$v');
-      }
-    }
-    return parts.isEmpty ? '—' : parts.join(', ');
+  Future<void> _load() async {
+    final r = await BuyerApi.order(widget.orderId);
+    if (!mounted) return;
+    setState(() {
+      loading = false;
+      error = r.ok ? null : (r.status == 404 ? 'Order not found.' : r.message);
+      if (r.ok) o = Map<String, dynamic>.from(r.body['order']);
+    });
+  }
+
+  /// Runs an order action and shows the web's answer; the page then shows the order as it is now.
+  Future<bool> _act(Future<ApiResponse> Function() call) async {
+    setState(() => busy = true);
+    final r = await call();
+    if (!mounted) return false;
+    setState(() {
+      busy = false;
+      if (r.ok && r.body['order'] != null) o = Map<String, dynamic>.from(r.body['order']);
+    });
+    showResult(context, r);
+    if (r.ok && r.body['order'] == null) _load();
+    return r.ok;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.bc.background,
-      appBar: accountAppBar(_order != null ? 'Order #${_order!['order_number']}' : 'Order Details'),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: BuyerPalette.primary))
-          : _error != null
-              ? AccountEmptyState(
-                  icon: Icons.error_outline,
-                  title: 'Could not load order',
-                  message: _error!,
-                  action: ElevatedButton(onPressed: _load, child: const Text('Retry')),
-                )
-              : RefreshIndicator(
-                  color: BuyerPalette.primary,
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.all(12),
-                    children: [
-                      _buildStatus(),
-                      const SizedBox(height: 12),
-                      _buildItems(),
-                      const SizedBox(height: 12),
-                      _buildShipping(),
-                      const SizedBox(height: 12),
-                      _buildPayment(),
-                    ],
-                  ),
-                ),
-    );
-  }
-
-  Widget _buildStatus() {
-    final c = context.bc;
-    final status = '${_order!['status'] ?? ''}';
-    final cancelled = ['cancelled', 'failed', 'returned'].contains(status.toLowerCase());
-    final current = _steps.indexWhere((s) => s.toLowerCase() == status.toLowerCase());
-
-    return AccountCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Placed ${formatDate(_order!['created_at'])}',
-                    style: TextStyle(color: c.muted, fontSize: 12)),
-              ),
-              OrderStatusBadge(status),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (cancelled)
-            Row(
-              children: [
-                Icon(Icons.cancel, color: orderStatusColor(status)),
-                const SizedBox(width: 8),
-                Text('This order was $status.', style: TextStyle(color: c.text)),
-              ],
-            )
-          else
-            Row(
-              children: List.generate(_steps.length * 2 - 1, (i) {
-                if (i.isOdd) {
-                  final done = current >= (i ~/ 2) + 1;
-                  return Expanded(
-                    child: Container(
-                      height: 3,
-                      margin: const EdgeInsets.only(bottom: 18),
-                      color: done ? BuyerPalette.primary : c.border,
-                    ),
-                  );
-                }
-                final step = i ~/ 2;
-                final done = current >= step;
-                return Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: done ? BuyerPalette.primary : c.border,
-                      child: Icon(done ? Icons.check : Icons.circle, size: done ? 14 : 6, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _steps[step],
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: done ? c.text : c.muted,
-                        fontWeight: step == current ? FontWeight.w700 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ),
-        ],
+      appBar: AppBar(
+        title: Text(o != null ? 'Order ${o!['number']}' : 'Order'),
+      ),
+      body: LoadState(
+        loading: loading,
+        error: error,
+        onRetry: _load,
+        child: o == null ? const SizedBox() : RefreshIndicator(color: kOrange, onRefresh: _load, child: _body()),
       ),
     );
   }
 
-  Widget _buildItems() {
+  /// The website's "Out for delivery" card: who is bringing it, the delivery code with its rules, and the cash to prepare.
+  Widget _outForDelivery(Map<String, dynamic> d) {
     final c = context.bc;
-    final items = (_order!['items'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
-    return AccountCard(
-      title: 'Items (${items.length})',
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: items.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text('No items on this order.', style: TextStyle(color: c.muted)),
-            )
-          : Column(
-              children: items.map((item) {
-                final product = Map<String, dynamic>.from(item['product'] ?? {});
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          width: 52,
-                          height: 52,
-                          color: c.subtle,
-                          child: product['image_url'] != null
-                              ? NetImage(
-                                  product['image_url'],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(Icons.inventory_2, color: c.muted),
-                                )
-                              : Icon(Icons.inventory_2, color: c.muted),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(product['title'] ?? '—',
-                                maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.text)),
-                            Text('${peso(item['price'])} × ${item['quantity']}',
-                                style: TextStyle(fontSize: 12, color: c.muted)),
-                          ],
-                        ),
-                      ),
-                      Text(peso(item['subtotal']), style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-    );
-  }
-
-  Widget _buildShipping() {
-    final c = context.bc;
-    final o = _order!;
-    return AccountCard(
-      title: 'Shipping Details',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _infoRow(Icons.person_outline, o['full_name'] ?? '—'),
-          _infoRow(Icons.phone_outlined, o['phone'] ?? '—'),
-          _infoRow(Icons.email_outlined, o['email'] ?? '—'),
-          _infoRow(Icons.location_on_outlined, _address(o)),
-        ].map((w) => DefaultTextStyle.merge(style: TextStyle(color: c.text), child: w)).toList(),
-      ),
-    );
-  }
-
-  Widget _buildPayment() {
-    final c = context.bc;
-    final o = _order!;
-    Widget row(String label, String value, {bool bold = false}) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              Text(label, style: TextStyle(color: bold ? c.text : c.textSecondary, fontWeight: bold ? FontWeight.w700 : null)),
-              const Spacer(),
-              Text(
-                value,
-                style: TextStyle(
-                  color: bold ? BuyerPalette.primary : c.text,
-                  fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-                  fontSize: bold ? 16 : 14,
-                ),
-              ),
-            ],
-          ),
-        );
-
-    return AccountCard(
-      title: 'Payment',
-      child: Column(
-        children: [
-          row('Method', '${o['payment_method'] ?? '—'}'),
-          row('Payment status', '${o['payment_status'] ?? '—'}'),
-          Divider(color: c.border),
-          if (o['subtotal'] != null) row('Subtotal', peso(o['subtotal'])),
-          if (o['shipping_fee'] != null) row('Shipping fee', peso(o['shipping_fee'])),
-          row('Total', peso(o['total_price']), bold: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: context.bc.muted),
+    final cod = asNum(d['cod_amount']);
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const CircleAvatar(backgroundColor: kOrange, child: Icon(Icons.local_shipping_outlined, color: Colors.white, size: 20)),
           const SizedBox(width: 10),
-          Expanded(child: Text(text)),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Out for delivery', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
+              Text.rich(TextSpan(style: TextStyle(fontSize: 13, color: c.textSecondary), children: [
+                TextSpan(text: '${d['rider'] ?? 'Your rider'}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                const TextSpan(text: ' is bringing your parcel'),
+                if (d['vehicle'] != null) TextSpan(text: ' · ${d['vehicle']}', style: TextStyle(color: c.muted)),
+              ])),
+            ]),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(20)),
+            child: Text('On the way', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Alvy.warnText)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Text('Your delivery code', style: TextStyle(fontSize: 12, color: c.muted)),
+        const SizedBox(height: 4),
+        Row(children: [
+          for (final digit in '${d['otp'] ?? ''}'.split(''))
+            Container(
+              width: 40,
+              height: 50,
+              margin: const EdgeInsets.only(right: 6),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: Alvy.orangeSoft, border: Border.all(color: Alvy.orangeSoft, width: 2), borderRadius: BorderRadius.circular(10)),
+              child: Text(digit, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: kOrange)),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        for (final tip in const [
+          'Give it to the rider only when the parcel is in your hands.',
+          'The rider enters it to confirm the delivery.',
+          'ALVY and riders never ask for it by call, text or chat.',
+        ])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.check, size: 16, color: Color(0xFF059669)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(tip, style: TextStyle(fontSize: 13, color: c.textSecondary))),
+            ]),
+          ),
+        if (cod > 0)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Alvy.warnSoft, border: Border.all(color: const Color(0xFFFDE68A)), borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [
+              Expanded(child: Text('Cash on delivery · please prepare the exact amount', style: TextStyle(fontSize: 13, color: Alvy.warnText))),
+              Text(peso(cod), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Alvy.warnText)),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  /// The website's "Delivered" card: when, by whom (and their hub), the cash paid, the proof photo and the next step.
+  Widget _delivered(Map<String, dynamic> d, Map<String, dynamic> a) {
+    final c = context.bc;
+    final at = DateTime.tryParse('${d['delivered_at'] ?? ''}')?.toLocal();
+    Widget fact(String label, String value, [String? sub]) => Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(10)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label.toUpperCase(), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: c.muted)),
+            const SizedBox(height: 2),
+            Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+            if (sub != null) Text(sub, style: TextStyle(fontSize: 12, color: c.muted)),
+          ]),
+        );
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const CircleAvatar(backgroundColor: Color(0xFF059669), child: Icon(Icons.check, color: Colors.white, size: 20)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Delivered', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
+              Text('Your parcel was handed over ${formatDateTime(d['delivered_at'])}.', style: TextStyle(fontSize: 12.5, color: c.muted)),
+            ]),
+          ),
+          if (o!['status'] == 'Completed')
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: Alvy.successSoft, borderRadius: BorderRadius.circular(20)),
+              child: Text('Order completed', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Alvy.successText)),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: fact('Delivered on', at != null ? formatDate(d['delivered_at']) : '—', at != null ? TimeOfDay.fromDateTime(at).format(context) : null)),
+          const SizedBox(width: 8),
+          Expanded(child: fact('Delivered by', '${d['rider'] ?? 'ALVY rider'}', '${d['rider_hub'] ?? 'ALVY logistics'}')),
+        ]),
+        if (asNum(d['cod_collected']) > 0) ...[
+          const SizedBox(height: 8),
+          SizedBox(width: double.infinity, child: fact('Cash paid to the rider', peso(d['cod_collected']))),
+        ],
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: () => showDocument(context, BuyerApi.proofOfDelivery(widget.orderId), 'Proof of delivery'),
+          child: ClipRRect(borderRadius: BorderRadius.circular(8), child: NetImage(d['proof_url'], height: 160, width: double.infinity, fit: BoxFit.cover)),
+        ),
+        Padding(padding: const EdgeInsets.only(top: 4), child: Text('Proof of delivery · taken by the rider', style: TextStyle(fontSize: 11.5, color: c.muted))),
+        if (a['confirm_received'] == true)
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Alvy.orangeSoft, border: Border.all(color: Alvy.orangeSoft), borderRadius: BorderRadius.circular(10)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Got everything in good condition?', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+              const SizedBox(height: 2),
+              Text.rich(TextSpan(style: TextStyle(fontSize: 12, color: c.textSecondary), children: [
+                const TextSpan(text: 'Tap '),
+                const TextSpan(text: 'Order Received', style: TextStyle(fontWeight: FontWeight.w700)),
+                TextSpan(
+                    text: ' to complete the order.${a['completes_on'] != null ? ' Something wrong? You can request a return until ${formatDate(a['completes_on'])}.' : ''}'),
+              ])),
+            ]),
+          )
+        else if (a['rate_prompt'] == true)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text.rich(TextSpan(style: TextStyle(fontSize: 12, color: c.muted), children: const [
+              TextSpan(text: 'Enjoying it? '),
+              TextSpan(text: 'Rate your items', style: TextStyle(fontWeight: FontWeight.w700, color: kOrange)),
+              TextSpan(text: ' to help other buyers.'),
+            ])),
+          ),
+      ]),
+    );
+  }
+
+  Widget _body() {
+    final a = Map<String, dynamic>.from(o!['actions']);
+    final pay = Map<String, dynamic>.from(o!['payment']);
+    final delivery = o!['delivery'];
+    final ret = o!['return'];
+
+    final c = context.bc;
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+      // The order reference card (the design's "ORDER REFERENCE #ALV-…").
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: cardBox(context),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text('ORDER REFERENCE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: c.textSecondary))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.circle, size: 7, color: kOrange),
+                const SizedBox(width: 5),
+                Text(o!['status_label'], style: const TextStyle(color: kOrange, fontWeight: FontWeight.w700, fontSize: 11.5)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+              child: Text('${o!['number'] ?? '#${widget.orderId}'}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w700)),
+            ),
+            Text(formatDateTime(o!['created_at']), style: TextStyle(fontSize: 12, color: c.textSecondary)),
+          ]),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Icon(Icons.storefront_outlined, size: 20, color: Alvy.slate),
+              const SizedBox(width: 10),
+              Expanded(child: Text('${o!['store']}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+            ]),
+          ),
+        ]),
+      ),
+
+      if (o!['gcash'] != null && ['checking', 'rejected'].contains(o!['gcash']['state']))
+        _gcashState(Map<String, dynamic>.from(o!['gcash']))
+      else if (o!['status'] == 'Awaiting Payment')
+        _toPay(a, pay),
+
+      SectionCard(
+        title: 'Items',
+        child: Column(children: [for (final i in o!['order_items']) _item(Map<String, dynamic>.from(i))]),
+      ),
+
+      if (delivery != null && delivery['status'] == 'out_for_delivery')
+        _outForDelivery(Map<String, dynamic>.from(delivery))
+      else if (delivery != null && delivery['proof_url'] != null)
+        _delivered(Map<String, dynamic>.from(delivery), a),
+
+      if (o!['tracking'] != null) ShipmentTrackingCard(Map<String, dynamic>.from(o!['tracking'])),
+
+      // The tracking milestones: newest first, the current step in orange, earlier ones checked, joined by a line.
+      SectionCard(
+        title: 'Tracking Milestones',
+        child: Builder(builder: (_) {
+          final steps = List<Map>.from(o!['timeline'] as List).reversed.toList();
+          return Column(children: [
+            for (var i = 0; i < steps.length; i++)
+              IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  SizedBox(
+                    width: 26,
+                    child: Column(children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: i == 0 ? Alvy.orangeSoft : Alvy.slate,
+                          shape: BoxShape.circle,
+                          border: i == 0 ? Border.all(color: kOrange, width: 2) : null,
+                        ),
+                        child: Icon(i == 0 ? Icons.radio_button_checked : Icons.check, size: 13, color: i == 0 ? kOrange : Colors.white),
+                      ),
+                      if (i < steps.length - 1) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 2), color: c.border)),
+                    ]),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(
+                            child: Text('${steps[i]['label']}',
+                                style: TextStyle(fontWeight: FontWeight.w700, color: i == 0 ? kOrange : c.text)),
+                          ),
+                          Text(formatDate(steps[i]['at'], 'MMM d · h:mm a'), style: TextStyle(fontSize: 11.5, color: c.textSecondary)),
+                        ]),
+                        if (steps[i]['note'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text('${steps[i]['note']}', style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+                          ),
+                      ]),
+                    ),
+                  ),
+                ]),
+              ),
+          ]);
+        }),
+      ),
+
+      if (ret != null)
+        SectionCard(
+          title: 'Return / refund',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${ret['status_label']} · ${ret['reason']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+            if (ret['seller_note'] != null) Text('Seller: ${ret['seller_note']}'),
+            if ((ret['photos'] as List).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(spacing: 6, children: [
+                  for (final ph in ret['photos']) ClipRRect(borderRadius: BorderRadius.circular(6), child: NetImage(ph, width: 72, height: 72, fit: BoxFit.cover)),
+                ]),
+              ),
+            if (a['escalate'] == true)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: OutlinedButton(
+                  onPressed: busy ? null : _escalate,
+                  style: OutlinedButton.styleFrom(foregroundColor: Alvy.dangerText),
+                  child: const Text('Escalate to ALVY'),
+                ),
+              ),
+          ]),
+        ),
+
+      if (a['return'] == true)
+        SectionCard(
+          title: 'Return / refund',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Until ${formatDateTime(a['return_deadline'])}', style: TextStyle(color: context.bc.muted, fontSize: 12)),
+            const SizedBox(height: 6),
+            OutlinedButton(onPressed: busy ? null : _requestReturn, child: const Text('Request a return / refund')),
+          ]),
+        ),
+
+      SectionCard(
+        title: 'Payment Summary',
+        child: Column(children: [
+          _row('Merchandise', peso(pay['merchandise'])),
+          _row('Shipping${pay['shipping_weight_kg'] != null ? ' (${pay['shipping_weight_kg']} kg)' : ''}', peso(pay['shipping'])),
+          if (asNum(pay['promo_discount']) > 0) _row('Bundle deals & promos', '−${peso(pay['promo_discount'])}', green: true),
+          if (asNum(pay['store_voucher']) > 0) _row('Store voucher', '−${peso(pay['store_voucher'])}', green: true),
+          if (asNum(pay['alvy_voucher']) > 0) _row('ALVY voucher ${pay['alvy_voucher_code'] ?? ''}', '−${peso(pay['alvy_voucher'])}', green: true),
+          if (asNum(pay['shipping_voucher']) > 0) _row('Shipping voucher ${pay['shipping_voucher_code'] ?? ''}', '−${peso(pay['shipping_voucher'])}', green: true),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+              Text(peso(pay['total']), style: Alvy.display(size: 22, color: kOrange, weight: FontWeight.w700)),
+            ]),
+          ),
+          _row('Method', '${pay['method']} · ${pay['status']}'),
+          // GCash paid by receipt: the screenshot sent at checkout (and its reference number).
+          if (o!['payment_proof'] != null) ...[
+            if (o!['payment_proof']['reference'] != null) _row('GCash ref. no.', '${o!['payment_proof']['reference']}'),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => showDocument(context, BuyerApi.paymentProof(widget.orderId), 'GCash receipt'),
+                icon: const Icon(Icons.receipt_long, color: kOrange),
+                label: const Text('View the GCash receipt you sent', style: TextStyle(color: kOrange)),
+              ),
+            ),
+          ],
+          if (asNum(pay['refunded']) > 0) _row('Refunded', peso(pay['refunded']), green: true),
+        ]),
+      ),
+
+      SectionCard(
+        title: 'Deliver to',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.location_on_outlined, size: 18, color: kOrange),
+            const SizedBox(width: 6),
+            Expanded(child: Text('${o!['deliver_to']['name']} · ${o!['deliver_to']['phone']}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+          ]),
+          const SizedBox(height: 4),
+          Text(o!['deliver_to']['address'] ?? '', style: TextStyle(color: c.textSecondary)),
+          if (o!['deliver_to']['note'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Your note: ${o!['deliver_to']['note']}', style: const TextStyle(fontSize: 12))),
+        ]),
+      ),
+
+      if (a['confirm_received'] == true) ...[
+        FilledButton.icon(
+          onPressed: busy ? null : _received,
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          icon: const Icon(Icons.verified_outlined, size: 20),
+          label: const Text('Order Received'),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 12),
+          child: Text('Completes by itself on ${formatDate(a['completes_on'])}.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: context.bc.muted)),
+        ),
+      ],
+      if (a['cancel'] == true)
+        OutlinedButton(
+          onPressed: busy ? null : () => _cancel(List<String>.from(a['cancel_reasons'])),
+          style: OutlinedButton.styleFrom(foregroundColor: Alvy.dangerText, minimumSize: const Size.fromHeight(48)),
+          child: const Text('Cancel order'),
+        )
+      else if (a['cancel_blocked_note'] != null)
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(8)),
+          child: Text(a['cancel_blocked_note'], style: const TextStyle(fontSize: 12)),
+        ),
+      if (a['message_seller'] == true)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: OutlinedButton.icon(
+            onPressed: _messageSeller,
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+            label: const Text('Message the seller'),
+          ),
+        ),
+    ]);
+  }
+
+  /// GCash paid to ALVY: being checked, or rejected with why, how to fix it and the form for the right receipt.
+  Widget _gcashState(Map<String, dynamic> g) {
+    if (g['state'] == 'checking') {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFBFDBFE))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('ALVY is checking your GCash payment', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate)),
+          const SizedBox(height: 2),
+          Text('We match your receipt${g['reference'] != null ? ' (Ref No. ${g['reference']})' : ''} with the money in ALVY\'s GCash. '
+              'Once it\'s confirmed, the seller prepares your order. If something doesn\'t match, you\'re told why and how to fix it.',
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF3B5B8C))),
+        ]),
+      );
+    }
+    final red = Alvy.dangerText;
+    final problems = List<Map>.from(g['problems'] ?? const []);
+    final fixes = problems.map((p) => '${p['fix']}').toSet();
+    final account = g['account'] != null ? Map<String, dynamic>.from(g['account']) : null;
+    final orders = List.from(g['orders'] ?? const []);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFCA5A5))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Your GCash payment was rejected', style: TextStyle(fontWeight: FontWeight.w800, color: Alvy.dangerText)),
+        const SizedBox(height: 8),
+        Text('WHY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
+        for (final p in problems) Text('• ${p['reason']}', style: TextStyle(fontSize: 12.5, color: Alvy.dangerText)),
+        const SizedBox(height: 8),
+        Text('HOW TO FIX IT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
+        for (final f in fixes) Text('• $f', style: TextStyle(fontSize: 12.5, color: Alvy.dangerText)),
+        const SizedBox(height: 6),
+        Text(
+          'Upload the right receipt${g['fix_by'] != null ? ' by ${formatDateTime(g['fix_by'])}' : ''}, or the order is cancelled. '
+          'Try ${g['try']} of ${g['max_tries']}.${orders.length > 1 ? ' This payment covers orders ${orders.join(', ')}.' : ''}',
+          style: TextStyle(fontSize: 11.5, color: Alvy.dangerText),
+        ),
+        if (g['can_resubmit'] == true && account != null) ...[
+          GcashPayBox(
+            account: account,
+            amount: g['amount'] as num?,
+            receipt: _fixReceipt,
+            onReceipt: (path) => setState(() => _fixReceipt = path),
+            reference: _fixRef,
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: busy ? null : _resubmitGcash,
+            style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white),
+            child: const Text('Send the new receipt'),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Future<void> _resubmitGcash() async {
+    final problem = GcashPayBox.problem(_fixReceipt, _fixRef.text);
+    if (problem != null) return showError(context, problem);
+    setState(() => busy = true);
+    final r = await BuyerApi.gcashResubmit(widget.orderId, _fixRef.text, _fixReceipt!);
+    if (!mounted) return;
+    setState(() => busy = false);
+    showResult(context, r);
+    if (r.ok) {
+      _fixReceipt = null;
+      _fixRef.clear();
+      _load();
+    }
+  }
+
+  Widget _toPay(Map a, Map pay) {
+    final failed = pay['status'] == 'Failed';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: failed ? Alvy.dangerSoft : Alvy.warnSoft,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: failed ? const Color(0xFFFCA5A5) : const Color(0xFFFCD34D)),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(failed ? 'Payment failed' : 'Waiting for your payment (${pay['method']})', style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              failed
+                  ? 'Nothing was charged. You can pay again${pay['pay_by'] != null ? ' until ${formatDateTime(pay['pay_by'])}' : ''}.'
+                  : 'Pay ${pay['pay_by'] != null ? 'by ${formatDateTime(pay['pay_by'])}' : 'soon'}, or the order is cancelled automatically.',
+              style: const TextStyle(fontSize: 12.5),
+            ),
+          ]),
+        ),
+        if (a['pay'] == true)
+          ElevatedButton(
+            onPressed: busy ? null : _pay,
+            style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white),
+            child: Text(a['pay_label']),
+          ),
+      ]),
+    );
+  }
+
+  Widget _item(Map<String, dynamic> i) {
+    final review = i['review'];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          onTap: i['slug'] == null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(slug: i['slug']))),
+          child: Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(width: 56, height: 56, child: i['image_url'] != null ? NetImage(i['image_url'], fit: BoxFit.cover) : const Icon(Icons.image)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(i['title'], maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text('${i['variation'] != null ? '${i['variation']} · ' : ''}${peso(i['price'])} × ${i['quantity']}', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                if (i['refunded'] != null) Text('Refunded ${peso(i['refunded'])}', style: const TextStyle(fontSize: 12, color: Color(0xFF059669), fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            Text(peso(i['total']), style: const TextStyle(fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        if (review != null)
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(8)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Stars(asNum(review['rating'])),
+                Text('  · your review${review['edited'] == true ? ' (edited)' : ''}', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+              ]),
+              if ((review['comment'] ?? '').toString().isNotEmpty) Text(review['comment']),
+              if ((review['photos'] as List).isNotEmpty)
+                Wrap(spacing: 6, children: [for (final ph in review['photos']) NetImage(ph, width: 56, height: 56, fit: BoxFit.cover)]),
+              if (review['can_edit'] == true)
+                TextButton(onPressed: () => _reviewForm(i, review: Map<String, dynamic>.from(review)), child: const Text('Edit review (one time only)')),
+            ]),
+          )
+        else if (i['can_review'] == true)
+          TextButton.icon(onPressed: () => _reviewForm(i), icon: const Icon(Icons.star_border, color: kOrange), label: const Text('Rate this item')),
+      ]),
+    );
+  }
+
+  Widget _row(String label, String value, {bool green = false, bool bold = false}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(children: [
+          Expanded(child: Text(label, style: TextStyle(color: green ? const Color(0xFF059669) : context.bc.textSecondary))),
+          Text(value, style: TextStyle(color: bold ? kOrange : (green ? const Color(0xFF059669) : null), fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
+        ]),
+      );
+
+  // ── Actions ──────────────────────────────────────────────────
+
+  Future<void> _pay() async {
+    setState(() => busy = true);
+    final r = await BuyerApi.pay(widget.orderId);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (r.ok && r.body['payment_url'] != null) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Payment page'),
+          content: SelectableText(r.body['payment_url']),
+          actions: [
+            TextButton(onPressed: () => Clipboard.setData(ClipboardData(text: r.body['payment_url'])), child: const Text('Copy link')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      _load();
+    } else {
+      showResult(context, r);
+    }
+  }
+
+  Future<void> _cancel(List<String> reasons) async {
+    String? reason;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          title: const Text('Cancel order'),
+          content: DropdownButtonFormField<String>(
+            initialValue: reason,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Choose a reason'),
+            items: [for (final r in reasons) DropdownMenuItem(value: r, child: Text(r))],
+            onChanged: (v) => set(() => reason = v),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep order')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Cancel order', style: TextStyle(color: Alvy.dangerText))),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) await _act(() => BuyerApi.cancel(widget.orderId, reason ?? ''));
+  }
+
+  Future<void> _received() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: const Text('Confirm you received this order? It will be marked completed.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not yet')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Order Received')),
         ],
       ),
     );
+    if (ok == true) await _act(() => BuyerApi.received(widget.orderId));
+  }
+
+  Future<void> _escalate() async {
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Escalate to ALVY'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text("Don't agree with the seller? Ask ALVY to review it."),
+          TextField(controller: note, maxLength: 500, decoration: const InputDecoration(hintText: 'Why you disagree (optional)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Escalate', style: TextStyle(color: Alvy.dangerText))),
+        ],
+      ),
+    );
+    if (ok == true) await _act(() => BuyerApi.escalate(widget.orderId, note.text.trim()));
+  }
+
+  Future<void> _requestReturn() async {
+    final a = o!['actions'];
+    final items = List<Map>.from(o!['order_items']);
+    final picked = <int>{...items.map((i) => i['id'] as int)};
+    final details = TextEditingController();
+    String? reason;
+    List<XFile> photos = [];
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+              const Text('Return / refund', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              DropdownButtonFormField<String>(
+                initialValue: reason,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Reason'),
+                items: [for (final r in a['return_reasons']) DropdownMenuItem(value: '$r', child: Text('$r'))],
+                onChanged: (v) => set(() => reason = v),
+              ),
+              const SizedBox(height: 8),
+              const Text('Items to return', style: TextStyle(fontWeight: FontWeight.w600)),
+              for (final i in items)
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  value: picked.contains(i['id']),
+                  onChanged: (v) => set(() => v == true ? picked.add(i['id']) : picked.remove(i['id'])),
+                  title: Text('${i['title']}${i['variation'] != null ? ' (${i['variation']})' : ''} × ${i['quantity']}'),
+                ),
+              const Text("Untick items you are keeping. Each item's refund is its price minus its share of the vouchers.", style: TextStyle(fontSize: 12)),
+              TextField(
+                controller: details,
+                maxLength: 500,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Describe the problem — 10 to 500 characters'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final files = await ImagePicker().pickMultiImage(limit: 5);
+                  set(() => photos = files.take(5).toList());
+                },
+                icon: const Icon(Icons.add_a_photo),
+                label: Text(photos.isEmpty ? 'Add 1 to 5 photos (JPG or PNG, up to 5 MB each)' : '${photos.length} photo(s) chosen'),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(46)),
+                child: const Text('Submit request'),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final fields = <String, String>{
+      'reason': reason ?? '',
+      'details': details.text.trim(),
+      for (final (n, id) in picked.indexed) 'items[$n]': '$id',
+    };
+    await _act(() => BuyerApi.requestReturn(widget.orderId, fields, photos.map((p) => p.path).toList()));
+  }
+
+  Future<void> _reviewForm(Map<String, dynamic> item, {Map<String, dynamic>? review}) async {
+    int rating = review != null ? asNum(review['rating']).toInt() : 0;
+    final comment = TextEditingController(text: review?['comment'] ?? '');
+    List<XFile> photos = [];
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Text(review == null ? 'Rate this item' : 'Edit your review (one time only)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(item['title'], style: const TextStyle(fontSize: 12)),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              for (var s = 1; s <= 5; s++)
+                IconButton(
+                  onPressed: () => set(() => rating = s),
+                  icon: Icon(s <= rating ? Icons.star : Icons.star_border, color: const Color(0xFFF59E0B), size: 34),
+                ),
+            ]),
+            TextField(controller: comment, maxLength: 500, maxLines: 3, decoration: const InputDecoration(labelText: 'Your review (optional)')),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final files = await ImagePicker().pickMultiImage(limit: 5);
+                set(() => photos = files.take(5).toList());
+              },
+              icon: const Icon(Icons.add_a_photo),
+              label: Text(photos.isEmpty ? 'Add up to 5 photos (optional)' : '${photos.length} photo(s) chosen'),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(46)),
+              child: Text(review == null ? 'Submit review' : 'Save changes'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final fields = {'rating': rating == 0 ? '' : '$rating', 'comment': comment.text.trim()};
+    final paths = photos.map((p) => p.path).toList();
+    await _act(() => review == null ? BuyerApi.review(item['id'], fields, paths) : BuyerApi.editReview(review['id'], fields, paths));
+  }
+
+  Future<void> _messageSeller() async {
+    final r = await BuyerApi.startChat(o!['seller_id']);
+    if (!mounted) return;
+    if (!r.ok) return showResult(context, r);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(type: r.body['type'], id: r.body['id'], title: o!['store'])));
   }
 }

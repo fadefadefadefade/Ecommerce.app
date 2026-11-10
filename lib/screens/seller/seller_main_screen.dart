@@ -7,6 +7,7 @@ import 'orders/seller_orders_screen.dart';
 import 'reports/seller_reports_screen.dart';
 import 'profile/seller_profile_screen.dart';
 import '../auth/login_screen.dart';
+import '../../widgets/staff_shell.dart';
 
 class SellerMainScreen extends StatefulWidget {
   const SellerMainScreen({super.key});
@@ -28,15 +29,24 @@ class SellerMainScreenState extends State<SellerMainScreen> {
 
   int _currentIndex = 0;
 
-  void goTo(int index) => setState(() => _currentIndex = index);
+  // Opening a tab loads it fresh, like opening the page on the website.
+  final Map<int, int> _opened = {};
+
+  void goTo(int index) {
+    setState(() {
+      if (index != _currentIndex) _opened[index] = (_opened[index] ?? 0) + 1;
+      _currentIndex = index;
+    });
+  }
+
   bool _redirecting = false;
-  
-  final List<Widget> _screens = [
-    const SellerDashboardScreen(),
-    const SellerProductsScreen(),
-    const SellerOrdersScreen(),
-    const SellerReportsScreen(),
-    const SellerProfileScreen(),
+
+  static const List<Widget> _screens = [
+    SellerDashboardScreen(),
+    SellerProductsScreen(),
+    SellerOrdersScreen(),
+    SellerReportsScreen(),
+    SellerProfileScreen(),
   ];
 
   @override
@@ -62,98 +72,28 @@ class SellerMainScreenState extends State<SellerMainScreen> {
           );
         }
 
-        return Scaffold(
+        final user = authProvider.user!;
+        return StaffShell(
+          brand: 'SELLER',
+          place: 'Seller Center',
+          userName: user.name,
+          userRole: 'Seller',
+          index: _currentIndex,
+          onSelect: goTo,
+          tabs: [
+            for (var i = 0; i < _screens.length; i++) (_navIcons[i], _navLabels[i], _screens[i]),
+          ],
           body: IndexedStack(
             index: _currentIndex,
-            children: _screens,
-          ),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(
-                      icon: Icons.dashboard,
-                      label: 'Dashboard',
-                      index: 0,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.inventory_2,
-                      label: 'Products',
-                      index: 1,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.shopping_cart,
-                      label: 'Orders',
-                      index: 2,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.analytics,
-                      label: 'Reports',
-                      index: 3,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.person,
-                      label: 'Profile',
-                      index: 4,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            children: [
+              for (var i = 0; i < _screens.length; i++) KeyedSubtree(key: ValueKey('tab-$i-${_opened[i] ?? 0}'), child: _screens[i]),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-  }) {
-    final isActive = _currentIndex == index;
-    
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFfa4e1c).withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF8a7a70),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? const Color(0xFFfa4e1c) : const Color(0xFF8a7a70),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  static const _navIcons = [Icons.dashboard, Icons.inventory_2, Icons.shopping_cart, Icons.analytics, Icons.person];
+  static const _navLabels = ['Home', 'Products', 'Orders', 'Reports', 'More'];
 }

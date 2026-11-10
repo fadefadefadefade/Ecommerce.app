@@ -1,4 +1,5 @@
 import '../config/api_config.dart';
+import '../utils/num_utils.dart';
 class SellerProduct {
   final int? id;
   final int? categoryId;
@@ -101,9 +102,9 @@ class SellerProduct {
       language: json['language'],
       pages: json['pages'],
       format: json['format'],
-      price: (json['price'] ?? 0).toDouble(),
-      salePrice: json['sale_price']?.toDouble(),
-      discountPercent: (json['discount_percent'] ?? 0).toDouble(),
+      price: asDouble(json['price']),
+      salePrice: asDoubleOrNull(json['sale_price']),
+      discountPercent: asDouble(json['discount_percent']),
       voucherCode: json['voucher_code'],
       stock: json['stock'] ?? 0,
       sku: json['sku'],
@@ -113,10 +114,10 @@ class SellerProduct {
       specs: json['specs'],
       image: json['image'],
       videoPath: json['video_path'],
-      weightKg: json['weight_kg']?.toDouble(),
-      lengthCm: json['length_cm']?.toDouble(),
-      widthCm: json['width_cm']?.toDouble(),
-      heightCm: json['height_cm']?.toDouble(),
+      weightKg: asDoubleOrNull(json['weight_kg']),
+      lengthCm: asDoubleOrNull(json['length_cm']),
+      widthCm: asDoubleOrNull(json['width_cm']),
+      heightCm: asDoubleOrNull(json['height_cm']),
       addressId: json['address_id'],
       isArchived: json['is_archived'] ?? false,
       archivedAt: json['archived_at'] != null 
@@ -391,7 +392,7 @@ class ProductVariation {
       id: json['id'],
       productId: json['product_id'] ?? json['book_id'],
       name: json['name'],
-      price: json['price']?.toDouble(),
+      price: asDoubleOrNull(json['price']),
       stock: json['stock'] ?? 0,
       sku: json['sku'],
       sortOrder: json['sort_order'] ?? 0,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -10,17 +11,17 @@ class AdminDashboardScreen extends StatelessWidget {
     final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFfbeee8),
+      backgroundColor: Alvy.page,
       body: SafeArea(
         child: Column(
           children: [
             // Header
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Alvy.surface,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE6D9CF)),
+                  bottom: BorderSide(color: Alvy.border),
                 ),
               ),
               child: Row(
@@ -29,19 +30,19 @@ class AdminDashboardScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Admin Dashboard',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF8a7a70),
+                          color: Alvy.textMuted,
                         ),
                       ),
                       Text(
                         user?.name ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF222222),
+                          color: Alvy.navy,
                         ),
                       ),
                     ],
@@ -49,7 +50,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => context.read<AuthProvider>().logout(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFfa4e1c),
+                      backgroundColor: const Color(0xFFFA4E1C),
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('Logout'),
@@ -61,7 +62,7 @@ class AdminDashboardScreen extends StatelessWidget {
               child: Center(
                 child: Text(
                   'Admin Dashboard - Coming Soon',
-                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 18, color: Alvy.textMuted),
                 ),
               ),
             ),

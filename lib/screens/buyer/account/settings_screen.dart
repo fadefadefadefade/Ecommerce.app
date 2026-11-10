@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../services/app_update.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/theme_provider.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
 import 'account_ui.dart';
 import 'notifications_screen.dart';
@@ -18,93 +20,98 @@ class SettingsScreen extends StatelessWidget {
       backgroundColor: c.background,
       appBar: accountAppBar('Settings'),
       body: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           AccountCard(
             title: 'Appearance',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeThumbColor: BuyerPalette.primary,
-                  secondary: Icon(
-                    themeProvider.mode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
-                    color: BuyerPalette.primary,
-                  ),
-                  title: Text('Dark mode', style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
-                  subtitle: Text('Easier on the eyes at night', style: TextStyle(color: c.muted, fontSize: 12)),
-                  value: Theme.of(context).brightness == Brightness.dark,
-                  onChanged: (on) => themeProvider.setMode(on ? ThemeMode.dark : ThemeMode.light),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Light')),
-                      ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Dark')),
-                      ButtonSegment(
-                          value: ThemeMode.system, icon: Icon(Icons.settings_suggest), label: Text('System')),
-                    ],
-                    selected: {themeProvider.mode},
-                    onSelectionChanged: (s) => themeProvider.setMode(s.first),
-                    style: SegmentedButton.styleFrom(
-                      selectedBackgroundColor: BuyerPalette.primary,
-                      selectedForegroundColor: Colors.white,
-                      foregroundColor: c.text,
-                    ),
+                AccountRow(
+                  icon: themeProvider.mode == ThemeMode.dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                  title: 'Dark mode',
+                  subtitle: 'Easier on the eyes at night',
+                  trailing: Switch(
+                    value: Theme.of(context).brightness == Brightness.dark,
+                    onChanged: (on) => themeProvider.setMode(on ? ThemeMode.dark : ThemeMode.light),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '"System" follows your phone\'s dark mode setting.',
-                  style: TextStyle(fontSize: 12, color: c.muted),
+                // The design's segmented switch: a beige track with the chosen one on white.
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    for (final (mode, icon, label) in const [
+                      (ThemeMode.light, Icons.light_mode_outlined, 'Light'),
+                      (ThemeMode.dark, Icons.dark_mode_outlined, 'Dark'),
+                      (ThemeMode.system, Icons.settings_suggest_outlined, 'System'),
+                    ])
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => themeProvider.setMode(mode),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: themeProvider.mode == mode ? c.surface : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(icon, size: 17, color: themeProvider.mode == mode ? Alvy.orange : c.textSecondary),
+                              const SizedBox(width: 6),
+                              Text(label,
+                                  style: TextStyle(
+                                      fontWeight: themeProvider.mode == mode ? FontWeight.w700 : FontWeight.w500,
+                                      color: themeProvider.mode == mode ? Alvy.orange : c.textSecondary)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                  ]),
                 ),
+                const SizedBox(height: 8),
+                Text('"System" follows your phone\'s dark mode setting.', style: TextStyle(fontSize: 12, color: c.muted)),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           AccountCard(
             title: 'Account',
-            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
-                _tile(context, Icons.lock_outline, 'Security', 'Change your password',
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityScreen()))),
-                Divider(height: 1, color: c.border),
-                _tile(context, Icons.notifications_outlined, 'Notifications', 'Order and account updates',
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()))),
+                AccountRow(
+                  icon: Icons.lock_outline,
+                  title: 'Security',
+                  subtitle: 'Change your password',
+                  navy: true,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityScreen())),
+                ),
+                AccountRow(
+                  icon: Icons.notifications_none,
+                  title: 'Notifications',
+                  subtitle: 'Order and account updates',
+                  navy: true,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           AccountCard(
             title: 'About',
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.info_outline, color: BuyerPalette.primary),
-                  title: Text('ALVY', style: TextStyle(color: c.text)),
-                  trailing: Text('v1.0.0', style: TextStyle(color: c.muted)),
-                ),
-              ],
+            child: AccountRow(
+              icon: Icons.info_outline,
+              title: 'ALVY',
+              subtitle: 'Shop local, delivered by local riders',
+              trailing: FutureBuilder<String>(
+                future: AppUpdate.versionName(),
+                builder: (_, v) => Text(v.data == null || v.data!.isEmpty ? '' : 'v${v.data}', style: TextStyle(color: c.muted)),
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _tile(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap) {
-    final c = context.bc;
-    return ListTile(
-      leading: Icon(icon, color: BuyerPalette.primary),
-      title: Text(title, style: TextStyle(color: c.text, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: TextStyle(color: c.muted, fontSize: 12)),
-      trailing: Icon(Icons.chevron_right, color: c.muted),
-      onTap: onTap,
     );
   }
 }

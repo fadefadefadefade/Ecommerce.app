@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../theme/buyer_colors.dart';
+import 'responsive.dart';
 
 // Shared profile layout (header card, info card, action grid) used by the
 // buyer, seller and logistics profile screens so they all look the same.
 
 const _primary = Color(0xFFFA4E1C);
+Color get _slate => Alvy.slate;
 
-List<BoxShadow> _softShadow() => [
-      BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+List<BoxShadow> _softShadow() => const [
+      BoxShadow(color: Color(0x0F2A1A10), blurRadius: 14, offset: Offset(0, 3)),
     ];
 
 class ProfileHeaderCard extends StatelessWidget {
@@ -25,17 +30,20 @@ class ProfileHeaderCard extends StatelessWidget {
     required this.email,
     required this.roleLabel,
     this.roleIcon,
-    this.avatarColor = const Color(0xFF002B4D),
+    this.avatarColor = const Color(0xFFFA4E1C),
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.bc;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        gradient: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : LinearGradient(colors: [Colors.white, Alvy.subtle], begin: Alignment.topLeft, end: Alignment.bottomRight),
         boxShadow: _softShadow(),
       ),
       child: Row(
@@ -43,7 +51,12 @@ class ProfileHeaderCard extends StatelessWidget {
           Container(
             width: 70,
             height: 70,
-            decoration: BoxDecoration(color: avatarColor, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: avatarColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Alvy.surface, width: 3),
+              boxShadow: const [BoxShadow(color: Color(0x262A1A10), blurRadius: 8, offset: Offset(0, 2))],
+            ),
             child: Center(
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : 'U',
@@ -58,7 +71,7 @@ class ProfileHeaderCard extends StatelessWidget {
               children: [
                 Text(
                   name.isEmpty ? 'User' : name,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: c.text),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: c.text),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -66,22 +79,22 @@ class ProfileHeaderCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.1),
+                    color: Alvy.slateSoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (roleIcon != null) ...[
-                        Icon(roleIcon, size: 12, color: _primary),
+                        Icon(roleIcon, size: 12, color: _slate),
                         const SizedBox(width: 4),
                       ],
                       Text(
                         roleLabel.toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: _primary,
+                          color: _slate,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -191,26 +204,34 @@ class ProfileActionGrid extends StatelessWidget {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
+      // Phones: 3 per row. Tablets: small tiles, as many per row as fit (3 per row there would make each tile huge).
+      gridDelegate: Responsive.isWide(context)
+          ? const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 160,
+              childAspectRatio: 1.1,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            )
+          : const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 1,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
       itemCount: actions.length,
       itemBuilder: (context, index) {
         final action = actions[index];
         return Container(
           decoration: BoxDecoration(
             color: c.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: _softShadow(),
           ),
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
               onTap: action.onTap,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -256,8 +277,6 @@ class ProfileScaffold extends StatelessWidget {
       backgroundColor: context.bc.background,
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -278,7 +297,7 @@ Future<void> confirmLogout(BuildContext context) async {
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
           child: const Text('Logout'),
         ),
       ],
@@ -294,4 +313,144 @@ String memberSince(DateTime? date) {
   if (date == null) return '—';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
+}
+
+/// A titled white card holding menu rows (the design's "Account & Preferences").
+class ProfileMenuGroup extends StatelessWidget {
+  final String? title;
+  final List<Widget> rows;
+  final Widget? trailing;
+  const ProfileMenuGroup({super.key, this.title, required this.rows, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.bc;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(20), boxShadow: _softShadow()),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (title != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+            child: Row(children: [
+              Expanded(child: Text(title!, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w700, color: c.text))),
+              if (trailing != null) trailing!,
+            ]),
+          ),
+        ...rows,
+      ]),
+    );
+  }
+}
+
+/// A menu row: a round tinted icon, the title and a hint line, and a chevron.
+class ProfileMenuRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Color? _color;
+  Color get color => _color ?? _slate;
+  final VoidCallback onTap;
+  ProfileMenuRow({super.key, required this.icon, required this.title, this.subtitle, Color? color, required this.onTap}) : _color = color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.bc;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.10), shape: BoxShape.circle),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: c.text)),
+              if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+            ]),
+          ),
+          Icon(Icons.chevron_right, color: c.muted),
+        ]),
+      ),
+    );
+  }
+}
+
+/// A row of order shortcuts: round icons with a label under each (the design's "My Orders").
+class ProfileShortcutRow extends StatelessWidget {
+  final List<({IconData icon, String label, VoidCallback onTap})> items;
+  const ProfileShortcutRow({super.key, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.bc;
+    return Row(children: [
+      for (final i in items)
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: i.onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+              child: Column(children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(color: c.subtle, shape: BoxShape.circle),
+                  child: Icon(i.icon, size: 21, color: c.textSecondary),
+                ),
+                const SizedBox(height: 6),
+                // One line, shrunk to fit, so every icon stays on the same row ("To Receive" used to wrap and push its icon up).
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(i.label, maxLines: 1, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.text, height: 1.2)),
+                ),
+              ]),
+            ),
+          ),
+        ),
+    ]);
+  }
+}
+
+/// The Appearance switch for the account menus (seller, rider, logistics): light or dark, saved on the device.
+class DarkModeRow extends StatelessWidget {
+  const DarkModeRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.watch<ThemeProvider>();
+    final c = context.bc;
+    final on = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => theme.setMode(on ? ThemeMode.light : ThemeMode.dark),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: Alvy.slate.withValues(alpha: 0.10), shape: BoxShape.circle),
+            child: Icon(on ? Icons.dark_mode : Icons.dark_mode_outlined, size: 20, color: Alvy.slate),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Dark mode', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: c.text)),
+              Text('Easier on the eyes at night', style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+            ]),
+          ),
+          Switch(value: on, onChanged: (v) => theme.setMode(v ? ThemeMode.dark : ThemeMode.light)),
+        ]),
+      ),
+    );
+  }
 }

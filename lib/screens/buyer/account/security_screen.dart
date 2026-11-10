@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../services/api_client.dart';
+import '../../../services/buyer_api.dart';
+import '../../../services/logistics_api.dart';
+import '../../../services/rider_api.dart';
+import '../../../services/seller_api.dart';
+import '../../../widgets/buyer_kit.dart' show showResult, phoneFormatters;
+import '../../../widgets/password_code_dialog.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
 import 'account_ui.dart';
 
@@ -19,6 +26,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   final _confirm = TextEditingController();
   bool _show = false;
   bool _saving = false;
+  String _via = 'email';
 
   @override
   void dispose() {
@@ -31,22 +39,32 @@ class _SecurityScreenState extends State<SecurityScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
-    try {
-      final data = ApiService.unwrap(await ApiService.put('/profile/password', {
-        'current_password': _current.text,
-        'password': _new.text,
-        'password_confirmation': _confirm.text,
-      }));
-      if (!mounted) return;
+    // The website's password change: the seller panel's for sellers, the profile's for everyone else.
+    final user = context.read<AuthProvider>().user;
+    final r = user?.isSeller == true
+        ? await SellerApi.changePassword(_current.text, _new.text, _confirm.text, via: _via)
+        : user?.isCourier == true
+            ? await RiderApi.changePassword(_current.text, _new.text, _confirm.text, via: _via)
+            : user?.isLogistics == true
+                // Logistics: the account save with only the password changing (name and email stay as they are).
+                ? await LogisticsApi.updateAccount({
+                    'name': user!.name, 'email': user.email,
+                    'current_password': _current.text, 'password': _new.text, 'password_confirmation': _confirm.text, 'code_via': _via,
+                  })
+                : await BuyerApi.changePassword(_current.text, _new.text, _confirm.text, via: _via);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r.ok) {
       _current.clear();
       _new.clear();
       _confirm.clear();
       FocusScope.of(context).unfocus();
-      showAccountSnack(context, data['message'] ?? 'Password changed successfully.');
-    } catch (e) {
-      if (mounted) showAccountSnack(context, errorText(e), error: true);
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    }
+    // The website emails a code first; the new password is used once it is entered.
+    if (passwordCodeSent(r)) {
+      await confirmPasswordCode(context, message: r.message);
+    } else {
+      showResult(context, r);
     }
   }
 
@@ -57,7 +75,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
       labelStyle: TextStyle(color: c.muted),
       filled: true,
       fillColor: c.subtle,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+      prefixIcon: Icon(Icons.lock_outline, color: c.muted, size: 20),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       suffixIcon: IconButton(
         icon: Icon(_show ? Icons.visibility_off : Icons.visibility, color: c.muted),
         onPressed: () => setState(() => _show = !_show),
@@ -69,39 +88,36 @@ class _SecurityScreenState extends State<SecurityScreen> {
   Widget build(BuildContext context) {
     final c = context.bc;
     final user = context.watch<AuthProvider>().user;
-    final strength = _strength(_new.text);
 
     return Scaffold(
       backgroundColor: c.background,
       appBar: accountAppBar('Security'),
       body: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           AccountCard(
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: BuyerPalette.primary.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.shield_outlined, color: BuyerPalette.primary),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(14)),
+                  child: Icon(Icons.verified_user_outlined, color: Alvy.slate),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Signed in as', style: TextStyle(fontSize: 12, color: c.muted)),
-                      Text(user?.email ?? '', style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+                      Text('SIGNED IN AS', style: TextStyle(fontSize: 11, letterSpacing: 0.5, fontWeight: FontWeight.w700, color: c.textSecondary)),
+                      Text(user?.email ?? '', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           AccountCard(
             title: 'Change Password',
             child: Form(
@@ -115,7 +131,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: _decoration(context, 'Current password'),
                     validator: (v) => (v == null || v.isEmpty) ? 'Enter your current password' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextFormField(
                     controller: _new,
                     obscureText: !_show,
@@ -128,24 +144,32 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       return null;
                     },
                   ),
-                  if (_new.text.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: strength.$1,
-                        minHeight: 6,
-                        backgroundColor: c.border,
-                        color: strength.$3,
-                      ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Your new password needs:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.text)),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final (ok, rule) in [
+                    (_new.text.length >= 8, 'At least 8 characters'),
+                    (RegExp(r'[A-Z]').hasMatch(_new.text), 'An uppercase letter'),
+                    (RegExp(r'[a-z]').hasMatch(_new.text), 'A lowercase letter'),
+                    (RegExp(r'\d').hasMatch(_new.text), 'A number'),
+                    (RegExp(r'[^A-Za-z0-9]').hasMatch(_new.text), 'A symbol (e.g. ! @ #)'),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(children: [
+                        Icon(ok ? Icons.check_circle : Icons.radio_button_unchecked, size: 15, color: ok ? const Color(0xFF059669) : c.muted),
+                        const SizedBox(width: 6),
+                        Text(rule, style: TextStyle(fontSize: 12, color: ok ? const Color(0xFF059669) : c.muted)),
+                      ]),
                     ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Strength: ${strength.$2}', style: TextStyle(fontSize: 12, color: strength.$3)),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Example: Mamimili@2027', style: TextStyle(fontSize: 12, color: c.muted)),
+                  ),
+                  const SizedBox(height: 14),
                   TextFormField(
                     controller: _confirm,
                     obscureText: !_show,
@@ -153,32 +177,31 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: _decoration(context, 'Confirm new password'),
                     validator: (v) => v != _new.text ? 'Passwords do not match' : null,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+                  PasswordCodeChoice(onChanged: (v) => _via = v),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: FilledButton.icon(
                       onPressed: _saving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: BuyerPalette.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Update Password'),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                      icon: _saving
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.lock_outline, size: 18),
+                      label: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          // Email / phone change with a code is on the buyer's security page; sellers, couriers and logistics change them on their account page.
+          if (user?.isSeller != true && user?.isCourier != true && user?.isLogistics != true) ...[
+            const SizedBox(height: 14),
+            const _ContactChangeCard(),
+          ],
+          const SizedBox(height: 14),
           AccountCard(
-            title: 'Tips',
+            title: 'Keep your account safe',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -191,7 +214,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.check_circle_outline, size: 16, color: BuyerPalette.primary),
+                            Icon(Icons.check_circle_outline, size: 16, color: Alvy.slate),
                             const SizedBox(width: 8),
                             Expanded(child: Text(t, style: TextStyle(fontSize: 13, color: c.textSecondary))),
                           ],
@@ -204,17 +227,117 @@ class _SecurityScreenState extends State<SecurityScreen> {
       ),
     );
   }
+}
 
-  /// (progress 0-1, label, color)
-  (double, String, Color) _strength(String p) {
-    var score = 0;
-    if (p.length >= 8) score++;
-    if (p.length >= 12) score++;
-    if (RegExp(r'[A-Z]').hasMatch(p) && RegExp(r'[a-z]').hasMatch(p)) score++;
-    if (RegExp(r'\d').hasMatch(p)) score++;
-    if (RegExp(r'[^A-Za-z0-9]').hasMatch(p)) score++;
-    if (score <= 2) return (0.33, 'Weak', const Color(0xFFC62828));
-    if (score <= 3) return (0.66, 'Medium', const Color(0xFFEF6C00));
-    return (1.0, 'Strong', const Color(0xFF2E7D32));
+
+/// The website's email / phone change on Accounts & Security: a 6-digit code confirms the new one.
+class _ContactChangeCard extends StatefulWidget {
+  const _ContactChangeCard();
+
+  @override
+  State<_ContactChangeCard> createState() => _ContactChangeCardState();
+}
+
+class _ContactChangeCardState extends State<_ContactChangeCard> {
+  Map<String, dynamic>? me;
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final r = await BuyerApi.profile();
+    if (mounted && r.ok) setState(() => me = Map<String, dynamic>.from(r.body['user']));
+  }
+
+  Future<void> _run(Future<ApiResponse> Function() call) async {
+    setState(() => busy = true);
+    final r = await call();
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      if (r.ok && r.body['user'] != null) me = Map<String, dynamic>.from(r.body['user']);
+    });
+    showResult(context, r);
+    if (r.ok && r.body['user'] != null) context.read<AuthProvider>().updateUser(Map<String, dynamic>.from(r.body['user']));
+  }
+
+  Future<void> _change(String what) async {
+    final c = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(what == 'email' ? 'New email address' : 'New phone number'),
+        content: TextField(
+          controller: c,
+          keyboardType: what == 'email' ? TextInputType.emailAddress : TextInputType.phone,
+          inputFormatters: what == 'email' ? null : phoneFormatters,
+          decoration: InputDecoration(hintText: what == 'email' ? 'name@example.com' : '09XXXXXXXXX'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Send code')),
+        ],
+      ),
+    );
+    if (value == null || value.isEmpty) return;
+    await _run(() => what == 'email' ? BuyerApi.changeEmail(value) : BuyerApi.changePhone(value));
+  }
+
+  Future<void> _verify() async {
+    final c = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter the 6-digit code'),
+        content: TextField(controller: c, keyboardType: TextInputType.number, maxLength: 6),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Confirm')),
+        ],
+      ),
+    );
+    if (code == null || code.isEmpty) return;
+    await _run(() => BuyerApi.verifyContact(code));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = me?['pending_email'] ?? me?['pending_phone'];
+    return AccountCard(
+      title: 'Email & Phone',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        AccountRow(
+          icon: Icons.mail_outline,
+          title: 'Email',
+          subtitle: me?['email'] ?? '',
+          navy: true,
+          trailing: TextButton(onPressed: busy ? null : () => _change('email'), child: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700))),
+        ),
+        AccountRow(
+          icon: Icons.phone_iphone,
+          title: 'Phone',
+          subtitle: me?['phone'] ?? '—',
+          navy: true,
+          trailing: TextButton(onPressed: busy ? null : () => _change('phone'), child: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700))),
+        ),
+        if (pending != null) ...[
+          Container(
+            margin: const EdgeInsets.only(top: 6, bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(12)),
+            child: Text('Waiting for the code to confirm: $pending', style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309))),
+          ),
+          Wrap(spacing: 8, children: [
+            FilledButton(onPressed: busy ? null : _verify, child: const Text('Enter code')),
+            TextButton(onPressed: busy ? null : () => _run(BuyerApi.resendContact), child: const Text('Resend')),
+            TextButton(onPressed: busy ? null : () => _run(BuyerApi.cancelContact), child: const Text('Cancel change')),
+          ]),
+        ],
+      ]),
+    );
   }
 }

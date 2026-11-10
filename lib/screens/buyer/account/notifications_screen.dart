@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../services/api_service.dart';
+import '../../../services/buyer_api.dart';
+import '../../../widgets/web_links.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
+import '../../../widgets/buyer_kit.dart' show cardBox;
 import 'account_ui.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -48,14 +51,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_loading || _page >= _lastPage) return;
     setState(() => _loading = true);
     try {
-      final data = ApiService.unwrap(await ApiService.get('/notifications?page=${_page + 1}'));
+      // Every role reads its notifications from the web API (/api/v1/notifications).
+      final r = await BuyerApi.notifications(page: _page + 1);
       if (!mounted) return;
-      final pagination = Map<String, dynamic>.from(data['pagination'] ?? {});
+      if (!r.ok) throw Exception(r.message);
       setState(() {
-        _items.addAll((data['notifications'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)));
-        _page = toNum(pagination['current_page']).toInt();
-        _lastPage = toNum(pagination['last_page']).toInt();
-        _unread = toNum(data['unread_count']).toInt();
+        _items.addAll((r.body['data'] as List).map((e) {
+          final n = Map<String, dynamic>.from(e);
+          n['read_at'] = n['read'] == true ? n['created_at'] : null;
+          return n;
+        }));
+        _page = toNum(r.body['meta']['current_page']).toInt();
+        _lastPage = toNum(r.body['meta']['last_page']).toInt();
+        _unread = toNum(r.body['unread']).toInt();
       });
     } catch (e) {
       if (mounted) setState(() => _error = errorText(e));
@@ -65,21 +73,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markRead(Map<String, dynamic> n) async {
-    if (n['read_at'] != null) return;
-    setState(() {
-      n['read_at'] = DateTime.now().toIso8601String();
-      _unread = (_unread - 1).clamp(0, 1 << 30);
-    });
-    try {
-      ApiService.unwrap(await ApiService.post('/notifications/${n['id']}/read'));
-    } catch (_) {
-      // Not critical; it will show as unread again on the next refresh.
+    // Like the website: opening marks it read and goes to what it is about.
+    if (n['read_at'] == null) {
+      setState(() {
+        n['read_at'] = DateTime.now().toIso8601String();
+        _unread = (_unread - 1).clamp(0, 1 << 30);
+      });
     }
+    final r = await BuyerApi.openNotification(n['id']);
+    if (mounted && r.ok) await openWebPath(context, r.body['redirect'] ?? n['link']);
   }
 
   Future<void> _markAllRead() async {
     try {
-      ApiService.unwrap(await ApiService.post('/notifications/read-all'));
+      final r = await BuyerApi.readAllNotifications();
+      if (!r.ok) throw Exception(r.message);
       if (!mounted) return;
       final now = DateTime.now().toIso8601String();
       setState(() {
@@ -96,37 +104,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   IconData _icon(String? type) {
     switch (type) {
       case 'order':
-        return Icons.receipt_long;
+        return Icons.receipt_long_outlined;
       case 'delivery':
       case 'shipping':
-        return Icons.local_shipping;
+        return Icons.local_shipping_outlined;
       case 'promo':
-        return Icons.local_offer;
+        return Icons.local_offer_outlined;
       case 'success':
-        return Icons.check_circle;
+        return Icons.check_circle_outline;
       case 'warning':
       case 'error':
-        return Icons.warning_amber;
+        return Icons.warning_amber_rounded;
       default:
-        return Icons.notifications;
+        return Icons.notifications_none;
     }
   }
+
+  /// Orange for orders and promos, navy for deliveries, red for problems (the logo's two colors first).
+  (Color, Color) _tone(String? type) => switch (type) {
+        'delivery' || 'shipping' => (Alvy.slate, Alvy.slateSoft),
+        'warning' || 'error' => (const Color(0xFFDC2626), Alvy.dangerSoft),
+        'success' => (const Color(0xFF15803D), Alvy.successSoft),
+        _ => (Alvy.orange, Alvy.orangeSoft),
+      };
 
   @override
   Widget build(BuildContext context) {
     final c = context.bc;
     return Scaffold(
       backgroundColor: c.background,
-      appBar: accountAppBar(
-        _unread > 0 ? 'Notifications ($_unread)' : 'Notifications',
-        actions: [
-          if (_unread > 0)
-            TextButton(
-              onPressed: _markAllRead,
-              child: const Text('Mark all read', style: TextStyle(color: Colors.white)),
-            ),
-        ],
-      ),
+      appBar: accountAppBar('Notifications'),
       body: RefreshIndicator(
         color: BuyerPalette.primary,
         onRefresh: _refresh,
@@ -147,7 +154,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     icon: Icons.wifi_off,
                     title: 'Could not load notifications',
                     message: _error!,
-                    action: ElevatedButton(onPressed: _refresh, child: const Text('Retry')),
+                    action: FilledButton(onPressed: _refresh, child: const Text('Retry')),
                   )
                 : const AccountEmptyState(
                     icon: Icons.notifications_none,
@@ -159,61 +166,86 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
     }
 
-    return ListView.separated(
+    return ListView.builder(
       controller: _scroll,
-      itemCount: _items.length + (_loading ? 1 : 0),
-      separatorBuilder: (_, __) => Divider(height: 1, color: c.border),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: _items.length + 1 + (_loading ? 1 : 0),
       itemBuilder: (context, i) {
-        if (i >= _items.length) {
+        // The design's header: how many are unread, and "Mark all read".
+        if (i == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('INBOX', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w700, color: c.textSecondary)),
+                  Text(_unread > 0 ? '$_unread unread' : 'All caught up', style: Alvy.display(size: 20, color: c.text, weight: FontWeight.w700)),
+                ]),
+              ),
+              if (_unread > 0)
+                TextButton.icon(
+                  onPressed: _markAllRead,
+                  style: TextButton.styleFrom(backgroundColor: c.subtle, padding: const EdgeInsets.symmetric(horizontal: 14)),
+                  icon: const Icon(Icons.done_all, size: 18, color: Alvy.orange),
+                  label: const Text('Mark all read', style: TextStyle(color: Alvy.orange, fontWeight: FontWeight.w700)),
+                ),
+            ]),
+          );
+        }
+        final k = i - 1;
+        if (k >= _items.length) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator(color: BuyerPalette.primary)),
           );
         }
-        final n = _items[i];
+        final n = _items[k];
         final unread = n['read_at'] == null;
-        return Material(
-          color: unread ? BuyerPalette.primary.withValues(alpha: 0.06) : c.surface,
-          child: InkWell(
-            onTap: () => _markRead(n),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: BuyerPalette.primary.withValues(alpha: 0.12),
-                    child: Icon(_icon(n['type']), color: BuyerPalette.primary, size: 20),
+        final (fg, bg) = _tone(n['type']);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: cardBox(context, radius: 16, color: unread ? Alvy.orangeSoft : null).copyWith(
+            border: unread ? Border.all(color: Alvy.orange.withValues(alpha: 0.25)) : null,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _markRead(n),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+                    child: Icon(_icon(n['type']), color: fg, size: 21),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          n['title'] ?? '',
-                          style: TextStyle(
-                            color: c.text,
-                            fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
-                          ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: Text(n['title'] ?? '',
+                              style: TextStyle(color: c.text, fontWeight: unread ? FontWeight.w700 : FontWeight.w600)),
                         ),
-                        if ((n['body'] ?? '').toString().isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(n['body'], style: TextStyle(fontSize: 13, color: c.textSecondary)),
-                        ],
-                        const SizedBox(height: 4),
-                        Text(timeAgo(n['created_at']), style: TextStyle(fontSize: 11, color: c.muted)),
+                        const SizedBox(width: 8),
+                        Text(timeAgo(n['created_at']), style: TextStyle(fontSize: 11.5, color: c.muted)),
+                      ]),
+                      if ((n['body'] ?? '').toString().isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(n['body'], style: TextStyle(fontSize: 13, color: c.textSecondary, height: 1.35)),
                       ],
-                    ),
+                    ]),
                   ),
                   if (unread)
                     Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(top: 6, left: 6),
-                      decoration: const BoxDecoration(color: BuyerPalette.primary, shape: BoxShape.circle),
+                      width: 9,
+                      height: 9,
+                      margin: const EdgeInsets.only(top: 6, left: 8),
+                      decoration: const BoxDecoration(color: Alvy.orange, shape: BoxShape.circle),
                     ),
-                ],
+                ]),
               ),
             ),
           ),

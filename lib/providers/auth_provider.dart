@@ -1,36 +1,92 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
+import '../config/api_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import '../models/user.dart';
-import '../services/api_service.dart';
+import '../services/api_client.dart';
 import '../screens/buyer/buyer_main_screen.dart';
 import '../screens/seller/seller_main_screen.dart';
+import '../screens/seller/panel/panel_screens.dart';
 import '../screens/logistics/logistics_main_screen.dart';
+import '../screens/courier/courier_main_screen.dart';
+import '../screens/courier/courier_screens.dart';
+import '../screens/auth/login_screen.dart';
+
+/// What a sign-in, code or sign-up step answered (the web's rules and messages).
+class AuthResult {
+  /// ok (signed in), otp_required (enter the emailed code), pending_approval / submitted (wait for
+  /// approval, no sign-in yet) or error.
+  final String status;
+  final String message;
+  final Map<String, String> fieldErrors;
+  final String? otpToken;
+  final String? maskedEmail;
+  final int cooldown;
+
+  const AuthResult(this.status, this.message,
+      {this.fieldErrors = const {}, this.otpToken, this.maskedEmail, this.cooldown = 0});
+
+  bool get ok => status == 'ok';
+  bool get needsOtp => status == 'otp_required';
+  bool get isError => status == 'error';
+
+  factory AuthResult.from(ApiResponse r) {
+    if (!r.ok) return AuthResult('error', r.message, fieldErrors: r.fieldErrors);
+    return AuthResult(
+      (r.body['status'] as String?) ?? 'ok',
+      (r.body['message'] as String?) ?? '',
+      otpToken: r.body['otp_token'] as String?,
+      maskedEmail: r.body['masked_email'] as String?,
+      cooldown: (r.body['cooldown'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
 
 class AuthProvider with ChangeNotifier {
   User? _user;
   bool _isLoading = false;
-  
+  String? _notice;
+
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _user != null;
-  
-  final _storage = const FlutterSecureStorage();
 
-  @override
-  void notifyListeners() {
-    debugPrint('🔔 AuthProvider.notifyListeners() called - hasListeners: $hasListeners, user: ${_user?.email ?? 'null'}, isAuthenticated: $isAuthenticated');
-    super.notifyListeners();
+  /// A message for the login screen (e.g. "Your session expired"), shown once.
+  String? takeNotice() {
+    final n = _notice;
+    _notice = null;
+    return n;
   }
 
+  final _storage = const FlutterSecureStorage();
+
+  AuthProvider() {
+    // 30 minutes without use (A22) or a revoked token: back to the login screen with the reason.
+    ApiClient.onUnauthorized = (message) => _signOutLocally(notice: message);
+  }
+
+  /// On start: keep the saved login only if the server still accepts it.
   Future<void> checkAuthStatus() async {
     _isLoading = true;
     notifyListeners();
-    
     try {
-      final userJson = await _storage.read(key: 'user_data');
-      if (userJson != null) {
-        _user = User.fromJson(jsonDecode(userJson));
+      if (await ApiClient.token() != null) {
+        final res = await ApiClient.get('/me');
+        if (res.ok) {
+          await _setUser(User.fromJson(res.body['user']));
+        } else if (res.unauthorized) {
+          // The login ended, e.g. a week after signing in (like the website).
+          await _storage.delete(key: 'user_data');
+          _notice = ApiClient.signedOutMessage(res);
+        } else if (res.status == 0) {
+          // Offline: keep the saved account so the app still opens.
+          final saved = await _storage.read(key: 'user_data');
+          if (saved != null) _user = User.fromJson(jsonDecode(saved));
+        }
       }
     } catch (e) {
       debugPrint('Error checking auth status: $e');
@@ -40,108 +96,135 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> login(
-    String email,
-    String password, {
-    bool remember = false,
-  }) async {
-    debugPrint('🔑 Starting login for: $email');
-    _isLoading = true;
-    notifyListeners();
-    
+  /// One login for every account, like the website's /login; user.home says where the account belongs.
+  Future<AuthResult> login(String email, String password) async {
+    final res = await ApiClient.post('/auth/login', {
+      'email': email,
+      'password': password,
+      'device_name': 'ALVY app',
+    });
+    return _finish(res);
+  }
+
+  Future<AuthResult> verifyOtp(String otpToken, String code) async {
+    return _finish(await ApiClient.post('/auth/otp/verify', {'otp_token': otpToken, 'otp': code}));
+  }
+
+  Future<AuthResult> resendOtp(String otpToken) async {
+    return AuthResult.from(await ApiClient.post('/auth/otp/resend', {'otp_token': otpToken}));
+  }
+
+  /// The web's sign-up form: [fields] as on the website, [files] maps upload field → local file path.
+  /// A sign-up with Google (google_code) comes back signed in.
+  Future<AuthResult> register(Map<String, String> fields, Map<String, String> files) async {
+    final res = await ApiClient.multipart('/auth/register', fields, files: files);
+    if (res.body['token'] != null) return _finish(res);
+    return AuthResult.from(res);
+  }
+
+  /// "Continue with Google": the website's own Google sign-in in a secure browser tab. It comes back with a
+  /// one-time code: an existing account is then signed in; a new Google email gets [GoogleSignIn.signup]
+  /// (email, names and the code) for the sign-up form.
+  Future<GoogleSignIn> google() async {
+    String back;
     try {
-      final result = await ApiService.login(email, password, remember: remember);
-      debugPrint('🔄 API response received: ${result['success']}');
-      
-      if (result['success']) {
-        _user = User.fromJson(result['data']['user']);
-        debugPrint('🔑 Login successful for user: ${_user!.email}, role: ${_user!.role}');
-        
-        await _storage.write(
-          key: 'user_data',
-          value: jsonEncode(_user!.toJson()),
-        );
-        
-        _isLoading = false;
-        debugPrint('📢 About to call notifyListeners() after successful login');
-        notifyListeners();
-        
-        // Force another notifyListeners after a small delay to ensure UI updates
-        Future.delayed(const Duration(milliseconds: 100), () {
-          debugPrint('🔄 Forcing additional notifyListeners call');
-          notifyListeners();
-        });
-        
-        debugPrint('✅ Login process completed successfully');
-        return {'success': true, 'user': _user};
-      } else {
-        _user = null;
-        _isLoading = false;
-        debugPrint('❌ Login failed: ${result['message']}');
-        notifyListeners();
-        return {
-          'success': false,
-          'message': result['message'] ?? 'Login failed',
-        };
-      }
-    } catch (e) {
-      _user = null;
-      _isLoading = false;
-      debugPrint('💥 Login exception: $e');
+      back = await FlutterWebAuth2.authenticate(url: '${ApiConfig.webUrl}/auth/google?app=1', callbackUrlScheme: 'alvyshop');
+    } on PlatformException catch (e) {
+      return GoogleSignIn(cancelled: e.code == 'CANCELED', error: e.code == 'CANCELED' ? null : 'Google sign-in could not open. Please try again.');
+    }
+    final q = Uri.parse(back).queryParameters;
+    if (q['error'] != null) return GoogleSignIn(error: q['error']);
+    final res = await ApiClient.post('/auth/google/exchange', {'code': q['code'] ?? '', 'device_name': 'ALVY app'});
+    if (res.ok && res.body['status'] == 'signup') return GoogleSignIn(signup: Map<String, dynamic>.from(res.body));
+    return GoogleSignIn(result: await _finish(res));
+  }
+
+  Future<AuthResult> _finish(ApiResponse res) async {
+    final result = AuthResult.from(res);
+    // Admins work on the website only: end the new session at once and stay on the login screen with the message.
+    final u = res.body['user'];
+    if (result.ok && res.body['token'] != null && u is Map && (u['role'] == 'admin' || u['home'] == 'admin')) {
+      await ApiClient.saveToken(res.body['token']);
+      try {
+        await ApiClient.post('/auth/logout');
+      } catch (_) {}
+      await ApiClient.clearToken();
+      return const AuthResult('error', adminOnWebsite);
+    }
+    if (result.ok && res.body['token'] != null) {
+      await ApiClient.saveToken(res.body['token']);
+      await _setUser(User.fromJson(res.body['user']));
       notifyListeners();
-      return {
-        'success': false,
-        'message': e.toString().replaceFirst('Exception: ', ''),
-      };
     }
+    return result;
   }
 
-  // Get the appropriate main screen widget for the user's role
+  Future<void> _setUser(User user) async {
+    _user = user;
+    await _storage.write(key: 'user_data', value: jsonEncode(user.toJson()));
+  }
+
+  // Get the appropriate main screen widget for where this account belongs (user.home from the web).
   Widget getMainScreenForRole() {
-    debugPrint('🔍 getMainScreenForRole called, user: ${_user?.email ?? 'null'}');
-    
     if (_user == null) {
-      debugPrint('❌ User is null, returning loading screen');
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final role = _user!.role.toLowerCase();
-    debugPrint('🎯 User role: $role, approval status: ${_user!.approvalStatus}');
-
-    switch (role) {
-      case 'customer':
+    switch (_user!.home) {
       case 'buyer':
-        debugPrint('📱 Routing to BuyerHomeScreen');
         return const BuyerMainScreen();
-      
       case 'seller':
-        if (_user!.isApprovedSeller) {
-          debugPrint('📱 Routing to SellerMainScreen (approved seller)');
-          return const SellerMainScreen();
-        } else {
-          debugPrint('📱 Routing to SellerPendingScreen (pending/rejected seller)');
-          return _buildSellerPendingScreen();
-        }
-      
+        return const SellerMainScreen();
+      case 'seller_status':
+        return const SellerStatusScreen();
+      case 'rider':
       case 'courier':
-        debugPrint('📱 Routing to CourierDashboard (coming soon)');
-        return _buildComingSoonScreen('Courier Dashboard');
-      
-      case 'admin':
-        debugPrint('📱 Routing to LogisticsMainScreen');
+      case 'linehaul':
+        return const CourierMainScreen();
+      case 'courier_status':
+        return const CourierStatusScreen();
+      case 'logistics':
         return const LogisticsMainScreen();
-      
+      case 'admin':
+        return _buildStatusScreen(
+          icon: Icons.admin_panel_settings,
+          title: 'Admin',
+          body: adminOnWebsite,
+        );
       default:
-        debugPrint('❌ Unknown role: $role, routing to unsupported screen');
-        return _buildUnsupportedRoleScreen();
+        return _buildStatusScreen(
+          icon: Icons.error_outline,
+          title: 'Unsupported Account Type',
+          body: 'Account type "${_user?.role}" is not supported in this app.',
+        );
     }
   }
 
-  Widget _buildSellerPendingScreen() {
+  static const adminOnWebsite = 'The ALVY admin panel is on the website.\nPlease sign in at alvy.trade to continue.';
+
+  /// An account the app can't open (e.g. an admin signed in by an older version). Logout or Back signs out
+  /// and returns to the login screen.
+  Widget _buildStatusScreen({required IconData icon, required String title, required String body}) {
+    return Builder(builder: (context) {
+      Future<void> leave() async {
+        final nav = Navigator.of(context);
+        await logout();
+        nav.pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+      }
+
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) leave();
+        },
+        child: _statusBody(icon: icon, title: title, body: body, onLogout: leave),
+      );
+    });
+  }
+
+  Widget _statusBody({required IconData icon, required String title, required String body, required VoidCallback onLogout}) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBEEE8),
+      backgroundColor: const Color(0xFFFFF8F2),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -151,138 +234,19 @@ class AuthProvider with ChangeNotifier {
               Container(
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.pending,
-                  size: 40,
-                  color: Colors.orange.shade600,
-                ),
+                decoration: const BoxDecoration(color: Color(0xFFFFFBEB), shape: BoxShape.circle),
+                child: Icon(icon, size: 40, color: const Color(0xFFB45309)),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Seller Account Pending',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF222222),
-                ),
-              ),
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E1B17))),
               const SizedBox(height: 12),
-              Text(
-                _user!.isPendingSeller 
-                    ? 'Your seller account is under review.\nYou\'ll be notified once approved.'
-                    : 'Your seller account was not approved.\nPlease contact support for assistance.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF6b90aa),
-                ),
-              ),
+              Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, color: Color(0xFF6b90aa))),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: logout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFfa4e1c),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Logout'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildComingSoonScreen(String title) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFBEEE8),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.construction,
-                size: 64,
-                color: Color(0xFF8a7a70),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF222222),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Coming Soon',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF6b90aa),
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: logout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFfa4e1c),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Logout'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUnsupportedRoleScreen() {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFBEEE8),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Unsupported Account Type',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF222222),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Account role "${_user?.role}" is not supported in this app.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF6b90aa),
-                ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: logout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFfa4e1c),
-                  foregroundColor: Colors.white,
-                ),
+                onPressed: onLogout,
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFA4E1C), foregroundColor: Colors.white),
                 child: const Text('Logout'),
               ),
             ],
@@ -294,23 +258,41 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      await ApiService.logout();
+      await ApiClient.post('/auth/logout');
     } catch (e) {
-      // Server unreachable or token already invalid — still log out locally.
-      debugPrint('⚠️  Logout API failed, clearing local session anyway: $e');
-    } finally {
-      _user = null;
-      await _storage.delete(key: 'user_data');
-      notifyListeners();
+      debugPrint('Logout API failed, clearing local session anyway: $e');
     }
+    await _signOutLocally();
   }
 
-  void updateUser(Map<String, dynamic> userData) {
-    _user = User.fromJson(userData);
-    _storage.write(
-      key: 'user_data',
-      value: jsonEncode(_user!.toJson()),
-    );
+  Future<void> _signOutLocally({String? notice}) async {
+    final wasSignedIn = _user != null;
+    _user = null;
+    _notice = wasSignedIn ? notice : null;
+    await ApiClient.clearToken();
+    await _storage.delete(key: 'user_data');
     notifyListeners();
   }
+
+  /// Profile screens still on the old API send back a user without "home": keep where the account belongs.
+  void updateUser(Map<String, dynamic> userData) {
+    final merged = {...?_user?.toJson(), ...userData};
+    if (userData['home'] == null) {
+      merged['home'] = _user?.home;
+      merged['rider_id'] = _user?.riderId;
+    }
+    _user = User.fromJson(merged);
+    _storage.write(key: 'user_data', value: jsonEncode(_user!.toJson()));
+    notifyListeners();
+  }
+}
+
+
+/// What "Continue with Google" ended with: signed in (or refused, in [result]), a new sign-up, cancelled or an error.
+class GoogleSignIn {
+  final AuthResult? result;
+  final Map<String, dynamic>? signup;
+  final bool cancelled;
+  final String? error;
+  const GoogleSignIn({this.result, this.signup, this.cancelled = false, this.error});
 }
