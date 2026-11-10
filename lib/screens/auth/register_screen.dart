@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -31,9 +32,9 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   static const _orange = Color(0xFFFA4E1C);
-  static const _ink = Color(0xFF1E1B17);
-  static const _muted = Color(0xFF8A716A);
-  static const _line = Color(0xFFEEE7E0);
+  static Color get _ink => Alvy.navy;
+  static Color get _muted => Alvy.textMuted;
+  static Color get _line => Alvy.border;
 
   late String _role = widget.initialRole;
   int _step = 0;
@@ -237,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final agreed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Alvy.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => SafeArea(
         child: SizedBox(
@@ -261,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     padding: const EdgeInsets.all(20),
                     child: html == null
                         ? Text(snap.data!.ok ? 'This policy is being prepared. Check back soon.' : snap.data!.message,
-                            style: const TextStyle(color: _muted))
+                            style: TextStyle(color: _muted))
                         : HtmlWidget(html, textStyle: const TextStyle(fontSize: 14, height: 1.55)),
                   );
                 },
@@ -514,7 +515,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (!didPop) _back();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFF8F2),
+        backgroundColor: Alvy.page,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -525,23 +526,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              LinearProgressIndicator(value: (_step + 1) / _steps.length, color: _orange, backgroundColor: _line),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(value: (_step + 1) / _steps.length, minHeight: 6, color: _orange, backgroundColor: _line),
+                ),
+              ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(_steps[_step], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _ink)),
+                      Text('STEP ${_step + 1} OF ${_steps.length}', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w700, color: Alvy.textMuted)),
+                      const SizedBox(height: 2),
+                      Text(_steps[_step], style: Alvy.display(size: 24, color: _ink, weight: FontWeight.w800)),
                       const SizedBox(height: 16),
-                      ..._stepBody(),
+                      // The step's fields in the login page's white card.
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Alvy.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: const [BoxShadow(color: Color(0x0F2A1A10), blurRadius: 14, offset: Offset(0, 3))],
+                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _stepBody()),
+                      ),
                     ],
                   ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _line))),
+                decoration: BoxDecoration(color: Alvy.surface, boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 12, offset: Offset(0, -2))]),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -570,15 +588,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Expanded(
                             child: OutlinedButton(
                               onPressed: _busy ? null : () => setState(() => _step--),
-                              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                              child: const Text('Back'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                                backgroundColor: Alvy.subtle,
+                                side: BorderSide.none,
+                                foregroundColor: _ink,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: const Text('Back', style: TextStyle(fontWeight: FontWeight.w600)),
                             ),
                           ),
                         if (_step > 0) const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton(
+                          child: FilledButton(
                             onPressed: _busy ? null : (last ? _submit : () => setState(() => _step++)),
-                            style: ElevatedButton.styleFrom(backgroundColor: _orange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48)),
+                            style: FilledButton.styleFrom(backgroundColor: _orange, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(50)),
                             child: _busy
                                 ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : Text(last ? (widget.apply ? 'Submit application' : 'Create Account') : 'Next', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -601,8 +625,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     switch (_steps[_step]) {
       case 'Account type':
         return [
-          const Text('What kind of account do you want?', style: TextStyle(fontWeight: FontWeight.w700, color: _ink)),
-          const Text('Pick one to continue — the next steps depend on your choice.', style: TextStyle(color: _muted, fontSize: 13)),
+          Text('What kind of account do you want?', style: TextStyle(fontWeight: FontWeight.w700, color: _ink)),
+          Text('Pick one to continue — the next steps depend on your choice.', style: TextStyle(color: _muted, fontSize: 13)),
           const SizedBox(height: 14),
           GridView.count(
             crossAxisCount: 2,
@@ -610,27 +634,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.5,
+            childAspectRatio: 1.15,
             children: [
+              // The design's account-type cards: an icon square, the name, and what it is for.
               for (final (value, label, sub, icon) in _roles)
                 InkWell(
                   onTap: () => setState(() => _role = value),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: Container(
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: _role == value ? const Color(0xFFFFF1EE) : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _role == value ? _orange : _line, width: _role == value ? 2 : 1),
+                      color: _role == value ? Alvy.orangeSoft : Alvy.subtle,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _role == value ? _orange : Colors.transparent, width: 1.5),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(icon, color: _role == value ? _orange : _muted),
-                        const SizedBox(height: 6),
-                        Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        Text(sub, style: const TextStyle(fontSize: 11, color: _muted)),
-                      ],
-                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(color: _role == value ? _orange : Colors.white, borderRadius: BorderRadius.circular(10)),
+                        child: Icon(icon, size: 20, color: _role == value ? Colors.white : _muted),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(label, style: Alvy.display(size: 17, color: _ink, weight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: _muted, height: 1.3)),
+                    ]),
                   ),
                 ),
             ],
@@ -649,7 +678,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ChoiceChip(
                 label: Text(s == 'male' ? 'Male' : 'Female'),
                 selected: _sex == s,
-                selectedColor: const Color(0xFFFFF1EE),
+                selectedColor: Alvy.orangeSoft,
                 onSelected: (_) => setState(() => _sex = s),
               ),
           ]),
@@ -679,8 +708,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _dropdown('Region', _regions, _region, _pickRegion, 'region'),
           if (!_noProvince) _dropdown('Province', _provinces, _province, _region == null ? null : _pickProvince, 'province'),
           if (_noProvince)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
               child: Text('Province: not applicable (no province)', style: TextStyle(color: _muted)),
             ),
           _dropdown('City / Municipality', _cities, _city, _cities.isEmpty ? null : _pickCity, 'municipality'),
@@ -694,8 +723,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 'Security':
         if (widget.apply) {
           return [
-            const Text('Confirm it is you', style: TextStyle(fontWeight: FontWeight.w700, color: _ink)),
-            const Text('Enter your ALVY account password to send the application.', style: TextStyle(color: _muted, fontSize: 13)),
+            Text('Confirm it is you', style: TextStyle(fontWeight: FontWeight.w700, color: _ink)),
+            Text('Enter your ALVY account password to send the application.', style: TextStyle(color: _muted, fontSize: 13)),
             const SizedBox(height: 12),
             _text(_password, 'Account password', 'password', required: true, obscure: _hidePassword,
                 suffix: IconButton(
@@ -712,9 +741,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              decoration: BoxDecoration(color: const Color(0xFFF4EDE6), borderRadius: BorderRadius.circular(6), border: Border.all(color: _line)),
+              decoration: BoxDecoration(color: Alvy.subtle, borderRadius: BorderRadius.circular(6), border: Border.all(color: _line)),
               child: Row(children: [
-                Expanded(child: Text('${widget.google!['email']}', style: const TextStyle(color: _ink, fontWeight: FontWeight.w600))),
+                Expanded(child: Text('${widget.google!['email']}', style: TextStyle(color: _ink, fontWeight: FontWeight.w600))),
                 const Icon(Icons.verified, size: 18, color: Color(0xFF15803D)),
                 const SizedBox(width: 4),
                 const Text('Verified with Google', style: TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w600)),
@@ -749,7 +778,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               help: '12 digits, including your 3-digit branch code (000 for the main office).'),
           const SizedBox(height: 8),
           const Text('Business Documents', style: TextStyle(fontWeight: FontWeight.w800)),
-          const Text('JPG, PNG or PDF · max 5 MB each. Only the admin team can see these.', style: TextStyle(color: _muted, fontSize: 12)),
+          Text('JPG, PNG or PDF · max 5 MB each. Only the admin team can see these.', style: TextStyle(color: _muted, fontSize: 12)),
           const SizedBox(height: 10),
           _upload('government_id', 'Government-issued ID*', 'Passport, driver\'s license, UMID, PhilID, etc.'),
           if (_sellerType == 'Corporation')
@@ -767,7 +796,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ChoiceChip(
                 label: Text(v[0].toUpperCase() + v.substring(1)),
                 selected: _vehicle == v,
-                selectedColor: const Color(0xFFFFF1EE),
+                selectedColor: Alvy.orangeSoft,
                 onSelected: (_) => setState(() => _vehicle = v),
               ),
           ]),
@@ -776,11 +805,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _upload('or_cr_image', "Driver's License*", 'JPG, PNG or PDF, max 5 MB.'),
           _upload('vehicle_reg_image', 'Vehicle Registration (OR/CR)*', 'JPG, PNG or PDF, max 5 MB.'),
           _label('Sorting Center / Logistics Hub', required: true),
-          const Text('Your application goes to the sorting center you choose. It reviews your documents, and you deliver for it once approved.',
+          Text('Your application goes to the sorting center you choose. It reviews your documents, and you deliver for it once approved.',
               style: TextStyle(color: _muted, fontSize: 12)),
           const SizedBox(height: 8),
           if (_hubs.isEmpty)
-            const Text('No sorting centers are accepting couriers yet. Please check back later.', style: TextStyle(color: _muted))
+            Text('No sorting centers are accepting couriers yet. Please check back later.', style: TextStyle(color: _muted))
           else
             RadioGroup<int>(
               groupValue: _hubId,
@@ -803,7 +832,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return [
           _text(_business, 'Business / Center Name', 'business_name', required: true),
           const Text('Documents', style: TextStyle(fontWeight: FontWeight.w800)),
-          const Text('JPG, PNG or PDF · max 5 MB each. Only the admin team can see these.', style: TextStyle(color: _muted, fontSize: 12)),
+          Text('JPG, PNG or PDF · max 5 MB each. Only the admin team can see these.', style: TextStyle(color: _muted, fontSize: 12)),
           const SizedBox(height: 10),
           _upload('government_id', 'Government-issued ID*', 'Passport, driver\'s license, UMID, PhilID, etc.'),
           _upload('business_permit', 'Business / DTI Permit*', 'Business permit or DTI business name registration.'),
@@ -828,21 +857,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _label(String text, {bool required = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Text('$text${required ? '*' : ''}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B17))),
+        child: Text('$text${required ? '*' : ''}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Alvy.navy)),
       );
 
   InputDecoration _decoration({String? hint, Widget? suffix, String? error}) => InputDecoration(
         hintText: hint,
         counterText: '',
+        // The login page's beige filled fields.
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Alvy.subtle,
         errorText: error,
         errorMaxLines: 3,
         suffixIcon: suffix,
-        contentPadding: const EdgeInsets.all(12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _line)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _line)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _orange, width: 2)),
+        contentPadding: const EdgeInsets.all(14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _orange, width: 1.5)),
       );
 
   Widget _text(TextEditingController c, String label, String field,
@@ -868,7 +898,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onChanged: (_) => _errors.containsKey(field) ? setState(() => _errors.remove(field)) : null,
         ),
         if (help != null && _errors[field] == null)
-          Padding(padding: const EdgeInsets.only(top: 4), child: Text(help, style: const TextStyle(color: _muted, fontSize: 12))),
+          Padding(padding: const EdgeInsets.only(top: 4), child: Text(help, style: TextStyle(color: _muted, fontSize: 12))),
       ]),
     );
   }
@@ -913,15 +943,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B17))),
-        Text(hint, style: const TextStyle(fontSize: 12, color: _muted)),
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Alvy.navy)),
+        Text(hint, style: TextStyle(fontSize: 12, color: _muted)),
         const SizedBox(height: 6),
         InkWell(
           onTap: () => _pickFile(field),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Alvy.surface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _errors[field] != null ? const Color(0xFFDC2626) : _line),
             ),

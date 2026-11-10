@@ -63,17 +63,17 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
   Widget _violation(Map v) => Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
+        decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
             const SizedBox(width: 6),
-            Expanded(child: Text('${v['action']} from ALVY · ${v['type']}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF991B1B)))),
+            Expanded(child: Text('${v['action']} from ALVY · ${v['type']}', style: TextStyle(fontWeight: FontWeight.w800, color: Alvy.dangerText))),
           ]),
           const SizedBox(height: 4),
-          Text('${v['product'] != null ? '"${v['product']}": ' : ''}${v['note']}', style: const TextStyle(color: Color(0xFF7F1D1D))),
+          Text('${v['product'] != null ? '"${v['product']}": ' : ''}${v['note']}', style: TextStyle(color: Alvy.dangerText)),
           const SizedBox(height: 2),
-          Text('${formatDateTime(v['at'])} · Repeated violations can lead to suspension.', style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C))),
+          Text('${formatDateTime(v['at'])} · Repeated violations can lead to suspension.', style: TextStyle(fontSize: 11.5, color: Alvy.dangerText)),
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
@@ -108,13 +108,13 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         Container(
           width: 40,
           height: 40,
-          decoration: const BoxDecoration(color: Color(0xFFFFDAD6), shape: BoxShape.circle),
-          child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFBA1A1A), size: 22),
+          decoration: BoxDecoration(color: Alvy.dangerSoft, shape: BoxShape.circle),
+          child: Icon(Icons.warning_amber_rounded, color: Alvy.dangerText, size: 22),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Low stock warning', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFBA1A1A), fontSize: 13)),
+            Text('Low stock warning', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.dangerText, fontSize: 13)),
             Text('${parts.join(' · ')}. Restock so buyers can keep ordering.', style: TextStyle(color: context.bc.text, fontSize: 13)),
           ]),
         ),
@@ -239,13 +239,94 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
         ),
       _stockWarning(d),
       const SectionTitle('Overview Metrics', padding: EdgeInsets.fromLTRB(0, 22, 0, 12)),
-      StatGrid([
-        StatTile(label: 'Sales', value: peso(money['gross']), icon: Icons.payments_outlined, color: const Color(0xFF2563EB),
-            hint: asNum(money['refunds']) > 0 ? '${peso(money['refunds'])} refunded' : 'What buyers paid for your items'),
-        StatTile(label: 'Commission', value: peso(money['commission']), icon: Icons.percent, color: const Color(0xFF9333EA), hint: 'ALVY fee ($rateText% per sale)'),
-        StatTile(label: 'Net earnings', value: peso(money['net']), icon: Icons.account_balance_wallet_outlined, color: const Color(0xFF15803D), hint: 'Sales minus commission'),
-        StatTile(label: 'Orders', value: '${asInt(counts['total'])}', icon: Icons.receipt_long_outlined,
-            hint: asInt(d['to_ship']) > 0 ? '${d['to_ship']} waiting to ship' : 'Nothing to ship'),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: _metric(
+            'Sales',
+            Icons.payments_outlined,
+            [
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(peso(money['gross']), style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w800))),
+              const SizedBox(height: 8),
+              SizedBox(height: 34, child: CustomPaint(size: Size.infinite, painter: _Spark([for (final p in chart) asNum(p['value']).toDouble()]))),
+              const SizedBox(height: 8),
+              _chip(asNum(money['refunds']) > 0 ? '${peso(money['refunds'])} refunded' : 'What buyers paid', Alvy.slateSoft, Alvy.slate),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _metric(
+            'Orders',
+            Icons.inventory_2_outlined,
+            [
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('${asInt(counts['total'])}', style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w800)),
+                const SizedBox(width: 4),
+                Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('orders', style: TextStyle(color: c.textSecondary))),
+              ]),
+              const SizedBox(height: 8),
+              _subRow('In progress', '${asInt(counts['in_progress'])}', kOrange, Alvy.orangeSoft),
+              const SizedBox(height: 6),
+              _subRow('Completed', '${asInt(counts['completed'])}', Alvy.slate, c.subtle),
+            ],
+          ),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: _metric(
+            'Net earnings',
+            Icons.account_balance_wallet_outlined,
+            [
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(peso(money['net']), style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w800))),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('ALVY COMMISSION', style: TextStyle(fontSize: 10.5, letterSpacing: 0.4, fontWeight: FontWeight.w700, color: c.textSecondary)),
+                  FittedBox(child: Text(peso(money['commission']), style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w800))),
+                  Text('$rateText% per sale', style: const TextStyle(fontSize: 11.5, color: kOrange, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _metric(
+            'Products',
+            Icons.storefront_outlined,
+            [
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('${asInt(products['active'])}', style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w800)),
+                const SizedBox(width: 4),
+                Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('active', style: TextStyle(color: c.textSecondary))),
+              ]),
+              const SizedBox(height: 14),
+              Builder(builder: (_) {
+                final total = asInt(products['active']) + asInt(products['inactive']);
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: total == 0 ? 0 : asInt(products['active']) / total,
+                    minHeight: 7,
+                    color: Alvy.slate,
+                    backgroundColor: c.subtle,
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              Row(children: [
+                Icon(Icons.inventory_outlined, size: 14, color: Alvy.slate),
+                const SizedBox(width: 4),
+                Expanded(child: Text('${asInt(products['inactive'])} inactive / draft', style: TextStyle(fontSize: 11.5, color: Alvy.slate))),
+              ]),
+            ],
+          ),
+        ),
       ]),
       Align(
         alignment: Alignment.centerRight,
@@ -293,16 +374,22 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
           if (label != 'Commission') const SizedBox(width: 10),
         ],
       ]),
-      const SizedBox(height: 20),
+      if (recent.isNotEmpty) ...[
+        SectionTitle('Orders to Fulfill',
+            action: 'View all', onAction: () => SellerMainScreen.of(context)?.goTo(SellerMainScreenState.tabOrders),
+            padding: const EdgeInsets.fromLTRB(0, 22, 0, 12)),
+        for (final o in recent) _orderCard(Map.from(o)),
+      ],
+      const SizedBox(height: 8),
       SectionCard(title: 'Net earnings by month', child: _Chart(chart)),
       SectionCard(
         title: 'Orders',
         child: Column(children: [
-          for (final (key, label, color) in const [
-            ('in_progress', 'In progress', Color(0xFFF59E0B)),
-            ('completed', 'Completed', Color(0xFF059669)),
-            ('cancelled', 'Cancelled', Color(0xFF8A716A)),
-            ('refunded', 'Refunded', Color(0xFFEF4444)),
+          for (final (key, label, color) in [
+            ('in_progress', 'In progress', const Color(0xFFFA4E1C)),
+            ('completed', 'Completed', Alvy.slate),
+            ('cancelled', 'Cancelled', Alvy.textMuted),
+            ('refunded', 'Refunded', const Color(0xFFEF4444)),
           ])
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -364,29 +451,122 @@ class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
             ),
         ]),
       ),
-      SectionCard(
-        title: 'Recent orders',
-        child: recent.isEmpty
-            ? Text('No orders in this period yet.', style: TextStyle(color: c.muted))
-            : Column(children: [
-                for (final o in recent)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${o['number'] ?? ''} · ${o['product'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${o['buyer'] ?? ''} · ×${o['quantity']} · ${formatDate(o['created_at'])}'),
-                    trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text(peso(o['earning']), style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('${o['status'] ?? ''}', style: TextStyle(fontSize: 11, color: Pill.forState(o['status']))),
-                    ]),
-                    onTap: () async {
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => SellerOrderDetailsScreen(orderId: asInt(o['order_id']))));
-                      _load();
-                    },
-                  ),
-              ]),
-      ),
     ]);
   }
+
+  /// A metric card (the design's "Today's Sales"): small label with an icon, then the content.
+  Widget _metric(String label, IconData icon, List<Widget> children) {
+    final c = context.bc;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: cardBox(context, radius: 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: c.textSecondary, fontWeight: FontWeight.w600))),
+          Icon(icon, size: 18, color: kOrange),
+        ]),
+        const SizedBox(height: 8),
+        ...children,
+      ]),
+    );
+  }
+
+  Widget _subRow(String label, String value, Color fg, Color bg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+        child: Row(children: [
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12, color: context.bc.text))),
+          Text(value, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: fg)),
+        ]),
+      );
+
+  Widget _chip(String text, Color bg, Color fg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+        child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+      );
+
+  /// The design's "Orders to Fulfill": each recent order as a card.
+  Widget _orderCard(Map o) {
+    final c = context.bc;
+    Future<void> open() async {
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => SellerOrderDetailsScreen(orderId: asInt(o['order_id']))));
+      _load();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: cardBox(context, radius: 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text('${o['number'] ?? ''}', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w800))),
+          Pill('${o['status'] ?? ''}', color: Pill.forState(o['status'])),
+        ]),
+        const SizedBox(height: 2),
+        Text('Customer: ${o['buyer'] ?? ''} · ${formatDate(o['created_at'])}', maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${o['product'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                Text('Qty: ${o['quantity']}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+              ]),
+            ),
+            Text(peso(o['earning']), style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w800)),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: open,
+            style: FilledButton.styleFrom(backgroundColor: c.subtle, foregroundColor: c.text, minimumSize: const Size(0, 38)),
+            child: const Text('Details'),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// The design's sales sparkline: a smooth orange line with a soft fill under it.
+class _Spark extends CustomPainter {
+  final List<double> values;
+  _Spark(this.values);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final max = values.reduce((a, b) => a > b ? a : b);
+    final pts = [
+      for (var i = 0; i < values.length; i++)
+        Offset(size.width * i / (values.length - 1), size.height - (max == 0 ? 0 : values[i] / max) * (size.height - 4) - 2),
+    ];
+    final line = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (var i = 1; i < pts.length; i++) {
+      final mid = Offset((pts[i - 1].dx + pts[i].dx) / 2, (pts[i - 1].dy + pts[i].dy) / 2);
+      line.quadraticBezierTo(pts[i - 1].dx, pts[i - 1].dy, mid.dx, mid.dy);
+    }
+    line.lineTo(pts.last.dx, pts.last.dy);
+    final fill = Path.from(line)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(fill, Paint()..color = const Color(0x1FFA4E1C));
+    canvas.drawPath(line, Paint()
+      ..color = const Color(0xFFD93D0E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round);
+  }
+
+  @override
+  bool shouldRepaint(_Spark old) => old.values != values;
 }
 
 class _Chart extends StatelessWidget {

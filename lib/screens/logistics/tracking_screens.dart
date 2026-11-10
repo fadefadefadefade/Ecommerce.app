@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 import '../../services/api_client.dart';
 import '../../services/logistics_api.dart';
@@ -7,6 +8,7 @@ import '../../widgets/report_download.dart' show saveReportDownload;
 import '../../widgets/waybill_scanner.dart';
 import 'hub_waybill.dart';
 import 'logistics_kit.dart';
+import 'trip_screens.dart';
 import 'rider_admin_screens.dart' show DispatchScreen;
 
 /// Open a parcel's tracking page (the website opens it after a scan, and to confirm receipt).
@@ -57,7 +59,7 @@ class _TrackingBoardScreenState extends State<TrackingBoardScreen> {
     final id = asInt(p['id']);
     final t = asMap(p['transfer']);
     FilledButton blue(String label, VoidCallback onTap) =>
-        FilledButton(style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)), onPressed: onTap, child: Text(label));
+        FilledButton(style: FilledButton.styleFrom(backgroundColor: Alvy.navyFill), onPressed: onTap, child: Text(label));
     return switch (p['row_action']) {
       'receive' => blue('Check & receive', () => openTracking(ctx, id, reload)),
       'start_sorting' => blue('Start sorting', () async {
@@ -88,35 +90,60 @@ class _TrackingBoardScreenState extends State<TrackingBoardScreen> {
       fetch: (page, tab) => LogisticsApi.tracking(tab: tab ?? 'incoming', q: _q, status: _status, page: page),
       header: (ctx, body, reload) {
         final statuses = asMap(body['statuses']);
+        final tabs = asList(body['tabs']);
+        final c = ctx.bc;
+        final peak = tabs.fold<int>(1, (m, t) => asInt(t['count']) > m ? asInt(t['count']) : m);
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SectionCard(
-            title: 'Scan a waybill',
+          // The design's header.
+          Text('PARCELS FLOOR ENGINE', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w800, color: Alvy.slate)),
+          Text('Floor Manifest & Live Sort', style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          // Scan or type a waybill: a beige shell with the orange barcode button inside.
+          Container(
+            height: 52,
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
             child: Row(children: [
+              const SizedBox(width: 12),
+              Icon(Icons.search, color: c.muted),
               Expanded(
                 child: TextField(
                   controller: _scan,
                   textCapitalization: TextCapitalization.characters,
                   onSubmitted: (_) => _find(),
-                  decoration: const InputDecoration(hintText: 'Scan or type a waybill / tracking number', isDense: true, border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    hintText: 'Scan or type a waybill / tracking #',
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: 'Camera',
-                onPressed: _busy
-                    ? null
-                    : () async {
-                        final code = await scanWaybill(context);
-                        if (code != null) _find(code);
-                      },
-                icon: const Icon(Icons.qr_code_scanner, color: kOrange),
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: Material(
+                  color: kOrange,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: _busy
+                        ? null
+                        : () async {
+                            final code = await scanWaybill(context);
+                            if (code != null) _find(code);
+                          },
+                    child: const SizedBox(width: 44, height: 40, child: Icon(Icons.qr_code_scanner, color: Colors.white, size: 22)),
+                  ),
+                ),
               ),
-              FilledButton(style: FilledButton.styleFrom(backgroundColor: kOrange), onPressed: _busy ? null : _find, child: const Text('Find')),
             ]),
           ),
+          const SizedBox(height: 10),
           Row(children: [
             Expanded(
               child: TextField(
-                decoration: const InputDecoration(hintText: 'Tracking, #order, seller, municipality', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+                decoration: const InputDecoration(hintText: 'Filter: tracking, #order, seller…', prefixIcon: Icon(Icons.filter_list), isDense: true),
                 onSubmitted: (v) {
                   _q = v.trim().isEmpty ? null : v.trim();
                   reload();
@@ -129,7 +156,7 @@ class _TrackingBoardScreenState extends State<TrackingBoardScreen> {
               child: DropdownButtonFormField<String?>(
                 initialValue: _status,
                 isExpanded: true,
-                decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+                decoration: const InputDecoration(isDense: true),
                 items: [
                   const DropdownMenuItem<String?>(value: null, child: Text('Any status')),
                   for (final e in statuses.entries) DropdownMenuItem<String?>(value: e.key, child: Text('${e.value}', overflow: TextOverflow.ellipsis)),
@@ -141,6 +168,40 @@ class _TrackingBoardScreenState extends State<TrackingBoardScreen> {
               ),
             ),
           ]),
+          // The design's "Hub Velocity Pipeline": a bar and a count for each stage.
+          if (tabs.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              padding: const EdgeInsets.all(14),
+              decoration: cardBox(ctx, radius: 18),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  const Icon(Icons.call_split, size: 18, color: kOrange),
+                  const SizedBox(width: 6),
+                  Text('Hub Velocity Pipeline', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
+                ]),
+                const SizedBox(height: 12),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  for (final (i, t) in tabs.take(4).indexed) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Container(
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: asInt(t['count']) == 0 ? c.subtle : (i.isEven ? kOrange : Alvy.slate).withValues(alpha: 0.35 + 0.65 * asInt(t['count']) / peak),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text('${t['label']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: c.textSecondary, height: 1.2)),
+                        Text('${t['count']}', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w800)),
+                      ]),
+                    ),
+                  ],
+                ]),
+              ]),
+            ),
           const SizedBox(height: 8),
         ]);
       },
@@ -187,9 +248,6 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
   bool _checked = false;
   // Sort / transfer
   int? _area;
-  int? _hub;
-  int? _transporter;
-  final _reason = TextEditingController();
   // Exception
   String? _exType;
   final _exDetails = TextEditingController();
@@ -203,17 +261,13 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
   @override
   void dispose() {
     _notes.dispose();
-    _reason.dispose();
     _exDetails.dispose();
     super.dispose();
   }
 
   void _show(Map<String, dynamic> body) {
     _d = body;
-    final p = asMap(body['parcel']);
     _area = body['suggested_area_id'] == null ? null : asInt(body['suggested_area_id']);
-    final next = p['next'] == null ? null : asMap(p['next']);
-    _hub = next?['center_id'] == null ? null : asInt(next!['center_id']);
   }
 
   Future<void> _load() async {
@@ -347,7 +401,7 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
             Expanded(child: RadioListTile<String>(value: 'damaged', title: Text('Damaged'), dense: true, contentPadding: EdgeInsets.zero)),
           ]),
         ),
-        TextField(controller: _notes, maxLength: 500, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (required if damaged)', border: OutlineInputBorder())),
+        TextField(controller: _notes, maxLength: 500, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (required if damaged)')),
         CheckboxListTile(
           value: _checked,
           activeColor: kOrange,
@@ -357,7 +411,7 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
           title: const Text('The parcel is physically here and I checked it.'),
           onChanged: (v) => setState(() => _checked = v == true),
         ),
-        BusyButton('Confirm Package Received', busy: _busy, color: const Color(0xFF2563EB), onPressed: () {
+        BusyButton('Confirm Package Received', busy: _busy, color: Alvy.navyFill, onPressed: () {
           if (!_checked) return showError(context, 'Tick the box to confirm the parcel is physically here and you checked it.');
           _do(() => LogisticsApi.confirmReceived(widget.parcelId, _condition, _notes.text.trim()));
         }),
@@ -370,47 +424,20 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
     final d = _d!;
     final local = asMap(p['next'])['type'] == 'local';
     final areas = asList(d['areas']);
-    final hubs = asList(d['hubs']);
-    final transporters = asList(d['transporters']);
+    // Another sorting center (the hub nearer the buyer): the parcel goes on a linehaul delivery, which they accept first.
+    final next = asMap(p['next']);
     final transfer = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      DropdownButtonFormField<int>(
-        initialValue: _hub,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Transfer to sorting center', border: OutlineInputBorder(), isDense: true),
-        items: [
-          for (final h in hubs)
-            DropdownMenuItem(value: asInt(h['id']), child: Text('${h['name']}${h['municipality'] != null ? ' — ${h['municipality']}' : ''}', overflow: TextOverflow.ellipsis)),
-        ],
-        onChanged: (v) => setState(() => _hub = v),
+      Text(
+        '${local ? 'Or send it to another sorting center on a linehaul delivery.' : 'Send it on a linehaul delivery to the sorting center that serves this address; they accept it before it departs.'}'
+        '${next['center_id'] != null ? ' Suggested: ${'${next['label']}'.replaceFirst('Transfer to ', '')}.' : ''}',
+        style: TextStyle(fontSize: 12.5, color: c.textSecondary),
       ),
       const SizedBox(height: 8),
-      DropdownButtonFormField<int?>(
-        initialValue: _transporter,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Transporter (optional)', border: OutlineInputBorder(), isDense: true),
-        items: [
-          const DropdownMenuItem<int?>(value: null, child: Text('— None —')),
-          for (final r in transporters) DropdownMenuItem<int?>(value: asInt(r['id']), child: Text('${r['name']}')),
-        ],
-        onChanged: (v) => setState(() => _transporter = v),
-      ),
-      if (transporters.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text("No riders are allowed to transport transfers yet (set it on the rider's page).", style: TextStyle(fontSize: 11.5, color: c.muted)),
-        ),
-      const SizedBox(height: 8),
-      TextField(controller: _reason, maxLength: 500, decoration: const InputDecoration(labelText: 'Reason (required if not the suggested center)', border: OutlineInputBorder(), isDense: true)),
-      OutlinedButton(
-        onPressed: _busy
-            ? null
-            : () async {
-                if (await confirmAction(context, 'Create this transfer?', 'The parcel stays here until you dispatch it.') && mounted) {
-                  _do(() => LogisticsApi.initiateTransfer(widget.parcelId, _hub ?? 0, _reason.text.trim(), transporterId: _transporter), reload: true);
-                }
-              },
-        child: const Text('Create transfer'),
-      ),
+      BusyButton('Send on a linehaul delivery', busy: _busy, icon: Icons.add_road, color: local ? Alvy.navyFill : kOrange, onPressed: () async {
+        final id = await Navigator.push<int>(context, MaterialPageRoute(builder: (_) => const CreateTripScreen()));
+        if (id != null && mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => TripDetailScreen(tripId: id)));
+        _load();
+      }),
     ]);
     return SectionCard(
       title: local ? 'Sort to barangay' : 'Sort or transfer',
@@ -433,7 +460,7 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
           DropdownButtonFormField<int>(
             initialValue: _area,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: "Buyer's barangay", border: OutlineInputBorder(), isDense: true),
+            decoration: const InputDecoration(labelText: "Buyer's barangay", isDense: true),
             items: [
               for (final a in areas)
                 DropdownMenuItem(
@@ -447,7 +474,7 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
           BusyButton('Sort', busy: _busy, onPressed: () => _do(() => LogisticsApi.sort(widget.parcelId, _area ?? 0), reload: true)),
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text('Sorting gives the delivery to a rider of that barangay; Rider Dispatch shows who has the job.', style: TextStyle(fontSize: 12, color: c.muted)),
+            child: Text('Then Auto-assign it in Rider Dispatch to the rider of that barangay.', style: TextStyle(fontSize: 12, color: c.muted)),
           ),
         ],
         if (actions['transfer'] == true) ...[
@@ -470,18 +497,18 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
     return SectionCard(
       title: 'Transfer ${t['reference']}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Pill('${t['status_label']}${t['delayed'] == true ? ' · Delayed' : ''}', color: bad ? const Color(0xFFDC2626) : const Color(0xFF2563EB)),
+        Pill('${t['status_label']}${t['delayed'] == true ? ' · Delayed' : ''}', color: bad ? const Color(0xFFDC2626) : Alvy.slate),
         const SizedBox(height: 6),
         Text('${t['from']} → ${t['to']}', style: const TextStyle(fontWeight: FontWeight.w700)),
         if (t['transporter'] != null) Text('Transporter: ${t['transporter']}', style: TextStyle(color: c.muted)),
         if (t['dispatched_at'] != null) Text('Dispatched ${formatDateTime(t['dispatched_at'])} · due ${formatDateTime(t['expected_by'])}', style: TextStyle(color: c.muted)),
-        if (t['exception_reason'] != null) Text('${t['exception_reason']}', style: const TextStyle(color: Color(0xFFB91C1C))),
+        if (t['exception_reason'] != null) Text('${t['exception_reason']}', style: TextStyle(color: Alvy.dangerText)),
         if (t['can_dispatch'] == true || t['can_cancel'] == true) ...[
           const SizedBox(height: 8),
           Wrap(spacing: 8, children: [
             if (t['can_dispatch'] == true)
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                style: FilledButton.styleFrom(backgroundColor: Alvy.navyFill),
                 onPressed: _busy
                     ? null
                     : () async {
@@ -533,12 +560,12 @@ class _TrackingDetailScreenState extends State<TrackingDetailScreen> {
         DropdownButtonFormField<String>(
           initialValue: _exType,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Flag shipment exception', border: OutlineInputBorder(), isDense: true),
+          decoration: const InputDecoration(labelText: 'Flag shipment exception', isDense: true),
           items: [for (final e in types.entries) DropdownMenuItem(value: e.key, child: Text('${e.value}'))],
           onChanged: (v) => setState(() => _exType = v),
         ),
         const SizedBox(height: 8),
-        TextField(controller: _exDetails, maxLength: 500, maxLines: 2, decoration: const InputDecoration(hintText: 'What is wrong?', border: OutlineInputBorder())),
+        TextField(controller: _exDetails, maxLength: 500, maxLines: 2, decoration: const InputDecoration(hintText: 'What is wrong?')),
         OutlinedButton(
           onPressed: _busy
               ? null
@@ -658,16 +685,19 @@ class _LogisticsCommissionsScreenState extends State<LogisticsCommissionsScreen>
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Wrap(spacing: 6, children: [
-                    for (final (key, label) in const [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('custom', 'Custom')])
-                      ChoiceChip(label: Text(label), selected: _period == key, selectedColor: kOrange.withValues(alpha: .15), onSelected: (_) => _pickPeriod(key)),
-                  ]),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  SizedBox(
+                    height: 44,
+                    child: ListView(scrollDirection: Axis.horizontal, children: [
+                      for (final (key, label) in const [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('custom', 'Custom')])
+                        Padding(padding: const EdgeInsets.only(right: 8), child: FilterPill(label, selected: _period == key, onTap: () => _pickPeriod(key))),
+                    ]),
+                  ),
                   Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text('${d['range_label']}', style: TextStyle(color: c.muted, fontSize: 12))),
                   StatGrid([
-                    StatTile(label: 'Shipping fees earned', value: peso(s['fees']), icon: Icons.local_shipping_outlined, color: const Color(0xFF2563EB),
+                    StatTile(label: 'Shipping fees earned', value: peso(s['fees']), icon: Icons.local_shipping_outlined, color: Alvy.slate,
                         hint: '$parcels parcel${parcels == 1 ? '' : 's'}, your share'),
-                    StatTile(label: 'ALVY commission (${asNum(d['rate'])}%)', value: '−${peso(s['commission'])}', icon: Icons.percent, color: const Color(0xFF9333EA), hint: 'Kept by ALVY'),
+                    StatTile(label: 'ALVY commission (${asNum(d['rate'])}%)', value: '−${peso(s['commission'])}', icon: Icons.percent, color: const Color(0xFFD93D0E), hint: 'Kept by ALVY'),
                     StatTile(label: 'Rider pay', value: '−${peso(s['rider_pay'])}', icon: Icons.two_wheeler, color: const Color(0xFFB45309), hint: 'Per pickup and per delivery'),
                     StatTile(label: 'Net earnings', value: peso(s['net']), icon: Icons.account_balance_wallet_outlined, color: const Color(0xFF15803D),
                         hint: '${peso(s['earned_net'])} earned · ${peso(s['pending_net'])} pending'),
@@ -678,7 +708,7 @@ class _LogisticsCommissionsScreenState extends State<LogisticsCommissionsScreen>
                       child: DropdownButtonFormField<String?>(
                         initialValue: _status,
                         isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Status', isDense: true, border: OutlineInputBorder()),
+                        decoration: const InputDecoration(labelText: 'Status', isDense: true),
                         items: [
                           const DropdownMenuItem<String?>(value: null, child: Text('All statuses')),
                           for (final e in statuses.entries) DropdownMenuItem<String?>(value: e.key, child: Text('${e.value}')),
@@ -806,22 +836,44 @@ class _TransfersScreenState extends State<TransfersScreen> {
     final c = context.bc;
     final outgoing = asList(d?['outgoing']), incoming = asList(d?['incoming']);
     final delayed = [...outgoing, ...incoming].where((t) => t['delayed'] == true).length;
-    Widget title(String t) => Padding(padding: const EdgeInsets.only(top: 14, bottom: 6), child: Text(t, style: TextStyle(fontWeight: FontWeight.w800, color: c.text)));
+    Widget title(String t) => Padding(
+          padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+          child: Row(children: [
+            Icon(t.startsWith('Create') ? Icons.add_box_outlined : (t.startsWith('Outgoing') ? Icons.upload_outlined : Icons.move_to_inbox_outlined), size: 20, color: kOrange),
+            const SizedBox(width: 8),
+            Text(t, style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+          ]),
+        );
     Color badge(Map<String, dynamic> t) =>
-        t['delayed'] == true || t['status'] == 'exception' ? const Color(0xFFDC2626) : (t['status'] == 'pending' ? const Color(0xFFB45309) : const Color(0xFF2563EB));
-    Widget row(Map<String, dynamic> t, String other, String status, List<String> notes, List<Widget> actions) => Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 8),
+        t['delayed'] == true || t['status'] == 'exception' ? const Color(0xFFDC2626) : (t['status'] == 'pending' ? const Color(0xFFB45309) : Alvy.slate);
+    // The design's staged-cage card: an icon square, the reference big, the status, the route.
+    Widget row(Map<String, dynamic> t, String other, String status, List<String> notes, List<Widget> actions) => Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: cardBox(context, radius: 18),
           child: InkWell(
+            borderRadius: BorderRadius.circular(18),
             onTap: t['parcel_id'] == null ? null : () => openTracking(context, asInt(t['parcel_id']), _load),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Expanded(child: Text('${t['reference']}', style: const TextStyle(fontWeight: FontWeight.w800))),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                    child: Icon(other.startsWith('To') ? Icons.local_shipping_outlined : Icons.move_to_inbox_outlined, color: Alvy.slate),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${t['reference']}', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w800)),
+                      Text(other, style: TextStyle(fontSize: 12.5, color: Alvy.slate, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
                   Pill(status, color: badge(t)),
                 ]),
-                Text('${t['waybill'] ?? t['tracking']} · $other', style: TextStyle(fontSize: 12, color: c.muted)),
+                const SizedBox(height: 8),
+                Text('${t['waybill'] ?? t['tracking']}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
                 for (final n in notes) Text(n, style: TextStyle(fontSize: 11.5, color: c.muted)),
                 if (actions.isNotEmpty) ...[const SizedBox(height: 6), Wrap(spacing: 8, children: actions)],
               ]),
@@ -840,13 +892,44 @@ class _TransfersScreenState extends State<TransfersScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 40), children: [
-                  StatGrid([
-                    StatTile(label: 'Awaiting dispatch', value: '${outgoing.where((t) => t['status'] == 'pending').length}', icon: Icons.upload_outlined),
-                    StatTile(label: 'Sent, in transit', value: '${outgoing.where((t) => t['status'] == 'in_transit').length}', icon: Icons.swap_horiz, color: const Color(0xFF2563EB)),
-                    StatTile(label: 'Coming to you', value: '${incoming.where((t) => t['status'] == 'in_transit').length}', icon: Icons.move_to_inbox_outlined, color: const Color(0xFF15803D)),
-                    StatTile(label: 'Delayed', value: '$delayed', icon: Icons.schedule, color: delayed > 0 ? const Color(0xFFDC2626) : const Color(0xFF6B7280)),
-                  ]),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 40), children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: cardBox(context, radius: 20),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        const Icon(Icons.speed, color: kOrange, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('Inter-Hub Transfers', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700))),
+                        if (delayed > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                            decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(99)),
+                            child: Text('$delayed delayed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFFDC2626))),
+                          ),
+                      ]),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        for (final (i, (value, label, color)) in <(int, String, Color)>[
+                          (outgoing.where((t) => t['status'] == 'pending').length, 'Awaiting dispatch', kOrange),
+                          (outgoing.where((t) => t['status'] == 'in_transit').length, 'Sent, in transit', Alvy.slate),
+                          (incoming.where((t) => t['status'] == 'in_transit').length, 'Coming to you', c.text),
+                        ].indexed) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                              child: Column(children: [
+                                Text('$value', style: Alvy.display(size: 22, color: color, weight: FontWeight.w800)),
+                                Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: c.textSecondary)),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      ]),
+                    ]),
+                  ),
                   title('Create a Transfer'),
                   SectionCard(
                     child: asList(d['parcels']).isEmpty
@@ -856,7 +939,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                             DropdownButtonFormField<int>(
                               initialValue: _parcel,
                               isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Parcel', border: OutlineInputBorder(), isDense: true),
+                              decoration: const InputDecoration(labelText: 'Parcel', isDense: true),
                               items: [
                                 for (final p in asList(d['parcels']))
                                   DropdownMenuItem(
@@ -871,7 +954,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                               key: ValueKey('to-$_to'),
                               initialValue: _to,
                               isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Destination sorting center', border: OutlineInputBorder(), isDense: true),
+                              decoration: const InputDecoration(labelText: 'Destination sorting center', isDense: true),
                               items: [
                                 for (final s in asList(d['centers']))
                                   DropdownMenuItem(value: asInt(s['id']), child: Text('${s['name']} — ${s['municipality'] ?? ''}', overflow: TextOverflow.ellipsis)),
@@ -882,7 +965,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                             DropdownButtonFormField<int?>(
                               initialValue: _transporter,
                               isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Transporter (optional)', border: OutlineInputBorder(), isDense: true),
+                              decoration: const InputDecoration(labelText: 'Transporter (optional)', isDense: true),
                               items: [
                                 const DropdownMenuItem<int?>(value: null, child: Text('— None —')),
                                 for (final r in asList(d['transporters'])) DropdownMenuItem<int?>(value: asInt(r['id']), child: Text('${r['name']}')),
@@ -894,7 +977,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                               controller: _reason,
                               maxLength: 500,
                               maxLines: 2,
-                              decoration: const InputDecoration(labelText: 'Reason (needed when it is not the center serving the address)', border: OutlineInputBorder()),
+                              decoration: const InputDecoration(labelText: 'Reason (needed when it is not the center serving the address)'),
                             ),
                             BusyButton('Create transfer', busy: _busy, icon: Icons.upload_outlined, onPressed: () async {
                               if (_parcel == null) return showError(context, 'Choose a parcel.');
@@ -912,7 +995,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                     ], [
                       if (t['status'] == 'pending') ...[
                         FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                          style: FilledButton.styleFrom(backgroundColor: Alvy.navyFill),
                           onPressed: _busy
                               ? null
                               : () async {

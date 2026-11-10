@@ -106,8 +106,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(20)),
-            child: const Text('On the way', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFFC2410C))),
+            decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(20)),
+            child: Text('On the way', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Alvy.warnText)),
           ),
         ]),
         const SizedBox(height: 12),
@@ -120,7 +120,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               height: 50,
               margin: const EdgeInsets.only(right: 6),
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFFFF3EE), border: Border.all(color: const Color(0xFFFBD5C5), width: 2), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: Alvy.orangeSoft, border: Border.all(color: Alvy.orangeSoft, width: 2), borderRadius: BorderRadius.circular(10)),
               child: Text(digit, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: kOrange)),
             ),
         ]),
@@ -142,10 +142,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           Container(
             margin: const EdgeInsets.only(top: 8),
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFFFFFBEB), border: Border.all(color: const Color(0xFFFDE68A)), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: Alvy.warnSoft, border: Border.all(color: const Color(0xFFFDE68A)), borderRadius: BorderRadius.circular(8)),
             child: Row(children: [
-              const Expanded(child: Text('Cash on delivery · please prepare the exact amount', style: TextStyle(fontSize: 13, color: Color(0xFF92400E)))),
-              Text(peso(cod), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+              Expanded(child: Text('Cash on delivery · please prepare the exact amount', style: TextStyle(fontSize: 13, color: Alvy.warnText))),
+              Text(peso(cod), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Alvy.warnText)),
             ]),
           ),
       ]),
@@ -180,8 +180,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           if (o!['status'] == 'Completed')
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(20)),
-              child: const Text('Order completed', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF047857))),
+              decoration: BoxDecoration(color: Alvy.successSoft, borderRadius: BorderRadius.circular(20)),
+              child: Text('Order completed', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Alvy.successText)),
             ),
         ]),
         const SizedBox(height: 10),
@@ -204,7 +204,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           Container(
             margin: const EdgeInsets.only(top: 10),
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFFFF3EE), border: Border.all(color: const Color(0xFFFBD5C5)), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: Alvy.orangeSoft, border: Border.all(color: Alvy.orangeSoft), borderRadius: BorderRadius.circular(10)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Got everything in good condition?', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
               const SizedBox(height: 2),
@@ -268,7 +268,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
-              const Icon(Icons.storefront_outlined, size: 20, color: Alvy.slate),
+              Icon(Icons.storefront_outlined, size: 20, color: Alvy.slate),
               const SizedBox(width: 10),
               Expanded(child: Text('${o!['store']}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
             ]),
@@ -309,7 +309,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         width: 22,
                         height: 22,
                         decoration: BoxDecoration(
-                          color: i == 0 ? Alvy.orangeSoft : const Color(0xFF406185),
+                          color: i == 0 ? Alvy.orangeSoft : Alvy.slate,
                           shape: BoxShape.circle,
                           border: i == 0 ? Border.all(color: kOrange, width: 2) : null,
                         ),
@@ -362,7 +362,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: OutlinedButton(
                   onPressed: busy ? null : _escalate,
-                  style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFB91C1C)),
+                  style: OutlinedButton.styleFrom(foregroundColor: Alvy.dangerText),
                   child: const Text('Escalate to ALVY'),
                 ),
               ),
@@ -442,7 +442,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (a['cancel'] == true)
         OutlinedButton(
           onPressed: busy ? null : () => _cancel(List<String>.from(a['cancel_reasons'])),
-          style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFB91C1C), minimumSize: const Size.fromHeight(48)),
+          style: OutlinedButton.styleFrom(foregroundColor: Alvy.dangerText, minimumSize: const Size.fromHeight(48)),
           child: const Text('Cancel order'),
         )
       else if (a['cancel_blocked_note'] != null)
@@ -470,9 +470,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFF5F9FF), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFBFDBFE))),
+        decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFBFDBFE))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('ALVY is checking your GCash payment', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A))),
+          Text('ALVY is checking your GCash payment', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate)),
           const SizedBox(height: 2),
           Text('We match your receipt${g['reference'] != null ? ' (Ref No. ${g['reference']})' : ''} with the money in ALVY\'s GCash. '
               'Once it\'s confirmed, the seller prepares your order. If something doesn\'t match, you\'re told why and how to fix it.',
@@ -480,7 +480,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ]),
       );
     }
-    const red = Color(0xFF991B1B);
+    final red = Alvy.dangerText;
     final problems = List<Map>.from(g['problems'] ?? const []);
     final fixes = problems.map((p) => '${p['fix']}').toSet();
     final account = g['account'] != null ? Map<String, dynamic>.from(g['account']) : null;
@@ -488,20 +488,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFCA5A5))),
+      decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFFCA5A5))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Your GCash payment was rejected', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
+        Text('Your GCash payment was rejected', style: TextStyle(fontWeight: FontWeight.w800, color: Alvy.dangerText)),
         const SizedBox(height: 8),
-        const Text('WHY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
-        for (final p in problems) Text('• ${p['reason']}', style: const TextStyle(fontSize: 12.5, color: Color(0xFF7F1D1D))),
+        Text('WHY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
+        for (final p in problems) Text('• ${p['reason']}', style: TextStyle(fontSize: 12.5, color: Alvy.dangerText)),
         const SizedBox(height: 8),
-        const Text('HOW TO FIX IT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
-        for (final f in fixes) Text('• $f', style: const TextStyle(fontSize: 12.5, color: Color(0xFF7F1D1D))),
+        Text('HOW TO FIX IT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: red, letterSpacing: .5)),
+        for (final f in fixes) Text('• $f', style: TextStyle(fontSize: 12.5, color: Alvy.dangerText)),
         const SizedBox(height: 6),
         Text(
           'Upload the right receipt${g['fix_by'] != null ? ' by ${formatDateTime(g['fix_by'])}' : ''}, or the order is cancelled. '
           'Try ${g['try']} of ${g['max_tries']}.${orders.length > 1 ? ' This payment covers orders ${orders.join(', ')}.' : ''}',
-          style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C)),
+          style: TextStyle(fontSize: 11.5, color: Alvy.dangerText),
         ),
         if (g['can_resubmit'] == true && account != null) ...[
           GcashPayBox(
@@ -543,7 +543,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: failed ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB),
+        color: failed ? Alvy.dangerSoft : Alvy.warnSoft,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: failed ? const Color(0xFFFCA5A5) : const Color(0xFFFCD34D)),
       ),
@@ -664,7 +664,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep order')),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Cancel order', style: TextStyle(color: Color(0xFFB91C1C)))),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Cancel order', style: TextStyle(color: Alvy.dangerText))),
           ],
         ),
       ),
@@ -698,7 +698,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Escalate', style: TextStyle(color: Color(0xFFB91C1C)))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Escalate', style: TextStyle(color: Alvy.dangerText))),
         ],
       ),
     );

@@ -146,7 +146,7 @@ class _PasswordCodeDialogState extends State<_PasswordCodeDialog> {
           maxLength: 6,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
           style: const TextStyle(fontSize: 20, letterSpacing: 6),
-          decoration: InputDecoration(hintText: '6-digit code', errorText: _error, errorMaxLines: 3, counterText: '', border: const OutlineInputBorder()),
+          decoration: InputDecoration(hintText: '6-digit code', errorText: _error, errorMaxLines: 3, counterText: ''),
           onSubmitted: (_) => _verify(),
         ),
         if (_note != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_note!, style: const TextStyle(fontSize: 12, color: Color(0xFF15803D)))),

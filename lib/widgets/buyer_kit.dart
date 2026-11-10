@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -112,7 +113,7 @@ class LoadState extends StatelessWidget {
             Container(
               width: 76,
               height: 76,
-              decoration: const BoxDecoration(color: Color(0xFFFFF1EE), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
               child: const Icon(Icons.wifi_off_rounded, size: 34, color: kOrange),
             ),
             const SizedBox(height: 14),
@@ -245,5 +246,116 @@ class Stars extends StatelessWidget {
       for (var i = 1; i <= 5; i++)
         Icon(i <= rating.round() ? Icons.star : Icons.star_border, size: size, color: const Color(0xFFF59E0B)),
     ]);
+  }
+}
+
+/// Quantity: − [number] +. The number can be typed (large orders); it is kept between 1 and [max]
+/// (stock and the buyer's limit) and reported when typing ends (done / leaving the box), so a cart line
+/// isn't saved on every key.
+class QuantityStepper extends StatefulWidget {
+  final int value;
+  final int max;
+  final ValueChanged<int>? onChanged;   // null: disabled
+  final double height;
+  const QuantityStepper({super.key, required this.value, required this.max, required this.onChanged, this.height = 38});
+
+  @override
+  State<QuantityStepper> createState() => _QuantityStepperState();
+}
+
+class _QuantityStepperState extends State<QuantityStepper> {
+  late final _text = TextEditingController(text: '${widget.value}');
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _commit();
+    });
+  }
+
+  @override
+  void didUpdateWidget(QuantityStepper old) {
+    super.didUpdateWidget(old);
+    if (!_focus.hasFocus && _text.text != '${widget.value}') _text.text = '${widget.value}';
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _commit() {
+    final max = widget.max < 1 ? 1 : widget.max;
+    final typed = int.tryParse(_text.text.trim());
+    var n = typed ?? widget.value;
+    if (n < 1) n = 1;
+    if (n > max) {
+      n = max;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Only $max can be ordered — set to $max.')));
+      }
+    }
+    _text.text = '$n';
+    if (n != widget.value) widget.onChanged?.call(n);
+  }
+
+  void _step(int d) {
+    final n = (widget.value + d).clamp(1, widget.max < 1 ? 1 : widget.max);
+    _text.text = '$n';
+    if (n != widget.value) widget.onChanged?.call(n);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.bc;
+    final on = widget.onChanged != null;
+    Widget btn(IconData icon, VoidCallback? tap) => Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: tap,
+            child: SizedBox(
+              width: widget.height,
+              height: widget.height,
+              child: Icon(icon, size: 17, color: tap == null ? c.muted.withValues(alpha: .5) : c.text),
+            ),
+          ),
+        );
+    return Container(
+      decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(10)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        btn(Icons.remove, on && widget.value > 1 ? () => _step(-1) : null),
+        SizedBox(
+          width: 52,
+          height: widget.height,
+          child: TextField(
+            controller: _text,
+            focusNode: _focus,
+            enabled: on,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(5)],
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.text),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: c.surface,
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kOrange, width: 1.5)),
+            ),
+            onSubmitted: (_) => _commit(),
+            onTapOutside: (_) => _focus.unfocus(),
+          ),
+        ),
+        btn(Icons.add, on && widget.value < widget.max ? () => _step(1) : null),
+      ]),
+    );
   }
 }

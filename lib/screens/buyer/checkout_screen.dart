@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import '../../widgets/voucher_ticket.dart';
 import 'account/collections_screens.dart' show VoucherCenterScreen;
@@ -107,12 +108,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     sellers = picked.$3;
     await _preview();
   }
-
-  Widget _qtyButton(IconData icon, VoidCallback? onTap) => SizedBox(
-        width: 30,
-        height: 30,
-        child: OutlinedButton(onPressed: onTap, style: OutlinedButton.styleFrom(padding: EdgeInsets.zero), child: Icon(icon, size: 16)),
-      );
 
   /// Placing leaves out a typed code that already failed on Apply (it would only fail again).
   Map<String, dynamic> _voucherBody({bool typed = true}) => {
@@ -228,29 +223,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final lines = List<Map>.from(page!['lines']);
     final vouchers = asMap(page!['vouchers']);
 
-    return ListView(padding: const EdgeInsets.all(12), children: [
+    final c = context.bc;
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+      _steps(),
+      // The design's "Shipping Destination": the name with a Default tag, the address in a beige box.
       SectionCard(
-        title: 'Delivery Address',
-        trailing: TextButton(onPressed: () => _pickAddress(addresses), child: Text(address == null ? 'Add' : 'Change')),
+        title: 'Shipping Destination',
+        trailing: TextButton(onPressed: () => _pickAddress(addresses), child: Text(address == null ? 'Add' : 'Edit')),
         child: address == null
-            ? Text('Please add a delivery address.', style: TextStyle(color: context.bc.muted))
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${address['full_name']} · ${address['phone']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(address['full_address'] ?? '', style: TextStyle(color: context.bc.muted)),
-              ]),
+            ? Text('Please add a delivery address.', style: TextStyle(color: c.muted))
+            : Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text('${address['full_name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: Alvy.display(size: 16.5, color: c.text, weight: FontWeight.w700)),
+                    ),
+                    if (address['is_default'] == true) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: Alvy.navyFill, borderRadius: BorderRadius.circular(20)),
+                        child: const Text('Default', style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(address['full_address'] ?? '', style: TextStyle(color: c.textSecondary, height: 1.4)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Icon(Icons.call_outlined, size: 15, color: c.textSecondary),
+                    const SizedBox(width: 6),
+                    Text('${address['phone']}', style: TextStyle(fontSize: 13, color: c.textSecondary)),
+                  ]),
+                ]),
+              ),
       ),
       if (t['unserviceable'] != null)
         Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8)),
-          child: Text(t['unserviceable'], style: const TextStyle(color: Color(0xFFB91C1C))),
+          decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(8)),
+          child: Text(t['unserviceable'], style: TextStyle(color: Alvy.dangerText)),
         ),
 
       for (final s in page!['stores']) _store(Map.from(s), lines, Map.from(storesTotals['${s['seller_id'] ?? 0}'] ?? s), vouchers),
 
       SectionCard(
-        title: 'Vouchers',
+        title: 'Vouchers & Credits',
         child: Column(children: [
           _voucherPicker('platform', 'ALVY discount voucher', 'All stores', List.from(vouchers['platform'] ?? []), platform, (v) {
             platform = v;
@@ -269,7 +291,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   hintText: 'Enter a voucher code',
                   isDense: true,
                   errorText: fieldErrors['voucher_code'],
-                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -279,24 +300,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ]),
       ),
 
-      SectionCard(
-        title: 'Payment Method',
-        child: RadioGroup<String>(
-          groupValue: payment,
-          onChanged: (v) => setState(() => payment = v ?? 'cod'),
-          child: Column(children: [
-            const RadioListTile<String>(value: 'cod', title: Text('Cash on Delivery'), dense: true, activeColor: kOrange),
-            if (page!['gcash_account'] != null)
-              const RadioListTile<String>(value: 'gcash_receipt', title: Text('GCash'),
-                  subtitle: Text("Scan ALVY's GCash QR, send the amount shown, then upload the receipt and its Ref No. ALVY checks it, then the seller prepares your order.", style: TextStyle(fontSize: 12)),
-                  dense: true, activeColor: kOrange),
-            for (final m in page!['payment_methods'])
-              if (m['key'] != 'gcash_receipt')
-                RadioListTile<String>(value: m['key'], title: Text(m['label'] ?? m['key']), dense: true, activeColor: kOrange),
-            if (payment == 'gcash_receipt' && page!['gcash_account'] != null) _gcashBox(asMap(page!['gcash_account'])),
-          ]),
-        ),
-      ),
+      // Payment: one card per way to pay (the design's method cards); the chosen one has an orange edge.
+      const SectionTitle('Payment Method', padding: EdgeInsets.fromLTRB(0, 8, 0, 12)),
+      _payCard('cod', 'Cash on Delivery', 'Pay the rider when your order arrives.', Icons.payments_outlined),
+      if (page!['gcash_account'] != null)
+        _payCard('gcash_receipt', 'GCash',
+            "Scan ALVY's GCash QR, send the amount shown, then upload the receipt and its Ref No. ALVY checks it, then the seller prepares your order.",
+            Icons.qr_code_2_rounded),
+      for (final m in page!['payment_methods'])
+        if (m['key'] != 'gcash_receipt' && m['key'] != 'cod') _payCard('${m['key']}', '${m['label'] ?? m['key']}', null, Icons.account_balance_wallet_outlined),
+      if (payment == 'gcash_receipt' && page!['gcash_account'] != null)
+        Padding(padding: const EdgeInsets.only(bottom: 12), child: _gcashBox(asMap(page!['gcash_account']))),
+
 
       SectionCard(
         title: 'Order Summary',
@@ -307,11 +322,111 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (asNum(t['seller_discount']) > 0) _row('Store vouchers', '−${peso(t['seller_discount'])}', green: true),
           if (asNum(t['platform_discount']) > 0) _row('ALVY voucher', '−${peso(t['platform_discount'])}', green: true),
           if (asNum(t['shipping_discount']) > 0) _row('Shipping voucher', '−${peso(t['shipping_discount'])}', green: true),
-          const Divider(),
-          _row('Total', peso(t['total']), bold: true),
+          Divider(height: 22, color: c.border),
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Total Amount', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
+                Text('Shipping and vouchers included', style: TextStyle(fontSize: 11.5, color: c.textSecondary)),
+              ]),
+            ),
+            Text(peso(t['total']), style: Alvy.display(size: 24, color: kOrange, weight: FontWeight.w700)),
+          ]),
+        ]),
+      ),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.verified_user_outlined, size: 17, color: Alvy.slate),
+          const SizedBox(width: 8),
+          Flexible(child: Text('ALVY Guarantee · Returns and refunds through ALVY', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: c.textSecondary))),
         ]),
       ),
     ]);
+  }
+
+  /// The design's step header: "✓ 1. Cart —— 2 Payment & Review" with a full bar.
+  Widget _steps() {
+    final c = context.bc;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: cardBox(context),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(color: kOrange, shape: BoxShape.circle),
+            child: const Icon(Icons.check, size: 14, color: Colors.white),
+          ),
+          const SizedBox(width: 6),
+          Text('1. Cart', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Alvy.slate)),
+          Expanded(child: Container(height: 2, margin: const EdgeInsets.symmetric(horizontal: 10), color: kOrange)),
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: kOrange, shape: BoxShape.circle),
+            child: const Text('2', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 6),
+          Text('Payment & Review', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: c.text)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(borderRadius: BorderRadius.circular(4), child: const LinearProgressIndicator(value: 1, minHeight: 5, color: kOrange)),
+      ]),
+    );
+  }
+
+  /// One way to pay: a card with a round check, the name, a line about it and an icon.
+  Widget _payCard(String value, String title, String? sub, IconData icon) {
+    final c = context.bc;
+    final on = payment == value;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => setState(() => payment = value),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: on ? kOrange : c.border, width: on ? 1.5 : 1),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: on ? kOrange : c.subtle,
+                  border: on ? null : Border.all(color: c.border),
+                ),
+                child: on ? const Icon(Icons.circle, size: 9, color: Colors.white) : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: Alvy.display(size: 16.5, color: c.text, weight: FontWeight.w600)),
+                  if (sub != null) ...[
+                    const SizedBox(height: 3),
+                    Text(sub, style: TextStyle(fontSize: 12.5, color: c.textSecondary, height: 1.35)),
+                  ],
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Icon(icon, color: Alvy.slate, size: 22),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _store(Map s, List<Map> lines, Map st, Map<String, dynamic> vouchers) {
@@ -342,11 +457,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Builder(builder: (_) {
                     final qty = asNum(l['quantity']).toInt();
                     final stock = asNum(l['stock']).toInt();
-                    return Row(children: [
-                      _qtyButton(Icons.remove, qty > 1 && !_qtyBusy && !placing ? () => _setQty(l, qty - 1) : null),
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('$qty', style: const TextStyle(fontWeight: FontWeight.w700))),
-                      _qtyButton(Icons.add, qty < stock && !_qtyBusy && !placing ? () => _setQty(l, qty + 1) : null),
-                    ]);
+                    // − / + or type the amount (large orders).
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: QuantityStepper(
+                        value: qty,
+                        max: stock < 1 ? qty : stock,
+                        height: 34,
+                        onChanged: _qtyBusy || placing ? null : (n) => _setQty(l, n),
+                      ),
+                    );
                   }),
                 ]),
               ),
@@ -394,8 +514,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (picked != null && picked.$1 != value) setState(() => onChanged(picked.$1));
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(border: Border.all(color: c.border), borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
           child: Row(children: [
             Icon(kind == 'shipping' ? Icons.local_shipping_outlined : Icons.confirmation_number_outlined,
                 size: 20, color: kind == 'shipping' ? const Color(0xFF0F9F8A) : kOrange),
@@ -524,26 +644,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _preview();
   }
 
+  /// The design's full-width "Confirm & Place Order (₱…)" button with the safety line under it.
   Widget _placeBar() {
     final blocked = totals?['unserviceable'] != null || addressId == null;
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-        decoration: BoxDecoration(color: context.bc.surface, border: Border(top: BorderSide(color: context.bc.border))),
-        child: Row(children: [
-          Expanded(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Total', style: TextStyle(fontSize: 12, color: context.bc.muted)),
-              Text(peso(totals?['total']), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: kOrange)),
-            ]),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        decoration: BoxDecoration(
+          color: context.bc.surface,
+          boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: placing || blocked ? null : _place,
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              icon: placing
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.lock_outline_rounded, size: 19),
+              label: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('Confirm & Place Order (${peso(totals?['total'])})', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
+              ),
+            ),
           ),
-          ElevatedButton(
-            onPressed: placing || blocked ? null : _place,
-            style: ElevatedButton.styleFrom(backgroundColor: kOrange, foregroundColor: Colors.white, minimumSize: const Size(150, 46)),
-            child: placing
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Place Order', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.shield_outlined, size: 13, color: Alvy.slate),
+            const SizedBox(width: 4),
+            Text('Your payment is checked by ALVY', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: context.bc.textSecondary)),
+          ]),
         ]),
       ),
     );

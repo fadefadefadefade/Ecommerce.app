@@ -13,12 +13,16 @@ class RiderApi {
   static Future<ApiResponse> onMyWay(int pickupId) => ApiClient.post('/rider/pickups/$pickupId/arriving');
   static Future<ApiResponse> remittanceReceipt(int id) => ApiClient.get('/rider/cod/remittances/$id');
   static Future<ApiResponse> pickup(int id) => ApiClient.get('/rider/pickups/$id');
-  static Future<ApiResponse> confirmPickup(int id, String tracking) => ApiClient.post('/rider/pickups/$id/confirm', {'tracking_number': tracking});
+  /// tracking: the scanned waybill (waybill or tracking number) · photo: the proof-of-pickup photo.
+  static Future<ApiResponse> confirmPickup(int id, String tracking, {String? photo}) => ApiClient.multipart(
+      '/rider/pickups/$id/confirm', {'tracking_number': tracking}, files: {if (photo != null) 'proof_photo': photo});
   static Future<ApiResponse> delivery(int id) => ApiClient.get('/rider/deliveries/$id');
   static Future<ApiResponse> startDelivery(int id) => ApiClient.post('/rider/deliveries/$id/start');
   // No buyer OTP any more (like the website): the proof photo and, for COD, the exact amount.
-  static Future<ApiResponse> deliver(int id, {String? cod, String? photo}) => ApiClient.multipart(
-      '/rider/deliveries/$id/deliver', {if (cod != null) 'cod_collected': cod}, files: {if (photo != null) 'pod_photo': photo});
+  /// photo: the parcel photo · tracking: the scanned waybill · cod: the cash collected (COD only).
+  static Future<ApiResponse> deliver(int id, {String? cod, String? photo, String? tracking}) => ApiClient.multipart(
+      '/rider/deliveries/$id/deliver', {if (cod != null) 'cod_collected': cod, if (tracking != null) 'tracking_number': tracking},
+      files: {if (photo != null) 'pod_photo': photo});
   static Future<ApiResponse> failDelivery(int id, String reason) => ApiClient.post('/rider/deliveries/$id/fail', {'reason': reason});
   static Future<ApiResponse> returnedToSeller(int parcelId) => ApiClient.post('/rider/returns/$parcelId/returned');
   static Future<ApiResponse> profile() => ApiClient.get('/rider/profile');

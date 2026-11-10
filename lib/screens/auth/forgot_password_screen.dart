@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 import '../../services/buyer_api.dart';
 
@@ -45,26 +46,43 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     const orange = Color(0xFFFA4E1C);
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF3EE),
-      appBar: AppBar( title: const Text('Forgot password'), elevation: 0),
-      body: ListView(padding: const EdgeInsets.all(24), children: [
-        const Text('Reset your password', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E1B17))),
+      backgroundColor: Alvy.page,
+      appBar: AppBar(title: const Text('Forgot password'), backgroundColor: Colors.transparent),
+      body: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
+        Center(
+          child: Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+            child: const Icon(Icons.lock_reset, size: 44, color: Alvy.orange),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text('Reset your password', textAlign: TextAlign.center, style: Alvy.display(size: 24, color: Alvy.text, weight: FontWeight.w800)),
         const SizedBox(height: 6),
-        const Text("Enter the email of your ALVY account. We'll send you a link to choose a new password.",
-            style: TextStyle(color: Color(0xFF5C4039))),
-        const SizedBox(height: 20),
+        Text("Enter the email of your ALVY account. We'll send you a link to choose a new password.",
+            textAlign: TextAlign.center, style: TextStyle(color: Alvy.textSub, height: 1.4)),
+        const SizedBox(height: 22),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Alvy.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [BoxShadow(color: Color(0x0F2A1A10), blurRadius: 14, offset: Offset(0, 3))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Email Address', style: TextStyle(fontWeight: FontWeight.w600, color: Alvy.text)),
+        const SizedBox(height: 8),
         TextField(
           controller: _email,
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
           enabled: _sent == null,
           decoration: InputDecoration(
-            labelText: 'Email',
+            hintText: 'example@gmail.com',
+            prefixIcon: const Icon(Icons.mail_outline),
             errorText: _error,
             errorMaxLines: 3,
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onSubmitted: (_) => _send(),
         ),
@@ -72,25 +90,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         if (_sent != null) ...[
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFA7F3D0))),
-            child: Text(_sent!, style: const TextStyle(color: Color(0xFF065F46))),
+            decoration: BoxDecoration(color: Alvy.successSoft, borderRadius: BorderRadius.circular(14)),
+            child: Text(_sent!, style: TextStyle(color: Alvy.successText)),
           ),
           const SizedBox(height: 12),
-          const Text('Open the link in the email on this phone, choose your new password, then come back and log in.',
-              style: TextStyle(color: Color(0xFF5C4039), fontSize: 12)),
+          Text('Open the link in the email on this phone, choose your new password, then come back and log in.',
+              style: TextStyle(color: Alvy.textSub, fontSize: 12)),
           const SizedBox(height: 16),
-          OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Back to login')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            child: const Text('Back to login', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
         ] else
           SizedBox(
-            height: 48,
-            child: FilledButton(
+            height: 52,
+            child: FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: orange),
               onPressed: _busy ? null : _send,
-              child: _busy
+              icon: _busy
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Send reset link', style: TextStyle(fontWeight: FontWeight.w700)),
+                  : const Icon(Icons.send_rounded, size: 18),
+              label: const Text('Send reset link', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.verified_user_outlined, size: 16, color: Alvy.textMuted),
+          const SizedBox(width: 6),
+          Text('Your account is protected by ALVY', style: TextStyle(color: Alvy.textMuted, fontSize: 12.5)),
+        ]),
       ]),
     );
   }

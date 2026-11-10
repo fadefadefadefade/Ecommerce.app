@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -32,7 +33,7 @@ class GcashPayBox extends StatelessWidget {
     this.stores = 1,
   });
 
-  static const blue = Color(0xFF0B2A5B);
+  static Color get blue => Alvy.slate;
 
   Future<void> _pick(BuildContext context) async {
     try {
@@ -50,7 +51,7 @@ class GcashPayBox extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFF5F9FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBFDBFE))),
+      decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBFDBFE))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Container(
@@ -59,7 +60,7 @@ class GcashPayBox extends StatelessWidget {
             child: const Text('G', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
           ),
           const SizedBox(width: 8),
-          const Text('Pay ALVY with GCash', style: TextStyle(fontWeight: FontWeight.w800, color: blue)),
+          Text('Pay ALVY with GCash', style: TextStyle(fontWeight: FontWeight.w800, color: blue)),
         ]),
         const SizedBox(height: 10),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -75,8 +76,8 @@ class GcashPayBox extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Scan the QR in your GCash app and send exactly', style: TextStyle(fontSize: 12, color: Color(0xFF1E3A8A))),
-              Text(amount == null ? '—' : peso(amount!), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: blue)),
+              Text('Scan the QR in your GCash app and send exactly', style: TextStyle(fontSize: 12, color: Alvy.slate)),
+              Text(amount == null ? '—' : peso(amount!), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: blue)),
               SelectableText('to ${account['name'] ?? 'ALVY'}${number.isNotEmpty ? ' · $number' : ''}', style: const TextStyle(fontSize: 12, color: Color(0xFF3B5B8C))),
             ]),
           ),
@@ -107,7 +108,7 @@ class GcashPayBox extends StatelessWidget {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)],
           style: const TextStyle(fontFamily: 'monospace'),
           decoration: InputDecoration(
-            labelText: 'GCash Ref No. *', isDense: true, border: const OutlineInputBorder(), counterText: '',
+            labelText: 'GCash Ref No. *', isDense: true, counterText: '',
             hintText: '13 numbers, e.g. 1012345678901', errorText: referenceError,
             helperText: 'The 13 numbers of the "Ref No." on your receipt',
           ),

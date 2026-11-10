@@ -184,7 +184,7 @@ class ParcelCard extends StatelessWidget {
             Row(children: [
               Pill('${p['status_label']}', color: parcelColor('${p['status']}')),
               const SizedBox(width: 8),
-              Expanded(child: Text('#${p['tracking']}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate))),
+              Expanded(child: Text('#${p['tracking']}', overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate))),
               if (p['cod'] != null) Text(peso(p['cod']), style: Alvy.display(size: 18, color: kOrange, weight: FontWeight.w700)),
             ]),
             if (p['order_number'] != null || p['seller'] != null)
@@ -241,7 +241,7 @@ Color parcelColor(String s) => switch (s) {
       'delivered' || 'returned' => const Color(0xFF15803D),
       'pending_pickup' || 'pickup_approved' => const Color(0xFFB45309),
       'failed' || 'return_to_sender' || 'lost' || 'damaged' || 'pickup_rejected' || 'cancelled' => const Color(0xFFDC2626),
-      _ => const Color(0xFF2563EB),
+      _ => Alvy.slate,
     };
 
 /// Choose a rider from [riders] (LogisticsJson::rider rows). Returns the rider id.
@@ -253,15 +253,18 @@ Future<int?> pickRider(BuildContext context, List<Map<String, dynamic>> riders, 
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 4), child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+          Padding(padding: const EdgeInsets.fromLTRB(16, 18, 16, 4), child: Text(title, style: Alvy.display(size: 19, color: ctx.bc.text, weight: FontWeight.w800))),
           if (note != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text(note, style: TextStyle(color: ctx.bc.muted))),
           if (riders.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No riders available.')),
           Flexible(
             child: ListView(shrinkWrap: true, children: [
               for (final r in riders)
                 ListTile(
-                  leading: Icon(Icons.two_wheeler, color: r['online'] == true ? const Color(0xFF15803D) : ctx.bc.muted),
-                  title: Text('${r['full_name']}'),
+                  leading: CircleAvatar(
+                    backgroundColor: r['online'] == true ? Alvy.orangeSoft : ctx.bc.subtle,
+                    child: Icon(Icons.two_wheeler, size: 20, color: r['online'] == true ? Alvy.orange : ctx.bc.muted),
+                  ),
+                  title: Text('${r['full_name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text([
                     if (r['km'] != null) '${r['km']} km away',
                     if (r['area'] != null) '${r['area']}',
@@ -286,4 +289,41 @@ Future<ApiResponse> act(BuildContext context, Future<ApiResponse> Function() cal
   // A cut-off answer: the action may have gone through, so show the page as it is now.
   if (r.ok || r.broken) then?.call();
   return r;
+}
+
+/// The design's list row for the logistics pages: an icon in a soft square, a title and a muted line, then a trailing widget.
+/// [boxed] puts it in a beige box (inside a card); otherwise it is its own white card.
+Widget infoRow(BuildContext context,
+    {required IconData icon, required String title, String? subtitle, Widget? trailing, VoidCallback? onTap, bool boxed = true, bool navy = false}) {
+  final c = context.bc;
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: boxed ? c.subtle : c.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: boxed ? c.surface : (navy ? Alvy.slateSoft : Alvy.orangeSoft), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 19, color: navy ? Alvy.slate : kOrange),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                if (subtitle != null && subtitle.isNotEmpty) Text(subtitle, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+              ]),
+            ),
+            if (trailing != null) trailing,
+          ]),
+        ),
+      ),
+    ),
+  );
 }

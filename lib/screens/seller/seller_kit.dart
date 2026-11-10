@@ -24,7 +24,7 @@ class Pill extends StatelessWidget {
         'upcoming' || 'pending' || 'review' || 'requested' || 'new' => const Color(0xFFB45309),
         'ended' || 'off' || 'used up' || 'sold out' || 'inactive' || 'draft' || 'archived' => const Color(0xFF6B7280),
         'rejected' || 'cancelled' || 'failed' || 'out_of_stock' => const Color(0xFFDC2626),
-        _ => const Color(0xFF2563EB),
+        _ => Alvy.slate,
       };
 
   @override
@@ -236,7 +236,7 @@ class EmptyNote extends StatelessWidget {
         Container(
           width: 76,
           height: 76,
-          decoration: const BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
           child: Icon(icon, size: 36, color: kOrange),
         ),
         const SizedBox(height: 14),

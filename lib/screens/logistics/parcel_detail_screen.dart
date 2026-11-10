@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/logistics_api.dart';
@@ -62,14 +63,14 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
         : Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(width: 110, child: Text(l, style: TextStyle(color: c.muted))),
-              Expanded(child: Text('$v', style: const TextStyle(fontWeight: FontWeight.w600))),
+              SizedBox(width: 110, child: Text(l, style: TextStyle(color: c.textSecondary))),
+              Expanded(child: Text('$v', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
             ]),
           );
 
     return Scaffold(
       backgroundColor: c.background,
-      appBar: sellerBar(p == null ? 'Parcel' : '${p['tracking']}'),
+      appBar: sellerBar('Parcel'),
       body: LoadState(
         loading: _loading,
         error: _error,
@@ -79,18 +80,43 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Pill('${p['status_label']}', color: parcelColor('${p['status']}')),
-                  const SizedBox(height: 10),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  // The design's parcel card: state and tracking, the amount to collect, then the route.
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: cardBox(context, radius: 20),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        Pill('${p['status_label']}', color: parcelColor('${p['status']}')),
+                        const Spacer(),
+                        Text('${p['tracking']}', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate)),
+                      ]),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(child: Text(p['cod'] != null ? 'Collect on delivery' : 'Payment', style: TextStyle(color: c.textSecondary))),
+                        if (p['cod'] != null)
+                          Text(peso(p['cod']), style: Alvy.display(size: 22, color: Alvy.orange, weight: FontWeight.w800))
+                        else
+                          Text('Nothing to collect', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate)),
+                      ]),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+                        child: Column(children: [
+                          _stop(context, Alvy.orange, '${p['seller'] ?? 'Seller'}', '${p['pickup_address'] ?? ''}'),
+                          _stop(context, Alvy.slate, '${p['receiver'] ?? 'Receiver'}${p['receiver_phone'] != null ? ' · ${p['receiver_phone']}' : ''}',
+                              '${p['dropoff_address'] ?? ''}'),
+                        ]),
+                      ),
+                    ]),
+                  ),
                   SectionCard(
+                    title: 'Details',
                     child: Column(children: [
                       row('Order', p['order_number']),
                       row('Payment', p['payment']),
-                      row('COD', p['cod'] != null ? peso(p['cod']) : null),
-                      row('Seller', p['seller']),
-                      row('Pick up', p['pickup_address']),
-                      row('Receiver', '${p['receiver'] ?? ''} · ${p['receiver_phone'] ?? ''}'),
-                      row('Deliver to', p['dropoff_address']),
                       row('Barangay', asMap(p['area'])['name']),
                       row('Weight', p['weight_kg'] != null ? '${p['weight_kg']} kg' : null),
                       row('Received', p['received_at'] != null ? formatDateTime(p['received_at']) : null),
@@ -102,7 +128,7 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                   if (p['exception_photo_url'] != null)
                     SectionCard(
                       title: 'Photo',
-                      child: ClipRRect(borderRadius: BorderRadius.circular(8), child: NetImage('${p['exception_photo_url']}', height: 200, fit: BoxFit.cover)),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(14), child: NetImage('${p['exception_photo_url']}', height: 200, fit: BoxFit.cover)),
                     ),
                   if (asList(p['pickups']).isNotEmpty)
                     SectionCard(
@@ -114,7 +140,7 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                             contentPadding: EdgeInsets.zero,
                             title: Text('${x['rider'] ?? '—'}'),
                             subtitle: Text(x['picked_up_at'] != null ? 'Picked up ${formatDateTime(x['picked_up_at'])}' : ''),
-                            trailing: Pill('${x['status_label']}'),
+                            trailing: Pill('${x['status_label']}', color: parcelColor('${x['status']}')),
                           ),
                       ]),
                     ),
@@ -132,13 +158,19 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
                               if (x['failure_reason'] != null) '${x['failure_reason']}',
                               if (asNum(x['cod_collected']) > 0) 'COD ${peso(x['cod_collected'])}',
                             ].join(' · ')),
-                            trailing: Pill('${x['status_label']}'),
+                            trailing: Pill('${x['status_label']}', color: parcelColor('${x['status']}')),
                           ),
                       ]),
                     ),
                   if (p['can_mark_exception'] == true)
                     OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
+                        backgroundColor: c.subtle,
+                        side: BorderSide.none,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                       onPressed: _exception,
                       icon: const Icon(Icons.report_outlined),
                       label: const Text('Mark Lost or Damaged'),
@@ -149,6 +181,19 @@ class _ParcelDetailScreenState extends State<ParcelDetailScreen> {
     );
   }
 }
+
+Widget _stop(BuildContext context, Color dot, String title, String address) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(width: 10, height: 10, margin: const EdgeInsets.only(top: 5, right: 10), decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
+            if (address.isNotEmpty) Text(address, style: TextStyle(fontSize: 12.5, color: context.bc.textSecondary)),
+          ]),
+        ),
+      ]),
+    );
 
 class _ExceptionSheet extends StatefulWidget {
   const _ExceptionSheet();
@@ -175,7 +220,7 @@ class _ExceptionSheetState extends State<_ExceptionSheet> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('Lost or damaged parcel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text('Lost or damaged parcel', style: Alvy.display(size: 19, color: context.bc.text, weight: FontWeight.w800)),
             const SizedBox(height: 4),
             const Text('The order is refunded and the buyer and seller are told. This can\'t be undone.'),
             const SizedBox(height: 12),

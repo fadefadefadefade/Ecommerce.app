@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import '../theme/buyer_colors.dart';
 
 // Order progress (Pending → Processing → Shipped to Warehouse → Delivering →
@@ -17,11 +18,11 @@ const orderStages = <String, String>{
 Color stageColor(String stage) {
   switch (stage) {
     case 'processing':
-      return const Color(0xFF9333EA);
+      return const Color(0xFFD93D0E);
     case 'warehouse':
-      return const Color(0xFF1565C0);
+      return Alvy.slate;
     case 'delivering':
-      return const Color(0xFF00838F);
+      return Alvy.slate;
     case 'delivered':
       return const Color(0xFF15803D);
     case 'cancelled':

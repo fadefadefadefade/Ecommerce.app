@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/auth_provider.dart';
 import '../../../services/seller_api.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
 import '../../../widgets/product_thumb.dart';
 import '../seller_kit.dart';
@@ -348,14 +349,23 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           ? null
           : SafeArea(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                color: context.bc.surface,
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                decoration: BoxDecoration(
+                  color: context.bc.surface,
+                  boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 12, offset: Offset(0, -2))],
+                ),
                 child: Row(children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
                       onPressed: _saving ? null : () => _save(draft: true),
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                      child: const Text('Save as draft'),
+                      icon: Icon(Icons.bookmark_border, size: 18, color: context.bc.text),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: context.bc.subtle,
+                        side: BorderSide.none,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      label: FittedBox(fit: BoxFit.scaleDown, child: Text('Save Draft', maxLines: 1, style: TextStyle(color: context.bc.text, fontWeight: FontWeight.w600))),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -364,6 +374,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     child: BusyButton(
                       verified ? (_edit ? 'Save changes' : 'Submit for approval') : 'Publish (verify store first)',
                       busy: _saving,
+                      icon: _edit ? Icons.check : Icons.rocket_launch_outlined,
                       onPressed: verified ? () => _save(draft: false) : null,
                     ),
                   ),
@@ -383,59 +394,116 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     final catName = _categories.where((x) => asInt(x['id']) == _categoryId).map((x) => '${x['name']}').firstOrNull;
     final subs = catName == null ? <String>[] : [for (final s in (_subMap[catName] as List? ?? [])) '$s'];
 
-    return ListView(padding: const EdgeInsets.all(12), children: [
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), children: [
+      // The design's studio strip: where you are, and whether this is new or an edit.
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Icon(Icons.storefront_outlined, size: 16, color: c.textSecondary),
+          const SizedBox(width: 6),
+          Text('MERCHANT STUDIO', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w700, color: c.textSecondary)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+            child: Text(_edit ? 'Editing listing' : 'New listing', style: const TextStyle(fontSize: 11.5, color: Alvy.orangeDark, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      ),
       if (!verified)
-        const Card(
-          color: Color(0xFFFFF7ED),
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(14)),
           child: Padding(
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             child: Text('Your store must be verified before you can publish products. You can save drafts for now.',
-                style: TextStyle(color: Color(0xFF9A3412))),
+                style: TextStyle(color: Alvy.warnText)),
           ),
         ),
       if (p != null && p['approval_status'] == 'rejected' && (p['approval_note'] ?? '').toString().isNotEmpty)
-        Card(
-          color: const Color(0xFFFEF2F2),
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(14)),
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Text('Not approved: ${p['approval_note']}', style: const TextStyle(color: Color(0xFFB91C1C))),
+            child: Text('Not approved: ${p['approval_note']}', style: TextStyle(color: Alvy.dangerText)),
           ),
         ),
       for (final e in generalErrors)
         Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(e, style: const TextStyle(color: Color(0xFFDC2626)))),
 
-      SectionCard(
-        title: 'Photos (${_savedImages.length - _removedImages.length + _newImages.length}/$_maxImages)',
-        child: Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final img in _savedImages.where((i) => !_removedImages.contains(asInt(i['id']))))
-            _photo(ProductThumb(url: img['url'], size: 84), () => setState(() => _removedImages.add(asInt(img['id'])))),
-          for (final path in _newImages)
-            _photo(
-              ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(path), width: 84, height: 84, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fileTile())),
-              () => setState(() => _newImages.remove(path)),
-            ),
-          InkWell(
-            onTap: _pickPhotos,
-            child: Container(
-              width: 84,
-              height: 84,
-              decoration: BoxDecoration(border: Border.all(color: c.border, width: 1.5), borderRadius: BorderRadius.circular(8)),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.add_a_photo_outlined, color: c.muted),
-                Text('Add', style: TextStyle(fontSize: 11, color: c.muted)),
-              ]),
-            ),
-          ),
-        ]),
+      _section(
+        'Product Media',
+        'The first photo is the cover buyers see first',
+        Icons.photo_library_outlined,
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(99)),
+          child: Text('${_savedImages.length - _removedImages.length + _newImages.length} of $_maxImages',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.textSecondary)),
+        ),
+        child: LayoutBuilder(builder: (context, box) {
+          final side = (box.maxWidth - 16) / 3;
+          final tiles = <Widget>[
+            for (final img in _savedImages.where((i) => !_removedImages.contains(asInt(i['id']))))
+              _photo(ProductThumb(url: img['url'], size: side), () => setState(() => _removedImages.add(asInt(img['id'])))),
+            for (final path in _newImages)
+              _photo(
+                Image.file(File(path), width: side, height: side, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fileTile()),
+                () => setState(() => _newImages.remove(path)),
+              ),
+          ];
+          return Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final (i, t) in tiles.indexed)
+              SizedBox(
+                width: side,
+                height: side,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Stack(fit: StackFit.expand, children: [
+                    t,
+                    if (i == 0)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: const BoxDecoration(color: Alvy.orange, borderRadius: BorderRadius.only(bottomRight: Radius.circular(10))),
+                          child: const Text('COVER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                        ),
+                      ),
+                  ]),
+                ),
+              ),
+            if (tiles.length < _maxImages)
+              InkWell(
+                onTap: _pickPhotos,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  width: side,
+                  height: side,
+                  decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.add_a_photo_outlined, color: Alvy.orange),
+                    const SizedBox(height: 6),
+                    Text('Add Photo', style: TextStyle(fontSize: 12, color: c.textSecondary, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+          ]);
+        }),
       ),
 
-      SectionCard(
-        title: 'Video',
+      _section(
+        'Product Video',
+        'Optional — MP4, MOV or WebM up to $_maxVideoMb MB',
+        Icons.videocam_outlined,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Optional — MP4, MOV or WebM up to $_maxVideoMb MB.', style: TextStyle(fontSize: 12, color: c.muted)),
-          const SizedBox(height: 6),
-          Row(children: [
-            Icon(Icons.videocam_outlined, color: c.muted),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+            decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+            Icon(Icons.play_circle_outline, color: Alvy.slate),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -449,14 +517,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               ),
             ),
             if (_video != null) IconButton(onPressed: () => setState(() => _video = null), icon: const Icon(Icons.close, size: 18)),
-            TextButton(onPressed: _pickVideo, child: Text(_videoUrl != null || _video != null ? 'Replace' : 'Choose')),
-          ]),
+            TextButton(onPressed: _pickVideo, child: Text(_videoUrl != null || _video != null ? 'Replace' : 'Choose', style: TextStyle(color: Alvy.slate, fontWeight: FontWeight.w700))),
+            ]),
+          ),
           if (_err('video') != null) Text(_err('video')!, style: const TextStyle(color: Color(0xFFDC2626))),
         ]),
       ),
 
-      SectionCard(
-        title: 'Basic information',
+      _section(
+        'General Details',
+        'What buyers read first',
+        Icons.edit_note,
         child: Column(children: [
           FormInput(_title, 'Product name *', maxLength: 120, error: _err('title')),
           _categoryDropdown(),
@@ -466,8 +537,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         ]),
       ),
 
-      SectionCard(
-        title: 'Price & stock',
+      _section(
+        'Pricing & Inventory',
+        'Price, sale, stock and SKU',
+        Icons.sell_outlined,
         child: Column(children: [
           FormInput(_price, 'Price *', prefix: '₱ ', keyboard: const TextInputType.numberWithOptions(decimal: true), error: _err('price')),
           Align(alignment: Alignment.centerLeft, child: Text('Sale (optional)', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
@@ -499,13 +572,18 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               Expanded(child: _dateField('Sale ends', _saleEnds, (v) => setState(() => _saleEnds = v), _err('sale_ends_at'))),
             ]),
           if (_rows.isEmpty)
-            FormInput(_stock, 'Stock *', keyboard: TextInputType.number, error: _err('stock'))
-          else
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: FormInput(_sku, 'SKU', error: _err('sku'))),
+              const SizedBox(width: 10),
+              Expanded(child: FormInput(_stock, 'Total stock *', keyboard: TextInputType.number, error: _err('stock'))),
+            ])
+          else ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text('Stock is set per option below.', style: TextStyle(color: c.muted, fontSize: 12)),
             ),
-          FormInput(_sku, 'SKU', error: _err('sku')),
+            FormInput(_sku, 'SKU', error: _err('sku')),
+          ],
           FormInput(_lowStockAt, 'Low-stock alert at (optional)', keyboard: TextInputType.number, error: _err('low_stock_threshold'),
               hint: '$_lowStockDefault', helper: 'We notify you when stock drops to this or fewer. Empty = $_lowStockDefault.'),
           if (_edit && _status != 'draft')
@@ -513,13 +591,15 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         ]),
       ),
 
-      SectionCard(
-        title: 'Options (variations)',
+      _section(
+        'Product Variations',
+        'Colors, sizes or finishes buyers choose from',
+        Icons.style_outlined,
         trailing: _types.length < _maxTypes
             ? TextButton.icon(
                 onPressed: () => setState(() => _types.add(_VarType(_types.isEmpty ? 'Color' : 'Size', ['']))),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add type'),
+                icon: const Icon(Icons.add, size: 16, color: Alvy.orange),
+                label: const Text('Add type', style: TextStyle(color: Alvy.orange, fontWeight: FontWeight.w700)),
               )
             : null,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -534,10 +614,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         ]),
       ),
 
-      SectionCard(
-        title: 'Shipping',
+      _section(
+        'Shipping & Logistics',
+        'Accurate parcel size means faster pickup',
+        Icons.local_shipping_outlined,
         child: Column(children: [
-          FormInput(_weight, 'Weight (kg) *', keyboard: const TextInputType.numberWithOptions(decimal: true), error: _err('weight_kg')),
+          FormInput(_weight, 'Net weight (kg) *', keyboard: const TextInputType.numberWithOptions(decimal: true), error: _err('weight_kg')),
           Row(children: [
             Expanded(child: FormInput(_length, 'L (cm)', keyboard: const TextInputType.numberWithOptions(decimal: true), error: _err('length_cm'))),
             const SizedBox(width: 6),
@@ -556,27 +638,55 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     ]);
   }
 
-  Widget _fileTile() => Container(width: 84, height: 84, color: const Color(0xFFF4EDE6), child: const Icon(Icons.image_outlined, color: kOrange));
+  Widget _fileTile() => Container(width: 84, height: 84, color: Alvy.subtle, child: const Icon(Icons.image_outlined, color: kOrange));
 
-  Widget _photo(Widget image, VoidCallback onRemove) => Stack(children: [
-        SizedBox(width: 84, height: 84, child: image),
+  Widget _photo(Widget image, VoidCallback onRemove) => Stack(fit: StackFit.expand, children: [
+        image,
         Positioned(
-          right: 2,
-          top: 2,
+          right: 6,
+          bottom: 6,
           child: InkWell(
             onTap: onRemove,
             child: Container(
-              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-              padding: const EdgeInsets.all(2),
-              child: const Icon(Icons.close, size: 16, color: Colors.white),
+              decoration: const BoxDecoration(color: Color(0xFFDC2626), shape: BoxShape.circle),
+              padding: const EdgeInsets.all(5),
+              child: const Icon(Icons.delete_outline, size: 15, color: Colors.white),
             ),
           ),
         ),
       ]);
 
+  /// The design's section card: a Jakarta title with a muted line under it and a navy icon on the right.
+  Widget _section(String title, String sub, IconData icon, {Widget? trailing, required Widget child}) {
+    final c = context.bc;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: cardBox(context, radius: 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(sub, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          trailing ?? Icon(icon, color: Alvy.slate, size: 22),
+        ]),
+        const SizedBox(height: 14),
+        child,
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
+
   Widget _typeEditor(_VarType t) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 12),
+      decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
@@ -621,7 +731,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               ),
             ),
           if (t.options.length < _maxOptions)
-            ActionChip(label: const Text('+ Option'), onPressed: () => setState(() => t.options.add(TextEditingController()))),
+            ActionChip(label: const Text('+ Option', style: TextStyle(color: Alvy.orange, fontWeight: FontWeight.w700)), onPressed: () => setState(() => t.options.add(TextEditingController()))),
         ]),
       ]),
     );
@@ -667,7 +777,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             isDense: true,
             errorText: error,
             errorMaxLines: 3,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             suffixIcon: value == null
                 ? const Icon(Icons.event, size: 18)
                 : InkWell(onTap: () => onChanged(null), child: const Icon(Icons.close, size: 18)),
@@ -702,7 +811,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           isDense: true,
           errorText: _err('category_id'),
           errorMaxLines: 3,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
         selectedItemBuilder: (_) => [
           if (mine.isNotEmpty) const SizedBox.shrink(),
@@ -739,7 +847,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           isDense: true,
           errorText: error,
           errorMaxLines: 3,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
         items: [for (final e in items) DropdownMenuItem(value: e.$1, child: Text(e.$2, overflow: TextOverflow.ellipsis))],
         onChanged: onChanged,

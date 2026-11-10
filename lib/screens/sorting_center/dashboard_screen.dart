@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -10,17 +11,17 @@ class SortingCenterDashboardScreen extends StatelessWidget {
     final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F2),
+      backgroundColor: Alvy.page,
       body: SafeArea(
         child: Column(
           children: [
             // Header
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Alvy.surface,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFEEE7E0)),
+                  bottom: BorderSide(color: Alvy.border),
                 ),
               ),
               child: Row(
@@ -29,19 +30,19 @@ class SortingCenterDashboardScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Sorting Center Dashboard',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF8A716A),
+                          color: Alvy.textMuted,
                         ),
                       ),
                       Text(
                         user?.name ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF1E1B17),
+                          color: Alvy.navy,
                         ),
                       ),
                     ],
@@ -57,11 +58,11 @@ class SortingCenterDashboardScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Text(
                   'Sorting Center Dashboard - Coming Soon',
-                  style: TextStyle(fontSize: 18, color: Color(0xFF8A716A)),
+                  style: TextStyle(fontSize: 18, color: Alvy.textMuted),
                 ),
               ),
             ),

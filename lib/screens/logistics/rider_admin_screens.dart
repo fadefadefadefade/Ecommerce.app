@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 
@@ -18,14 +19,16 @@ Future<void> showDocument(BuildContext context, Future<ApiDownload> download, St
   if (!f.ok) return showResult(context, f.error!);
   final bytes = Uint8List.fromList(f.bytes);
   final pdf = bytes.length > 4 && String.fromCharCodes(bytes.take(4)) == '%PDF';
-  await Navigator.push(context, MaterialPageRoute(
-    builder: (_) => Scaffold(
-      appBar: sellerBar(title),
-      body: pdf
-          ? PdfPreview(build: (_) async => bytes, useActions: false)
-          : InteractiveViewer(child: Center(child: Image.memory(bytes, errorBuilder: (_, __, ___) => const Text('This file can\'t be shown.')))),
-    ),
-  ));
+  await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: sellerBar(title),
+          body: pdf
+              ? PdfPreview(build: (_) async => bytes, useActions: false)
+              : InteractiveViewer(child: Center(child: Image.memory(bytes, errorBuilder: (_, __, ___) => const Text('This file can\'t be shown.')))),
+        ),
+      ));
 }
 
 // ── Dispatch board ─────────────────────────────────────────────
@@ -103,12 +106,19 @@ class _DispatchScreenState extends State<DispatchScreen> {
             Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 4), child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
             for (final (available, label) in const [(true, 'Available'), (false, 'Not available')])
               if (choices.any((c) => (c['available'] == true) == available)) ...[
-                Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 2), child: Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: ctx.bc.muted))),
+                Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 2), child: Text(label, style: TextStyle(fontWeight: FontWeight.w700, color: ctx.bc.muted))),
                 for (final c in choices.where((c) => (c['available'] == true) == available))
                   ListTile(
                     enabled: available,
-                    leading: Icon(Icons.two_wheeler, color: available ? const Color(0xFF15803D) : ctx.bc.muted),
-                    title: Text(available ? '${c['name']} (${c['active_jobs']} ${asInt(c['active_jobs']) == 1 ? 'job' : 'jobs'})' : '${c['name']} · ${c['why']}'),
+                    leading: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(color: available ? Alvy.orangeSoft : ctx.bc.subtle, borderRadius: BorderRadius.circular(12)),
+                      child: Icon(Icons.two_wheeler, size: 21, color: available ? const Color(0xFFFA4E1C) : ctx.bc.muted),
+                    ),
+                    title:
+                        Text(available ? '${c['name']} (${c['active_jobs']} ${asInt(c['active_jobs']) == 1 ? 'job' : 'jobs'})' : '${c['name']} · ${c['why']}'),
                     onTap: available ? () => Navigator.pop(ctx, asInt(c['id'])) : null,
                   ),
               ],
@@ -125,29 +135,90 @@ class _DispatchScreenState extends State<DispatchScreen> {
   }
 
   Widget _job(Map<String, dynamic> p) {
-    final offer = p['offer'] == null ? null : asMap(p['offer']);
     final id = asInt(p['id']);
+    // Who Auto-assign gives it to: the Online rider covering the job's barangay (none: assign manually).
+    final barangayRider = p['barangay_rider'] == null ? null : asMap(p['barangay_rider']);
     return ParcelCard(
       p,
       onTap: () => openParcel(context, id, _load),
       extra: [
         '${p['job_kind'] == 'pickup' ? 'Pickup' : 'Delivery'} job',
-        if (offer != null) 'Offered to ${offer['rider']} (${offer['seconds_left']}s)',
+        barangayRider != null ? 'Barangay rider: ${barangayRider['name']}' : 'No Online barangay rider: assign manually',
       ],
       actions: [
         Checkbox(value: _selected.contains(id), activeColor: kOrange, onChanged: (v) => setState(() => v == true ? _selected.add(id) : _selected.remove(id))),
-        if (p['unassigned'] != true && offer == null)
-          OutlinedButton(onPressed: () => _do(() => LogisticsApi.autoAssign(id)), child: const Text('Auto assign')),
+        if (barangayRider != null) OutlinedButton(onPressed: () => _do(() => LogisticsApi.autoAssign(id)), child: const Text('Auto assign')),
         FilledButton(style: FilledButton.styleFrom(backgroundColor: kOrange), onPressed: () => _assign(p), child: const Text('Assign')),
       ],
     );
+  }
+
+  /// Auto-assign every waiting pickup or delivery to the rider of its barangay (after a confirm).
+  Future<void> _autoAll(String kind, int ready, int waiting) async {
+    final what = kind == 'pickup' ? 'pickups' : 'deliveries';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Auto-assign $what?'),
+        content: Text('$ready will go to the rider of ${ready == 1 ? 'its' : 'their'} barangay.'
+            '${waiting - ready > 0 ? ' ${waiting - ready} without an Online barangay rider stay here for you to assign.' : ''}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: kOrange), onPressed: () => Navigator.pop(ctx, true), child: const Text('Auto-assign')),
+        ],
+      ),
+    );
+    if (ok == true && mounted) await _do(() => LogisticsApi.autoAssignAll(kind));
+  }
+
+  /// The two Auto-assign cards: pickups (by the seller's barangay) and deliveries (by the buyer's barangay).
+  Widget _autoCards(Map<String, dynamic> d) {
+    final c = context.bc;
+    final auto = asMap(d['auto']);
+    Widget card(String kind, String label, String sub, IconData icon) {
+      final a = asMap(auto[kind]);
+      final waiting = asInt(a['waiting']);
+      final ready = asInt(a['ready']);
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: cardBox(context, radius: 18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: kind == 'pickup' ? Alvy.orangeSoft : Alvy.slateSoft, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 20, color: kind == 'pickup' ? kOrange : Alvy.slate),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$label waiting · $waiting', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
+                Text(sub, style: TextStyle(fontSize: 12, color: c.textSecondary)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text('$ready ${ready == 1 ? 'has' : 'have'} an Online barangay rider${waiting - ready > 0 ? ' · ${waiting - ready} need manual assignment' : ''}.',
+              style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+          const SizedBox(height: 10),
+          BusyButton('Auto-assign $label', busy: false, icon: Icons.bolt, color: kind == 'pickup' ? kOrange : Alvy.navyFill,
+              onPressed: ready == 0 ? null : () => _autoAll(kind, ready, waiting)),
+        ]),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      card('pickup', 'Pickups', "Seller → hub, by the seller's barangay", Icons.upload_outlined),
+      card('delivery', 'Deliveries', "Hub → buyer, by the buyer's barangay", Icons.local_shipping_outlined),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final d = _d;
     final c = context.bc;
-    Widget title(String t) => Padding(padding: const EdgeInsets.only(top: 12, bottom: 6), child: Text(t, style: TextStyle(fontWeight: FontWeight.w800, color: c.text)));
     return Scaffold(
       backgroundColor: c.background,
       appBar: sellerBar('Dispatch', actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
@@ -172,39 +243,149 @@ class _DispatchScreenState extends State<DispatchScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), children: [
-                  Text('Offers last ${d['offer_seconds']} seconds. A rider can hold up to ${d['max_active']} jobs.', style: TextStyle(color: c.muted, fontSize: 12)),
-                  title('Waiting for a rider (${asList(d['jobs']).length})'),
-                  if (asList(d['jobs']).isEmpty) Text('No jobs waiting.', style: TextStyle(color: c.muted)),
-                  for (final p in asList(d['jobs'])) _job(p),
-                  title('Unassigned — 3 riders declined or let it expire (${asList(d['unassigned']).length})'),
-                  if (asList(d['unassigned']).isEmpty) Text('None.', style: TextStyle(color: c.muted)),
-                  for (final p in asList(d['unassigned'])) _job(p),
-                  title('Given to a rider, not started yet'),
-                  if (asList(d['not_started']).isEmpty) Text('None.', style: TextStyle(color: c.muted)),
-                  for (final j in asList(d['not_started']))
-                    Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        title: Text('${j['tracking']} · ${j['kind']}'),
-                        subtitle: Text('${j['rider']} · since ${formatDateTime(j['since'])}'),
-                        trailing: TextButton(onPressed: () => _assign(j, reassign: true), child: const Text('Reassign')),
+                child: LayoutBuilder(builder: (context, box) {
+                  final top = <Widget>[
+                    // The design's dispatch header and fleet card.
+                    Text('FLEET DISPATCH DESK', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w800, color: Alvy.slate)),
+                    Text('Dispatch', style: Alvy.display(size: 24, color: c.text, weight: FontWeight.w800)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: cardBox(context, radius: 20),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Row(children: [
+                          const Icon(Icons.two_wheeler, color: kOrange, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('Active Hub Fleet', style: TextStyle(fontWeight: FontWeight.w800, color: c.text))),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(99)),
+                            child: Text('${_riders.length} riders', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: c.textSecondary)),
+                          ),
+                        ]),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          for (final (i, (value, label, icon)) in <(String, String, IconData)>[
+                            ('${_riders.where((r) => r['online'] == true).length}', 'Online', Icons.wifi_tethering),
+                            ('${asList(d['jobs']).length}', 'Waiting', Icons.inventory_2_outlined),
+                            ('${asList(d['unassigned']).length}', 'Unassigned', Icons.report_gmailerrorred_outlined),
+                          ].indexed) ...[
+                            if (i > 0) const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                                child: Column(children: [
+                                  Text(value, style: Alvy.display(size: 20, color: i == 2 && value != '0' ? kOrange : c.text, weight: FontWeight.w800)),
+                                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                    Icon(icon, size: 13, color: Alvy.slate),
+                                    const SizedBox(width: 4),
+                                    Text(label, style: TextStyle(fontSize: 11.5, color: Alvy.slate, fontWeight: FontWeight.w600)),
+                                  ]),
+                                ]),
+                              ),
+                            ),
+                          ],
+                        ]),
+                        const SizedBox(height: 10),
+                        Text('Riders are assigned per barangay. Auto-assign gives each job to the Online rider of its barangay; the rest you assign manually.',
+                            style: TextStyle(color: c.textSecondary, fontSize: 12)),
+                      ]),
+                    ),
+                    _autoCards(d),
+                  ];
+                  final jobs = <Widget>[
+                    _head('Waiting for a rider', asList(d['jobs']).length),
+                    if (asList(d['jobs']).isEmpty) Text('No jobs waiting.', style: TextStyle(color: c.muted)),
+                    for (final p in asList(d['jobs'])) _job(p),
+                    _head('Returned to the hub', asList(d['unassigned']).length, note: 'Assign these manually'),
+                    if (asList(d['unassigned']).isEmpty) Text('None.', style: TextStyle(color: c.muted)),
+                    for (final p in asList(d['unassigned'])) _job(p),
+                    _head('Given to a rider, not started', asList(d['not_started']).length),
+                    if (asList(d['not_started']).isEmpty) Text('None.', style: TextStyle(color: c.muted)),
+                    for (final j in asList(d['not_started']))
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+                        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+                        child: Row(children: [
+                          CircleAvatar(radius: 18, backgroundColor: Alvy.slateSoft, child: Icon(Icons.two_wheeler, size: 18, color: Alvy.slate)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${j['rider']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                              Text('${j['tracking']} · ${j['kind']} · since ${formatDateTime(j['since'])}',
+                                  maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                            ]),
+                          ),
+                          TextButton(onPressed: () => _assign(j, reassign: true), child: const Text('Reassign', style: TextStyle(fontWeight: FontWeight.w700))),
+                        ]),
                       ),
-                    ),
-                  title('Riders'),
-                  for (final r in _riders)
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.circle, size: 12, color: r['online'] == true ? const Color(0xFF15803D) : c.muted),
-                      title: Text('${r['full_name']}'),
-                      subtitle: Text('${r['area'] ?? '—'} · ${r['status_label']}'),
-                      trailing: Text('${r['active_jobs']}/${d['max_active']} jobs'),
-                    ),
-                ]),
+                  ];
+                  final riders = <Widget>[
+                    // The design's "Hub Bay Check-in Dock": each rider with jobs and status.
+                    _head('Rider Check-in', _riders.length),
+                    for (final r in _riders)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: cardBox(context, radius: 14),
+                        child: Row(children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(color: r['online'] == true ? Alvy.orangeSoft : c.subtle, borderRadius: BorderRadius.circular(10)),
+                            child: Icon(Icons.two_wheeler, size: 20, color: r['online'] == true ? kOrange : c.muted),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${r['full_name']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                              Text('${r['area'] ?? '—'}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                            ]),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(8)),
+                            child: Text('${r['active_jobs']} job${asInt(r['active_jobs']) == 1 ? '' : 's'}',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: c.text)),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('${r['status_label']}',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: r['online'] == true ? const Color(0xFF15803D) : c.muted)),
+                        ]),
+                      ),
+                  ];
+                  // Tablet: the design's dispatch deck — the fleet and rider check-in beside the job queue.
+                  if (box.maxWidth < 760) {
+                    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [...top, ...jobs, ...riders]);
+                  }
+                  return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(flex: 4, child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 8, 90), children: [...top, ...riders])),
+                    Expanded(flex: 5, child: ListView(padding: const EdgeInsets.fromLTRB(8, 0, 16, 90), children: jobs)),
+                  ]);
+                }),
               ),
       ),
+    );
+  }
+
+  Widget _head(String title, int count, {String? note}) {
+    final c = context.bc;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Flexible(child: Text(title, style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700))),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+            decoration: BoxDecoration(color: count > 0 ? Alvy.orangeSoft : c.subtle, borderRadius: BorderRadius.circular(99)),
+            child: Text('$count', style: TextStyle(fontWeight: FontWeight.w800, color: count > 0 ? Alvy.orangeDark : c.textSecondary)),
+          ),
+        ]),
+        if (note != null) Text(note, style: TextStyle(fontSize: 12, color: c.textSecondary)),
+      ]),
     );
   }
 }
@@ -225,9 +406,11 @@ class _RidersScreenState extends State<RidersScreen> {
     if (body['has_municipality'] != true) {
       return showError(context, 'Assign a municipality to your account before adding riders.');
     }
-    final saved = await Navigator.push<bool>(context, MaterialPageRoute(
-      builder: (_) => AddRiderScreen(barangays: asList(body['barangays']), municipality: '${body['municipality'] ?? ''}'),
-    ));
+    final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddRiderScreen(barangays: asList(body['barangays']), municipality: '${body['municipality'] ?? ''}'),
+        ));
     if (saved == true) _list.currentState?.reload();
   }
 
@@ -246,22 +429,84 @@ class _RidersScreenState extends State<RidersScreen> {
         label: const Text('Add rider'),
       ),
       fetch: (page, tab) => LogisticsApi.riders(tab: tab ?? 'all', page: page),
-      itemBuilder: (ctx, r, reload) => Card(
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          onTap: () async {
-            await Navigator.push(ctx, MaterialPageRoute(builder: (_) => RiderDetailScreen(riderId: asInt(r['id']))));
-            reload();
-          },
-          leading: Icon(Icons.two_wheeler, color: r['online'] == true ? const Color(0xFF15803D) : ctx.bc.muted),
-          title: Text('${r['full_name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text([r['area'] ?? '—', '${r['vehicle_type'] ?? ''} ${r['plate_number'] ?? ''}'.trim(), if (r['needs_reverification'] == true) 'Re-verify vehicle']
-              .where((e) => '$e'.isNotEmpty)
-              .join(' · ')),
-          trailing: Pill('${r['status_label']}', color: Pill.forState('${r['status_label']}'.toLowerCase() == 'suspended' ? 'off' : '${r['status_label']}')),
-        ),
-      ),
+      // The design's courier card: initials with a vehicle badge, name and vehicle, status, then the zone strip.
+      itemBuilder: (ctx, r, reload) {
+        final c = ctx.bc;
+        final name = '${r['full_name']}';
+        final initials = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
+        final online = r['online'] == true;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: cardBox(ctx, radius: 18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () async {
+              await Navigator.push(ctx, MaterialPageRoute(builder: (_) => RiderDetailScreen(riderId: asInt(r['id']))));
+              reload();
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  Stack(clipBehavior: Clip.none, children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: c.subtle,
+                      child: Text(initials, style: Alvy.display(size: 15, color: Alvy.slate, weight: FontWeight.w800)),
+                    ),
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: online ? kOrange : c.muted,
+                        child: const Icon(Icons.two_wheeler, size: 12, color: Colors.white),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
+                      Text('${r['vehicle_type'] ?? ''} ${r['plate_number'] ?? ''}'.trim(),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+                    ]),
+                  ),
+                  Pill('${r['status_label']}', color: Pill.forState('${r['status_label']}'.toLowerCase() == 'suspended' ? 'off' : '${r['status_label']}')),
+                ]),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(color: online ? Alvy.orangeSoft : c.subtle, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    Icon(Icons.circle, size: 8, color: online ? kOrange : c.muted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child:
+                          Text(online ? 'Online' : 'Offline', style: TextStyle(fontWeight: FontWeight.w700, color: online ? Alvy.orangeDark : c.textSecondary)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: Alvy.navyFill, borderRadius: BorderRadius.circular(6)),
+                      child:
+                          Text('${r['area'] ?? '—'}'.toUpperCase(), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ),
+                  ]),
+                ),
+                if (r['needs_reverification'] == true)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Row(children: [
+                      Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFB45309)),
+                      SizedBox(width: 6),
+                      Text('Re-verify vehicle', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+                    ]),
+                  ),
+              ]),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -326,7 +571,7 @@ class _RiderDetailScreenState extends State<RiderDetailScreen> {
         onRetry: _load,
         child: r == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
                 Row(children: [
                   Pill('${r['status_label']}', color: Pill.forState('${r['status_label']}' == 'Suspended' ? 'off' : '${r['status_label']}')),
                   const SizedBox(width: 6),
@@ -339,22 +584,26 @@ class _RiderDetailScreenState extends State<RiderDetailScreen> {
                     row('Email', r['email']),
                     row('Barangay', r['area']),
                     row('Vehicle', '${r['vehicle_type'] ?? '—'} · ${r['plate_number'] ?? '—'}'),
-                    row('License', '${r['license_number'] ?? '—'} · expires ${r['license_expiry'] != null ? formatDate(r['license_expiry'], 'MM/dd/yyyy') : '—'}'),
+                    row('License',
+                        '${r['license_number'] ?? '—'} · expires ${r['license_expiry'] != null ? formatDate(r['license_expiry'], 'MM/dd/yyyy') : '—'}'),
                     row('Active jobs', r['active_jobs']),
                     row('COD balance', peso(r['cod_balance'])),
                     row('COD to confirm', peso(r['cod_pending'])),
-                    row('Hub transfers', r['can_transport_transfers'] == true
-                        ? 'Allowed to carry parcels between sorting centers'
-                        : 'Last-mile only (not allowed to carry hub transfers)'),
+                    row(
+                        'Hub transfers',
+                        r['can_transport_transfers'] == true
+                            ? 'Allowed to carry parcels between sorting centers'
+                            : 'Last-mile only (not allowed to carry hub transfers)'),
                     if (r['rejection_reason'] != null) row('Rejected', r['rejection_reason']),
                   ]),
                 ),
                 if (r['needs_reverification'] == true)
                   Card(
-                    color: const Color(0xFFFFF7ED),
+                    color: Alvy.warnSoft,
                     child: ListTile(
-                      title: const Text('Vehicle changed: check the new OR/CR', style: TextStyle(color: Color(0xFF9A3412))),
-                      trailing: FilledButton(style: FilledButton.styleFrom(backgroundColor: kOrange), onPressed: () => _do('verify'), child: const Text('Verified')),
+                      title: Text('Vehicle changed: check the new OR/CR', style: TextStyle(color: Alvy.warnText)),
+                      trailing:
+                          FilledButton(style: FilledButton.styleFrom(backgroundColor: kOrange), onPressed: () => _do('verify'), child: const Text('Verified')),
                     ),
                   ),
                 Wrap(spacing: 8, children: [
@@ -384,14 +633,15 @@ class _RiderDetailScreenState extends State<RiderDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 if (r['application_status'] == 'pending_activation')
-                  BusyButton('Resend activation email', busy: false, icon: Icons.forward_to_inbox,
-                      onPressed: () => act(context, () => LogisticsApi.resendRiderActivation(widget.riderId))),
+                  BusyButton('Resend activation email',
+                      busy: false, icon: Icons.forward_to_inbox, onPressed: () => act(context, () => LogisticsApi.resendRiderActivation(widget.riderId))),
                 if (r['application_status'] == 'pending') ...[
                   BusyButton('Approve', busy: false, color: const Color(0xFF15803D), onPressed: () => _do('approve')),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: () async {
-                      final reason = await showReasonDialog(context, title: 'Reject rider', message: 'They are told the reason (10 to 300 characters).', confirmLabel: 'Reject', maxLength: 300);
+                      final reason = await showReasonDialog(context,
+                          title: 'Reject rider', message: 'They are told the reason (10 to 300 characters).', confirmLabel: 'Reject', maxLength: 300);
                       if (reason != null) _do('reject', {'reason': reason});
                     },
                     child: const Text('Reject'),
@@ -403,7 +653,10 @@ class _RiderDetailScreenState extends State<RiderDetailScreen> {
                           style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
                           onPressed: () async {
                             final reason = await showReasonDialog(context,
-                                title: 'Suspend rider', message: 'They go Offline and get no jobs. Give the reason (10 to 300 characters).', confirmLabel: 'Suspend', maxLength: 300);
+                                title: 'Suspend rider',
+                                message: 'They go Offline and get no jobs. Give the reason (10 to 300 characters).',
+                                confirmLabel: 'Suspend',
+                                maxLength: 300);
                             if (reason != null) _do('toggle', {'reason': reason});
                           },
                           child: const Text('Suspend'),
@@ -434,66 +687,178 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       fetch: (page, tab) => LogisticsApi.remittances(date: _date, page: page),
       header: (ctx, body, reload) {
         final c = ctx.bc;
+        final riders = asList(body['riders']);
+        final onHand = riders.fold<num>(0, (t, r) => t + asNum(r['balance']));
+        final toConfirm = riders.fold<num>(0, (t, r) => t + asNum(r['pending']));
+        String initials(String n) => n.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SectionCard(
-            title: 'Riders\' COD',
-            child: Column(children: [
-              for (final r in asList(body['riders']))
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('${r['name']}'),
-                  subtitle: Text('Collected ${peso(r['collected'])} · to confirm ${peso(r['pending'])}'),
-                  trailing: Text(peso(r['balance']), style: const TextStyle(fontWeight: FontWeight.w800)),
+          // The design's navy vault card: the cash riders still hold.
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Alvy.navyFill, borderRadius: BorderRadius.circular(20)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.verified_user_outlined, size: 16, color: Colors.white70),
+                SizedBox(width: 6),
+                Text('COD HELD BY RIDERS', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+              ]),
+              const SizedBox(height: 6),
+              Text(peso(onHand), style: Alvy.display(size: 28, color: Colors.white, weight: FontWeight.w800)),
+              const SizedBox(height: 10),
+              Row(children: [
+                const Icon(Icons.hourglass_bottom, size: 15, color: Colors.white70),
+                const SizedBox(width: 6),
+                Expanded(child: Text('${peso(toConfirm)} waiting for you to confirm', style: const TextStyle(color: Colors.white, fontSize: 12.5))),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(99)),
+                  child: Text('${riders.length} riders', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                ),
+              ]),
+            ]),
+          ),
+          // The design's "Next Riders in Counter Queue".
+          if (riders.isNotEmpty) ...[
+            Text('Rider Counter Queue', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            for (final r in riders)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: cardBox(ctx, radius: 14),
+                child: Row(children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: c.subtle,
+                    child: Text(initials('${r['name']}'), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Alvy.slate)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${r['name']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                      Text('Collected ${peso(r['collected'])}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                    ]),
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(peso(r['balance']), style: Alvy.display(size: 15, color: c.text, weight: FontWeight.w800)),
+                    Text(asNum(r['pending']) > 0 ? 'To confirm ${peso(r['pending'])}' : 'Settled',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: asNum(r['pending']) > 0 ? kOrange : Alvy.slate)),
+                  ]),
+                ]),
+              ),
+            const SizedBox(height: 8),
+          ],
+          // The design's "Shift Settlement Ledger": the day's reconciliation.
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
+            decoration: cardBox(ctx, radius: 20),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: Text('Settlement Ledger', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700))),
+                InkWell(
+                  borderRadius: BorderRadius.circular(99),
+                  onTap: () async {
+                    final p = await showDatePicker(context: ctx, firstDate: DateTime(2020), lastDate: DateTime.now(), initialDate: DateTime.now());
+                    if (p != null) {
+                      _date = ymd(p);
+                      reload();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(99)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.event, size: 14, color: kOrange),
+                      const SizedBox(width: 5),
+                      Text(formatDate(body['date']), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.text)),
+                    ]),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              if (asList(body['daily']).isEmpty) Text('No COD collected or remitted on this day.', style: TextStyle(color: c.muted)),
+              for (final d in asList(body['daily']))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(10)),
+                      child: Icon(Icons.payments_outlined, size: 18, color: Alvy.slate),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${d['rider']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                        Text('Collected ${peso(d['collected'])} · remitted ${peso(d['remitted'])}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                      ]),
+                    ),
+                    Text(peso(d['difference']),
+                        style: TextStyle(fontWeight: FontWeight.w800, color: asNum(d['difference']) < 0 ? const Color(0xFFDC2626) : Alvy.slate)),
+                  ]),
                 ),
             ]),
           ),
-          SectionCard(
-            title: 'Daily reconciliation · ${formatDate(body['date'])}',
-            trailing: IconButton(
-              icon: const Icon(Icons.event),
-              onPressed: () async {
-                final p = await showDatePicker(context: ctx, firstDate: DateTime(2020), lastDate: DateTime.now(), initialDate: DateTime.now());
-                if (p != null) {
-                  _date = ymd(p);
-                  reload();
-                }
-              },
-            ),
-            child: asList(body['daily']).isEmpty
-                ? Text('No COD collected or remitted on this day.', style: TextStyle(color: c.muted))
-                : Column(children: [
-                    for (final d in asList(body['daily']))
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${d['rider']}'),
-                        subtitle: Text('Collected ${peso(d['collected'])} · remitted ${peso(d['remitted'])}'),
-                        trailing: Text(peso(d['difference']),
-                            style: TextStyle(fontWeight: FontWeight.w800, color: asNum(d['difference']) < 0 ? const Color(0xFFDC2626) : const Color(0xFF15803D))),
-                      ),
-                  ]),
-          ),
-          Text('Remittances', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-          const SizedBox(height: 6),
+          Text('Remittances', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+          const SizedBox(height: 10),
         ]);
       },
-      itemBuilder: (ctx, r, reload) => Card(
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          title: Text('${r['rider']} · ${peso(r['amount'])}', style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text('Expected ${peso(r['expected'])}${asNum(r['shortfall']) > 0 ? ' · short ${peso(r['shortfall'])}' : ''}\n${formatDateTime(r['created_at'])}'),
-          isThreeLine: true,
-          trailing: r['status'] == 'pending'
-              ? FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: kOrange),
-                  onPressed: () => act(ctx, () => LogisticsApi.confirmRemittance(asInt(r['id'])), then: reload),
-                  child: const Text('Confirm'),
-                )
-              : const Pill('Confirmed', color: Color(0xFF15803D)),
-        ),
-      ),
+      // Each remittance as the design's clearance card.
+      itemBuilder: (ctx, r, reload) {
+        final c = ctx.bc;
+        final pending = r['status'] == 'pending';
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: cardBox(ctx, radius: 18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              CircleAvatar(radius: 18, backgroundColor: Alvy.orangeSoft, child: const Icon(Icons.two_wheeler, size: 18, color: kOrange)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${r['rider']}', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
+                  Text(formatDateTime(r['created_at']), style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                ]),
+              ),
+              if (!pending) const Pill('Confirmed', color: Color(0xFF15803D)),
+            ]),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+              child: Column(children: [
+                Row(children: [
+                  Expanded(child: Text('Expected COD', style: TextStyle(color: c.textSecondary))),
+                  Text(peso(r['expected']), style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+                ]),
+                if (asNum(r['shortfall']) > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: [
+                      const Expanded(child: Text('Short', style: TextStyle(color: Color(0xFFDC2626)))),
+                      Text('− ${peso(r['shortfall'])}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFDC2626))),
+                    ]),
+                  ),
+                Divider(color: c.border),
+                Row(children: [
+                  Expanded(
+                      child: Text('CASH HANDED OVER', style: TextStyle(fontSize: 11.5, letterSpacing: 0.4, fontWeight: FontWeight.w800, color: Alvy.slate))),
+                  Text(peso(r['amount']), style: Alvy.display(size: 20, color: kOrange, weight: FontWeight.w800)),
+                ]),
+              ]),
+            ),
+            if (pending) ...[
+              const SizedBox(height: 10),
+              BusyButton('Confirm Remittance',
+                  busy: false, icon: Icons.verified_outlined, onPressed: () => act(ctx, () => LogisticsApi.confirmRemittance(asInt(r['id'])), then: reload)),
+            ],
+          ]),
+        );
+      },
     );
   }
 }

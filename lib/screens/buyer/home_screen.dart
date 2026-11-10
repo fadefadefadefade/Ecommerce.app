@@ -13,10 +13,8 @@ import '../../widgets/buyer_kit.dart';
 import '../../widgets/buyer_product_card.dart';
 import '../../widgets/live_refresh.dart';
 import '../../widgets/net_image.dart';
-import 'account/collections_screens.dart' show VoucherCenterScreen, WishlistScreen;
 import 'account/notifications_screen.dart';
 import 'buyer_main_screen.dart';
-import 'chat_screen.dart';
 import 'shop_screen.dart';
 
 /// The home page (the design's "Home Marketplace"): search, the photo hero, category tiles and the category
@@ -38,7 +36,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
   @override
   Future<void> onLiveRefresh() => _load(silent: true);
 
-  final _search = TextEditingController();
   List<dynamic> featured = [];
   List<dynamic> trending = [];
   List<dynamic> categories = [];
@@ -95,7 +92,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
   void dispose() {
     appRouteObserver.unsubscribe(this);
     _shell?.tabNotifier.removeListener(_onTab);
-    _search.dispose();
     super.dispose();
   }
 
@@ -116,11 +112,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
       banners = r.body['banners'] as List? ?? const [];
       if (_tileSlugs.isEmpty) _pickTiles();
     });
-  }
-
-  void _searchFor(String q) {
-    if (q.trim().isEmpty) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => ShopScreen(initialSearch: q.trim())));
   }
 
   void _refreshCart() => BuyerMainScreen.of(context)?.refreshCartCount();
@@ -147,50 +138,56 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
               SliverAppBar(
                 pinned: true,
                 automaticallyImplyLeading: false,
-                toolbarHeight: 64,
-                expandedHeight: 128,
+                toolbarHeight: 68,
                 titleSpacing: 16,
                 title: Row(children: [
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 40,
+                    height: 40,
                     padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: Alvy.isDark ? const Color(0xFFFFE4DC) : Alvy.orangeSoft, borderRadius: BorderRadius.circular(12)),
                     child: Image.asset('assets/images/logo-mark.png', fit: BoxFit.contain),
                   ),
-                  const SizedBox(width: 10),
-                  Text('ALVY', style: Alvy.display(size: 23, color: context.bc.text)),
+                  const SizedBox(width: 8),
+                  Text('ALVY', style: Alvy.display(size: 21, color: context.bc.text, weight: FontWeight.w800)),
                 ]),
+                // The design's header icons: search, notifications, the cart with its count, the profile button.
                 actions: [
                   IconButton(
-                    tooltip: 'Voucher Center',
-                    icon: const Icon(Icons.confirmation_number_outlined),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherCenterScreen())),
-                  ),
-                  IconButton(
-                    tooltip: 'Wishlist',
-                    icon: const Icon(Icons.favorite_border_rounded),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistScreen())),
+                    tooltip: 'Search',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.search_rounded),
+                    onPressed: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop),
                   ),
                   IconButton(
                     tooltip: 'Notifications',
+                    visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.notifications_none_rounded),
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                   ),
-                  IconButton(
-                    tooltip: 'Messages',
-                    icon: const Icon(Icons.chat_bubble_outline_rounded),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen())),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _shell?.cartNotifier ?? ValueNotifier<int>(0),
+                    builder: (_, n, __) => IconButton(
+                      tooltip: 'Cart',
+                      visualDensity: VisualDensity.compact,
+                      icon: Badge(
+                        isLabelVisible: n > 0,
+                        label: Text(n > 99 ? '99+' : '$n'),
+                        backgroundColor: kOrange,
+                        child: const Icon(Icons.shopping_bag_outlined),
+                      ),
+                      onPressed: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabCart),
+                    ),
                   ),
-                  const SizedBox(width: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, right: 12),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabAccount),
+                      child: const CircleAvatar(radius: 15, backgroundColor: kOrange, child: Icon(Icons.person_outline, color: Colors.white, size: 20)),
+                    ),
+                  ),
                 ],
-                bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(64),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _SearchBar(controller: _search, onSearch: _searchFor),
-                  ),
-                ),
               ),
             // The photo hero (phones and tablets).
             SliverToBoxAdapter(
@@ -211,7 +208,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
             ),
             // Category photo tiles under the hero.
             if (categories.length >= 2) SliverToBoxAdapter(child: _miniTiles()),
-            SliverToBoxAdapter(child: _perks()),
             if (categories.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: SectionTitle('Categories',
@@ -222,7 +218,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
             SliverToBoxAdapter(
               child: SectionTitle('New Arrivals', action: 'See all', onAction: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop)),
             ),
-            _grid(featured),
+            _row(featured),
             SliverToBoxAdapter(
               child: SectionTitle('Best Sellers', action: 'See all', onAction: () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop)),
             ),
@@ -281,51 +277,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
     );
   }
 
-  /// Quick links: Voucher Center, free shipping, wishlist and the shops.
-  Widget _perks() {
-    final c = context.bc;
-    Widget perk(IconData icon, String label, Color color, VoidCallback onTap) => Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.10), shape: BoxShape.circle),
-                  child: Icon(icon, color: color, size: 22),
-                ),
-                const SizedBox(height: 7),
-                Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: c.text)),
-              ]),
-            ),
-          ),
-        );
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: cardBox(context),
-      child: Row(children: [
-        perk(Icons.confirmation_number_outlined, 'Vouchers', kOrange,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherCenterScreen()))),
-        perk(Icons.local_shipping_outlined, 'Free shipping', Alvy.slate,
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoucherCenterScreen()))),
-        perk(Icons.favorite_border, 'Wishlist', const Color(0xFFDC2626),
-            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WishlistScreen()))),
-        perk(Icons.storefront_outlined, 'All shops', const Color(0xFF16A34A), () => BuyerMainScreen.of(context)?.goTo(BuyerMainScreenState.tabShop)),
-      ]),
-    );
-  }
-
   /// The category rail: round photos on a white ring with the name under each.
   Widget _categoryCircles() {
     final c = context.bc;
     final wide = Responsive.isWide(context);
-    final size = wide ? 80.0 : 64.0;
+    final size = wide ? 84.0 : 70.0;
     return SizedBox(
-      height: wide ? 140 : 114,
+      height: wide ? 146 : 122,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 10),
         scrollDirection: Axis.horizontal,
@@ -336,7 +294,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
             borderRadius: BorderRadius.circular(12),
             onTap: () => _openCategory(cat),
             child: SizedBox(
-              width: wide ? 112 : 80,
+              width: wide ? 112 : 86,
               child: Column(children: [
                 const SizedBox(height: 4),
                 Container(
@@ -364,6 +322,27 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
     );
   }
 
+  /// A horizontal row of product cards (the design's "Flash Deals" strip): two cards on screen, swipe for more.
+  Widget _row(List items) {
+    if (items.isEmpty) return _grid(items);
+    final w = Responsive.isWide(context) ? 200.0 : (MediaQuery.of(context).size.width - 44) / 2;
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: w / 0.6,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, i) => SizedBox(
+            width: w,
+            child: BuyerProductCard(product: Map<String, dynamic>.from(items[i]), onCartChanged: _refreshCart),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _grid(List items) => items.isEmpty
       ? SliverToBoxAdapter(
           child: Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('No products yet.', style: TextStyle(color: context.bc.muted)))),
@@ -378,52 +357,4 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> with LiveRefresh, Rou
             children: [for (final p in items) BuyerProductCard(product: Map<String, dynamic>.from(p), onCartChanged: _refreshCart)],
           ),
         );
-}
-
-/// The design's search shell: beige, rounded, with the orange search button inside.
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final ValueChanged<String> onSearch;
-  const _SearchBar({required this.controller, required this.onSearch});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.bc;
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [
-        const SizedBox(width: 14),
-        Icon(Icons.search, color: c.muted, size: 21),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            textInputAction: TextInputAction.search,
-            onSubmitted: onSearch,
-            style: TextStyle(color: c.text, fontSize: 14.5),
-            decoration: const InputDecoration(
-              hintText: 'Search products, brands, categories…',
-              filled: false,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 13),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(5),
-          child: Material(
-            color: kOrange,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => onSearch(controller.text),
-              child: const SizedBox(width: 44, height: 38, child: Icon(Icons.search, color: Colors.white, size: 20)),
-            ),
-          ),
-        ),
-      ]),
-    );
-  }
 }

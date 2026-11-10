@@ -194,7 +194,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 16)),
         actions: [
-          if (p != null)
+          if (p != null && Responsive.isWide(context))
             IconButton(
               icon: Icon(
                   p!['wished'] == true ? Icons.favorite : Icons.favorite_border,
@@ -236,7 +236,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             customBorder: const CircleBorder(),
             onTap: () => gallery.animateToPage((image + step + slides) % slides,
                 duration: const Duration(milliseconds: 250), curve: Curves.easeOut),
-            child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 22, color: const Color(0xFF222222))),
+            child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 22, color: Alvy.navy)),
           ),
         );
     final galleryBox = Container(
@@ -298,7 +298,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         ]),
                       ),
                       Positioned(
-                        right: 12,
+                        left: 12,
                         top: 12,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -308,100 +308,119 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         ),
                       ),
                     ],
+                    // The wishlist heart on the photo (the design's white round button).
+                    if (!wide)
+                      Positioned(
+                        right: 12,
+                        top: 12,
+                        child: Material(
+                          color: Alvy.surface,
+                          shape: const CircleBorder(),
+                          elevation: 2,
+                          shadowColor: const Color(0x332A1A10),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _toggleWish,
+                            child: SizedBox(
+                              width: 42,
+                              height: 42,
+                              child: Icon(p!['wished'] == true ? Icons.favorite : Icons.favorite_border,
+                                  size: 21, color: p!['wished'] == true ? kOrange : Alvy.navy),
+                            ),
+                          ),
+                        ),
+                      ),
                   ]),
           ),
     );
+
+    final stockNow = v != null ? asNum(v['stock']).toInt() : asNum(p!['stock']).toInt();
+    // The design's product header: store (with category) and the rating chip, the name, the price with the
+    // struck-through price and "% OFF", then a green "In stock" strip. Phones: one white card; tablets: on the page.
+    final header = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        if (p!['seller'] != null) ...[
+          Flexible(
+            child: Text('${p!['seller']['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Alvy.slate)),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.verified_outlined, size: 15, color: Alvy.slate),
+        ],
+        if (asMap(p!['details'])['Category'] != null) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(6)),
+              child: Text('${asMap(p!['details'])['Category']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.bc.textSecondary)),
+            ),
+          ),
+        ],
+        const Spacer(),
+        if (p!['rating'] != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(6)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.star_border_rounded, size: 15, color: Color(0xFFF59E0B)),
+              Text(' ${asNum(p!['rating']).toStringAsFixed(1)} (${p!['rating_count']})',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.bc.text)),
+            ]),
+          ),
+      ]),
+      const SizedBox(height: 10),
+      Text(p!['title'], style: Alvy.display(size: wide ? 30 : 26, color: context.bc.text, weight: FontWeight.w600)),
+      const SizedBox(height: 10),
+      if (flash != null) _flashBanner(flash),
+      Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 10, runSpacing: 4, children: [
+        Text(
+          v == null && p!['price_range'] != null ? '${peso(p!['price_range'][0])} – ${peso(p!['price_range'][1])}' : peso(price),
+          style: Alvy.display(size: wide ? 32 : 26, color: kOrange, weight: FontWeight.w700),
+        ),
+        if (p!['original_price'] != null && (v == null && p!['price_range'] == null)) ...[
+          Text(peso(p!['original_price']), style: TextStyle(fontSize: 16, decoration: TextDecoration.lineThrough, color: context.bc.muted)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(20)),
+            child: Text('${p!['discount_percent']}% OFF',
+                style: TextStyle(fontSize: 11.5, color: Alvy.dangerText, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ]),
+      if (p!['sale_ends_at'] != null && flash == null)
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text('Sale ends ${formatDateTime(p!['sale_ends_at'])}', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+        ),
+      if (upcoming != null) _upcomingBanner(upcoming),
+      const SizedBox(height: 12),
+      // The stock strip: green when in stock, red when sold out.
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: stockNow > 0 ? Alvy.successSoft : Alvy.dangerSoft,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(children: [
+          Icon(stockNow > 0 ? Icons.bolt_rounded : Icons.block, size: 17, color: stockNow > 0 ? const Color(0xFF15803D) : const Color(0xFFDC2626)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              stockNow > 0 ? 'In stock · $stockNow available · ${p!['sold']} sold' : 'Out of stock · ${p!['sold']} sold',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: stockNow > 0 ? const Color(0xFF15803D) : Alvy.dangerText),
+            ),
+          ),
+        ]),
+      ),
+    ]);
 
     final info = Padding(
           padding: EdgeInsets.fromLTRB(16, wide ? 12 : 4, 16, 12),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            // Store / category line with the rating chip on the right (the design's product header).
-            Row(children: [
-              Expanded(
-                child: Text(
-                  [
-                    if (p!['seller'] != null) '${p!['seller']['name']}',
-                    if (asMap(p!['details'])['Category'] != null) '${asMap(p!['details'])['Category']}',
-                  ].join('  ·  '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Alvy.slate),
-                ),
-              ),
-              if (p!['rating'] != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(20)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
-                    Text(' ${asNum(p!['rating']).toStringAsFixed(1)} (${p!['rating_count']})',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.bc.text)),
-                  ]),
-                ),
-            ]),
-            const SizedBox(height: 6),
-            Text(p!['title'],
-                style: Alvy.display(size: wide ? 30 : 24, color: context.bc.text, weight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text('${p!['sold']} sold', style: TextStyle(fontSize: 12.5, color: context.bc.muted)),
-            const SizedBox(height: 12),
-
-            // Price (tablet: on the page like the website, with "In stock · N available"; phone: in a card)
-            (wide
-                ? (Widget w) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        w,
-                        const SizedBox(height: 6),
-                        Builder(builder: (_) {
-                          final n = v != null ? asNum(v['stock']).toInt() : asNum(p!['stock']).toInt();
-                          return Row(children: [
-                            Icon(Icons.circle, size: 9, color: n > 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
-                            const SizedBox(width: 6),
-                            Text(n > 0 ? 'In stock' : 'Out of stock', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.text)),
-                            if (n > 0) Text('  ·  $n available', style: TextStyle(color: context.bc.muted)),
-                          ]);
-                        }),
-                        const Divider(height: 28),
-                      ]),
-                    )
-                : (Widget w) => SectionCard(child: w))(
-              Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (flash != null) _flashBanner(flash),
-                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text(
-                        v == null && p!['price_range'] != null
-                            ? '${peso(p!['price_range'][0])} – ${peso(p!['price_range'][1])}'
-                            : peso(price),
-                        style: Alvy.display(size: wide ? 32 : 26, color: kOrange, weight: FontWeight.w700),
-                      ),
-                      if (p!['original_price'] != null &&
-                          (v == null && p!['price_range'] == null)) ...[
-                        const SizedBox(width: 8),
-                        Text(peso(p!['original_price']),
-                            style: TextStyle(
-                                decoration: TextDecoration.lineThrough,
-                                color: context.bc.muted)),
-                        const SizedBox(width: 8),
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(20)),
-                          child: Text('${p!['discount_percent']}% OFF',
-                              style: const TextStyle(fontSize: 11.5, color: Color(0xFFBA1A1A), fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ]),
-                    if (p!['sale_ends_at'] != null && flash == null)
-                      Text('Sale ends ${formatDateTime(p!['sale_ends_at'])}',
-                          style:
-                              TextStyle(fontSize: 12, color: context.bc.muted)),
-                    if (upcoming != null) _upcomingBanner(upcoming),
-                  ]),
-            ),
+            if (wide) ...[header, const Divider(height: 28)] else SectionCard(padding: const EdgeInsets.all(18), child: header),
 
             // Options + quantity
             if (hasOptions) _options(),
@@ -410,14 +429,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               Text('Quantity', style: TextStyle(color: context.bc.text, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               Row(children: [
-                Container(
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: context.bc.subtle),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(onPressed: quantity > 1 ? () => setState(() => quantity--) : null, icon: const Icon(Icons.remove, size: 18)),
-                    SizedBox(width: 36, child: Text('$quantity', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-                    IconButton(onPressed: quantity < maxQty ? () => setState(() => quantity++) : null, icon: const Icon(Icons.add, size: 18)),
-                  ]),
-                ),
+                QuantityStepper(value: quantity, max: maxQty, height: 46, onChanged: (n) => setState(() => quantity = n)),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: _toggleWish,
@@ -435,27 +447,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 Text('Quantity',
                     style: TextStyle(
                         color: context.bc.text, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                IconButton(
-                    onPressed:
-                        quantity > 1 ? () => setState(() => quantity--) : null,
-                    icon: const Icon(Icons.remove)),
-                Text('$quantity',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700)),
-                IconButton(
-                    onPressed: quantity < maxQty
-                        ? () => setState(() => quantity++)
-                        : null,
-                    icon: const Icon(Icons.add)),
-                const SizedBox(width: 6),
-                Flexible(
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     '${v != null ? asNum(v['stock']).toInt() : asNum(p!['stock']).toInt()} available',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: context.bc.muted),
                   ),
                 ),
+                // Type the amount for large orders, or tap − / +.
+                QuantityStepper(value: quantity, max: maxQty, onChanged: (n) => setState(() => quantity = n)),
               ]),
             ),
             Builder(builder: (_) {
@@ -506,94 +507,96 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             // Seller
             if (p!['seller'] != null)
               SectionCard(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: const Color(0xFFFFDBD1),
-                          child: Text(
-                              (p!['seller']['name'] as String)
-                                  .substring(0, 1)
-                                  .toUpperCase(),
-                              style: Alvy.display(size: 19, color: kOrange)),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Sold by',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF8A716A))),
-                                Text(p!['seller']['name'],
-                                    style: Alvy.display(size: 17, color: context.bc.text, weight: FontWeight.w700)),
-                              ]),
-                        ),
-                      ]),
-                      const SizedBox(height: 14),
-                      Row(children: [
-                        Expanded(
-                            child: OutlinedButton.icon(
-                          onPressed: _chat,
-                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                          label: const Text('Chat'),
-                        )),
-                        const SizedBox(width: 10),
-                        Expanded(
-                            child: OutlinedButton(
-                          onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => StoreScreen(
-                                      sellerId: p!['seller']['id']))),
-                          style: OutlinedButton.styleFrom(backgroundColor: Colors.transparent, side: BorderSide(color: context.bc.border, width: 1.5)),
-                          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Text('View Store'),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward, size: 16),
-                          ]),
-                        )),
-                      ]),
-                    ]),
-              ),
-
-            // Details, specs, description
-            if (asMap(p!['details']).isNotEmpty ||
-                asMap(p!['specs']).isNotEmpty)
-              SectionCard(
-                title: 'Product details',
-                child: Column(children: [
-                  for (final e in {
-                    ...asMap(p!['details']),
-                    ...asMap(p!['specs'])
-                  }.entries)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                                width: 110,
-                                child: Text('${e.key}',
-                                    style: TextStyle(
-                                        color: context.bc.muted,
-                                        fontSize: 13))),
-                            Expanded(
-                                child: Text('${e.value}',
-                                    style: TextStyle(
-                                        color: context.bc.text, fontSize: 13))),
-                          ]),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Alvy.orangeSoft,
+                      child: p!['seller']['logo_url'] != null
+                          ? ClipOval(child: NetImage(p!['seller']['logo_url'], width: 48, height: 48, fit: BoxFit.cover))
+                          : Text((p!['seller']['name'] as String).substring(0, 1).toUpperCase(), style: Alvy.display(size: 19, color: kOrange)),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Flexible(
+                            child: Text(p!['seller']['name'], maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: Alvy.display(size: 17, color: context.bc.text, weight: FontWeight.w700)),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.verified_outlined, size: 16, color: Alvy.slate),
+                        ]),
+                        Text('Seller', style: TextStyle(fontSize: 12, color: context.bc.textSecondary)),
+                      ]),
+                    ),
+                    if (asNum(p!['rating_count']) > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
+                          const SizedBox(width: 3),
+                          Text(asNum(p!['rating']).toStringAsFixed(1), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                  ]),
+                  const SizedBox(height: 14),
+                  Row(children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _chat,
+                        style: FilledButton.styleFrom(backgroundColor: context.bc.subtle, foregroundColor: context.bc.text, minimumSize: const Size.fromHeight(44)),
+                        icon: Icon(Icons.chat_outlined, size: 18, color: Alvy.slate),
+                        label: const FittedBox(child: Text('Chat with Shop', maxLines: 1, style: TextStyle(fontWeight: FontWeight.w600))),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StoreScreen(sellerId: p!['seller']['id']))),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: context.bc.surface,
+                          minimumSize: const Size.fromHeight(44),
+                          side: BorderSide(color: context.bc.border, width: 1.5),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text('View Store', style: TextStyle(color: context.bc.text, fontWeight: FontWeight.w600)),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_forward, size: 16, color: context.bc.text),
+                        ]),
+                      ),
+                    ),
+                  ]),
                 ]),
               ),
-            if ((p!['description'] ?? '').toString().isNotEmpty)
+
+            // Details, specs, description: one card of icon rows, like the design's "Material & Craft" card.
+            if (asMap(p!['details']).isNotEmpty || asMap(p!['specs']).isNotEmpty || (p!['description'] ?? '').toString().isNotEmpty)
               SectionCard(
-                  title: 'Description',
-                  child: Text(p!['description'],
-                      style: TextStyle(color: context.bc.text, height: 1.4))),
+                padding: EdgeInsets.zero,
+                child: Column(children: [
+                  if (asMap(p!['details']).isNotEmpty || asMap(p!['specs']).isNotEmpty)
+                    _infoRow(
+                      Icons.inventory_2_outlined,
+                      'Product Details',
+                      Column(children: [
+                        for (final e in {...asMap(p!['details']), ...asMap(p!['specs'])}.entries)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              SizedBox(width: 104, child: Text('${e.key}', style: TextStyle(color: context.bc.textSecondary, fontSize: 13))),
+                              Expanded(child: Text('${e.value}', style: TextStyle(color: context.bc.text, fontSize: 13, fontWeight: FontWeight.w600))),
+                            ]),
+                          ),
+                      ]),
+                    ),
+                  if ((asMap(p!['details']).isNotEmpty || asMap(p!['specs']).isNotEmpty) && (p!['description'] ?? '').toString().isNotEmpty)
+                    Divider(height: 1, color: context.bc.border),
+                  if ((p!['description'] ?? '').toString().isNotEmpty)
+                    _infoRow(Icons.notes_rounded, 'Description', Text(p!['description'], style: TextStyle(color: context.bc.text, height: 1.45, fontSize: 13.5))),
+                ]),
+              ),
 
             _reviews(),
 
@@ -716,13 +719,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
+          color: Alvy.warnSoft,
           borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
         Expanded(
           child: Text(
               'Flash sale ${formatDateTime(up['starts_at'])}: ${peso(up['price'])} (${up['quantity']} units)',
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412))),
+              style: TextStyle(fontSize: 12.5, color: Alvy.warnText)),
         ),
         TextButton(
             onPressed: _remind,
@@ -739,8 +742,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         for (var g = 0; g < groups.length; g++) ...[
           Text.rich(TextSpan(children: [
-            TextSpan(text: '${labels[g]}: ', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.textSecondary)),
-            TextSpan(text: chosen[g] ?? 'Choose one', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
+            TextSpan(text: '${labels[g]}: ', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
+            TextSpan(text: chosen[g] ?? 'Choose one', style: TextStyle(fontWeight: FontWeight.w500, color: context.bc.textSecondary)),
           ])),
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -751,8 +754,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 showCheckmark: false,
                 selectedColor: kOrange,
                 labelStyle: TextStyle(fontWeight: FontWeight.w600, color: chosen[g] == part ? Colors.white : context.bc.text),
+                backgroundColor: context.bc.subtle,
+                side: BorderSide.none,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onSelected: (_) => setState(() {
                   chosen[g] = chosen[g] == part ? null : '$part';
                   quantity = 1;
@@ -775,11 +780,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
+  /// One block of the info card: a soft icon disc, the title, then the body under it.
+  Widget _infoRow(IconData icon, String title, Widget body) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: Alvy.slateSoft, shape: BoxShape.circle),
+            child: Icon(icon, size: 19, color: Alvy.slate),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: Alvy.display(size: 16.5, color: context.bc.text, weight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              body,
+            ]),
+          ),
+        ]),
+      );
+
   Widget _reviews() {
     final breakdown = asMap(p!['rating_breakdown']);
     final count = asNum(p!['rating_count']).toInt();
     return SectionCard(
-      title: 'Ratings & reviews',
+      title: 'Customer Reviews',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (count == 0)
           Text('No reviews yet.', style: TextStyle(color: context.bc.muted))
@@ -826,7 +852,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFFFAF2EB), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: Alvy.subtle, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(r['user'] ?? 'Buyer',
@@ -881,7 +907,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         decoration: BoxDecoration(
             color: context.bc.surface,
             boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))]),
-        child: _buyButtons(label, optionMissing, optionOut),
+        child: Row(children: [
+          // The total for the quantity chosen (the design's "Total ₱88.00").
+          if (label == null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('Total', style: TextStyle(fontSize: 11.5, color: context.bc.textSecondary)),
+                Text(
+                  v == null && p!['price_range'] != null
+                      ? 'from ${pesoWhole(p!['price_range'][0])}'
+                      : peso(asNum(v != null ? v['price'] : p!['price']) * quantity),
+                  style: Alvy.display(size: 19, color: kOrange, weight: FontWeight.w700),
+                ),
+              ]),
+            ),
+          Expanded(child: _buyButtons(label, optionMissing, optionOut)),
+        ]),
       ),
     );
   }
@@ -910,7 +952,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             ? showError(context, 'Please select a variation.')
                             : _buy(buyNow: false),
                     icon: const Icon(Icons.add_shopping_cart, size: 20),
-                    label: const Text('Add to Cart'),
+                    label: Text(Responsive.isWide(context) ? 'Add to Cart' : 'Cart'),
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                   ),
                 ),

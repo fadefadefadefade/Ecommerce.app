@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
@@ -79,15 +80,15 @@ class _ServerDialogState extends State<_ServerDialog> {
             controller: _url,
             keyboardType: TextInputType.url,
             autocorrect: false,
-            decoration: const InputDecoration(labelText: 'ALVY website address', hintText: 'http://192.168.1.10:8000', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'ALVY website address', hintText: 'http://192.168.1.10:8000'),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Live site: https://alvy.trade\n'
             'Phone on USB: run "adb reverse tcp:8000 tcp:8000" on the computer, then use http://127.0.0.1:8000\n'
             'Phone on Wi-Fi: the computer\'s IP, e.g. http://192.168.1.10:8000 (start the site with php artisan serve --host=0.0.0.0)\n'
             'Emulator: http://10.0.2.2:8000',
-            style: TextStyle(fontSize: 12, color: Color(0xFF8A716A)),
+            style: TextStyle(fontSize: 12, color: Alvy.textMuted),
           ),
           if (_result != null) ...[
             const SizedBox(height: 10),

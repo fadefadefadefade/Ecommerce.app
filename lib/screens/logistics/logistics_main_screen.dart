@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../widgets/profile_kit.dart';
+import '../../widgets/staff_shell.dart';
 import '../auth/login_screen.dart';
 import '../buyer/account/notifications_screen.dart';
 import '../buyer/account/policy_screens.dart';
@@ -50,22 +51,22 @@ class _LogisticsMainScreenState extends State<LogisticsMainScreen> {
           (Icons.two_wheeler, 'Riders', _RidersMenu()),
           (Icons.more_horiz, 'More', _MoreMenu()),
         ];
-        return Scaffold(
+        void select(int i) => setState(() {
+              if (i != _index) _opened[i] = (_opened[i] ?? 0) + 1;
+              _index = i;
+            });
+        return StaffShell(
+          brand: 'OPS',
+          place: 'Hub Operations',
+          userName: auth.user!.name,
+          userRole: 'Logistics',
+          tabs: tabs,
+          index: _index,
+          onSelect: select,
           body: IndexedStack(index: _index, children: [
             for (var i = 0; i < tabs.length; i++)
               TickerMode(enabled: i == _index, child: KeyedSubtree(key: ValueKey('tab-$i-${_opened[i] ?? 0}'), child: tabs[i].$3)),
           ]),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _index,
-            indicatorColor: const Color(0xFFFA4E1C).withValues(alpha: 0.12),
-            onDestinationSelected: (i) => setState(() {
-              if (i != _index) _opened[i] = (_opened[i] ?? 0) + 1;
-              _index = i;
-            }),
-            destinations: [
-              for (final t in tabs) NavigationDestination(icon: Icon(t.$1), selectedIcon: Icon(t.$1, color: const Color(0xFFFA4E1C)), label: t.$2),
-            ],
-          ),
         );
       },
     );
@@ -80,24 +81,22 @@ class _Menu extends StatelessWidget {
   final bool logout;
   const _Menu(this.title, this.items, {this.logout = false});
 
-  static const _colors = [
-    Color(0xFFFA4E1C), Color(0xFF2563EB), Color(0xFF059669), Color(0xFF9333EA), Color(0xFFF59E0B),
-    Color(0xFF0EA5E9), Color(0xFFDC2626), Color(0xFF0F766E), Color(0xFF5C4039),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final tiles = <(IconData, String, Color, VoidCallback)>[
-      for (var i = 0; i < items.length; i++)
-        (items[i].$1, items[i].$2, _colors[i % _colors.length], () => Navigator.push(context, MaterialPageRoute(builder: (_) => items[i].$4))),
-      if (logout) (Icons.logout, 'Log out', const Color(0xFFDC2626), () => confirmLogout(context)),
-    ];
+    void open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    // The account hubs' grouped rows (buyer, seller, rider): the icon in the logo's orange, a line on what each page does.
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        ProfileActionGrid(actions: [
-          for (final (icon, label, color, onTap) in tiles) ProfileAction(icon: icon, label: label, color: color, onTap: onTap),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+        ProfileMenuGroup(rows: [
+          for (final it in items)
+            ProfileMenuRow(icon: it.$1, color: const Color(0xFFFA4E1C), title: it.$2, subtitle: it.$3, onTap: () => open(it.$4)),
+          if (logout) const DarkModeRow(),
         ]),
+        if (logout) ...[
+          const SizedBox(height: 18),
+          TextButton.icon(onPressed: () => confirmLogout(context), icon: const Icon(Icons.logout, size: 20), label: const Text('Log Out')),
+        ],
       ]),
     );
   }
@@ -113,7 +112,7 @@ class _HubMenu extends StatelessWidget {
         (Icons.assignment_ind_outlined, 'Delivery Assignment', 'Give sorted parcels to riders', AssignmentScreen()),
         (Icons.radar, 'Delivery Monitoring', 'Attempts, overrides, reschedules', MonitoringScreen()),
         (Icons.inventory_2_outlined, 'Shipments', 'Every parcel, by status and date', ShipmentsScreen()),
-        (Icons.swap_horiz, 'Transfers', 'Send or receive parcels from other hubs', TransfersScreen()),
+        (Icons.add_road, 'Linehaul Trips', 'Deliveries to and from other sorting centers', TripsScreen()),
       ]);
 }
 
@@ -121,10 +120,9 @@ class _RidersMenu extends StatelessWidget {
   const _RidersMenu();
   @override
   Widget build(BuildContext context) => const _Menu('Riders', [
-        (Icons.send_outlined, 'Dispatch', 'Offers, manual and bulk assignment', DispatchScreen()),
+        (Icons.send_outlined, 'Dispatch', 'Auto-assign by barangay, manual and bulk', DispatchScreen()),
         (Icons.groups_outlined, 'Riders', 'Add riders, activation, suspend, documents', RidersScreen()),
         (Icons.account_balance_wallet_outlined, 'COD Remittances', 'Confirm the cash riders hand over', RemittancesScreen()),
-        (Icons.add_road, 'Hub-to-hub Trips', 'Create, assign, follow and receive trips', TripsScreen()),
         (Icons.local_shipping_outlined, 'Couriers', 'Add couriers, duty, activation, applications', CouriersScreen()),
         (Icons.warehouse_outlined, 'Hubs', 'Your hubs; each courier has a home hub', HubsScreen()),
       ]);

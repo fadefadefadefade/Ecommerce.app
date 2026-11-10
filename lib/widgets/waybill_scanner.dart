@@ -77,7 +77,7 @@ class _WaybillScannerState extends State<_WaybillScanner> {
                   controller: _typed,
                   textCapitalization: TextCapitalization.characters,
                   autocorrect: false,
-                  decoration: const InputDecoration(labelText: 'Or type the tracking number', isDense: true, border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Or type the tracking number', isDense: true),
                   onSubmitted: _finish,
                 ),
               ),

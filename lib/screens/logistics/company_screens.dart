@@ -10,6 +10,9 @@ import '../../theme/buyer_colors.dart';
 import 'hub_more_screens.dart';
 import 'logistics_kit.dart';
 import 'parcel_detail_screen.dart';
+import 'hub_screens.dart' show SortingScreen, PickupRequestsScreen;
+import 'rider_admin_screens.dart' show DispatchScreen;
+import 'tracking_screens.dart' show TrackingBoardScreen;
 
 import '../../widgets/report_download.dart';
 
@@ -78,9 +81,106 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
                 color: kOrange,
                 onRefresh: _load,
                 child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-                  Text('Logistics command', style: TextStyle(fontSize: 14, color: c.textSecondary)),
-                  Text(name, style: Alvy.display(size: 26, color: c.text, weight: FontWeight.w700)),
+                  // The design's "HUB COMMAND ● LIVE" header.
+                  Row(children: [
+                    Text('HUB COMMAND', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w800, color: c.textSecondary)),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.circle, size: 7, color: kOrange),
+                    const SizedBox(width: 4),
+                    const Text('LIVE', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: kOrange)),
+                  ]),
+                  Text(name, style: Alvy.display(size: 26, color: c.text, weight: FontWeight.w800)),
                   if (_from != null) Text('${formatDate(_from)} – ${formatDate(_to)}', style: TextStyle(color: c.muted)),
+                  const SizedBox(height: 14),
+                  // Today's throughput: parcels in, and how many are delivered already.
+                  Builder(builder: (_) {
+                    final st = asMap(d['stats']);
+                    final inToday = asInt(st['total_parcels_today']);
+                    final done = asInt(st['delivered_today']);
+                    final share = inToday == 0 ? 0.0 : (done / inToday).clamp(0.0, 1.0);
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: cardBox(context, radius: 20),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text("TODAY'S THROUGHPUT", style: TextStyle(fontSize: 11.5, letterSpacing: 0.5, fontWeight: FontWeight.w700, color: c.textSecondary)),
+                              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                Text('$done', style: Alvy.display(size: 28, color: c.text, weight: FontWeight.w800)),
+                                Padding(padding: const EdgeInsets.only(bottom: 4, left: 4), child: Text('/ $inToday delivered', style: TextStyle(color: c.textSecondary))),
+                              ]),
+                            ]),
+                          ),
+                          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                            Text('${(share * 100).toStringAsFixed(0)}%', style: Alvy.display(size: 20, color: kOrange, weight: FontWeight.w800)),
+                            Text('of parcels in today', style: TextStyle(fontSize: 11.5, color: c.textSecondary)),
+                          ]),
+                        ]),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(value: share, minHeight: 10, color: kOrange, backgroundColor: c.subtle),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Icon(Icons.local_shipping_outlined, size: 15, color: Alvy.slate),
+                          const SizedBox(width: 4),
+                          Text('${asInt(st['in_transit'])} out for delivery', style: TextStyle(fontSize: 12, color: Alvy.slate, fontWeight: FontWeight.w600)),
+                          const Spacer(),
+                          Text('Remaining: ${(inToday - done).clamp(0, 1 << 30)}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                        ]),
+                      ]),
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                  // The design's 2 × 2 metric cards: an icon square, a chip, the number and what it is.
+                  Builder(builder: (_) {
+                    final st = asMap(d['stats']);
+                    Widget card(IconData icon, String chip, String value, String label, VoidCallback onTap) => Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: onTap,
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: cardBox(context, radius: 18),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Row(children: [
+                                  Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(10)),
+                                    child: Icon(icon, size: 18, color: Alvy.slate),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+                                    child: Text(chip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Alvy.orangeDark)),
+                                  ),
+                                ]),
+                                const SizedBox(height: 10),
+                                Text(value, style: Alvy.display(size: 24, color: c.text, weight: FontWeight.w800)),
+                                Text(label, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+                              ]),
+                            ),
+                          ),
+                        );
+                    void open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) => _load());
+                    return Column(children: [
+                      Row(children: [
+                        card(Icons.move_to_inbox_outlined, 'Pickups', '${asInt(st['pending_pickup'])}', 'Pending pickup', () => open(const PickupRequestsScreen())),
+                        const SizedBox(width: 12),
+                        card(Icons.sort, 'Sort', '${asInt(st['sorting_queue'])}', 'Sorting queue', () => open(const SortingScreen())),
+                      ]),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        card(Icons.local_shipping_outlined, 'Today', '${asInt(st['in_transit'])}', 'Out for delivery', () => open(const MonitoringScreen())),
+                        const SizedBox(width: 12),
+                        card(Icons.two_wheeler, 'Fleet', '${asInt(st['active_riders'])}', 'Active riders', () => open(const DispatchScreen())),
+                      ]),
+                    ]);
+                  }),
                   const SectionTitle('Shipments', padding: EdgeInsets.fromLTRB(0, 18, 0, 12)),
                   // Each status with its count: tap to open that list.
                   SizedBox(
@@ -97,15 +197,6 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
                         ),
                     ]),
                   ),
-                  const SectionTitle('Today at the hub', padding: EdgeInsets.fromLTRB(0, 18, 0, 12)),
-                  StatGrid([
-                    StatTile(label: 'Parcels received today', value: '${asMap(d['stats'])['total_parcels_today']}', icon: Icons.move_to_inbox_outlined),
-                    StatTile(label: 'Out for delivery', value: '${asMap(d['stats'])['in_transit']}', icon: Icons.local_shipping_outlined, color: const Color(0xFF2563EB)),
-                    StatTile(label: 'Delivered today', value: '${asMap(d['stats'])['delivered_today']}', icon: Icons.check_circle_outline, color: const Color(0xFF15803D)),
-                    StatTile(label: 'Active riders', value: '${asMap(d['stats'])['active_riders']}', icon: Icons.two_wheeler, color: const Color(0xFF0891B2)),
-                    StatTile(label: 'Pending pickup', value: '${asMap(d['stats'])['pending_pickup']}', icon: Icons.schedule, color: const Color(0xFFB45309)),
-                    StatTile(label: 'Sorting queue', value: '${asMap(d['stats'])['sorting_queue']}', icon: Icons.sort, color: const Color(0xFF9333EA)),
-                  ]),
                   const SizedBox(height: 12),
                   SectionCard(
                     title: 'Recent deliveries',
@@ -113,13 +204,23 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
                         ? Text('No deliveries yet.', style: TextStyle(color: c.muted))
                         : Column(children: [
                             for (final x in asList(d['recent']))
-                              ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
+                              InkWell(
+                                borderRadius: BorderRadius.circular(12),
                                 onTap: asMap(x['parcel'])['id'] == null ? null : () => openParcel(context, asInt(asMap(x['parcel'])['id']), _load),
-                                title: Text('${asMap(x['parcel'])['tracking'] ?? '—'}'),
-                                subtitle: Text('${x['rider'] ?? '—'} · ${x['area'] ?? '—'}'),
-                                trailing: Pill('${x['status_label']}'),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                                  child: Row(children: [
+                                    Expanded(
+                                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Text('${asMap(x['parcel'])['tracking'] ?? '—'}', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate)),
+                                        Text('${x['rider'] ?? '—'} · ${x['area'] ?? '—'}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                                      ]),
+                                    ),
+                                    Pill('${x['status_label']}', color: parcelColor('${x['status']}')),
+                                  ]),
+                                ),
                               ),
                           ]),
                   ),
@@ -130,13 +231,47 @@ class _LogisticsDashboardScreenState extends State<LogisticsDashboardScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Row(children: [
-                            SizedBox(width: 110, child: Text('${a['name']}', overflow: TextOverflow.ellipsis)),
-                            Expanded(child: LinearProgressIndicator(value: asNum(a['rate']) / 100, color: kOrange, backgroundColor: c.subtle)),
+                            SizedBox(width: 110, child: Text('${a['name']}', overflow: TextOverflow.ellipsis, style: TextStyle(color: c.text))),
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(99),
+                                child: LinearProgressIndicator(value: asNum(a['rate']) / 100, minHeight: 8, color: kOrange, backgroundColor: c.subtle),
+                              ),
+                            ),
                             SizedBox(width: 90, child: Text('${a['rate']}% (${a['delivered']}/${a['total']})', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
                           ]),
                         ),
                     ]),
                   ),
+                  // The design's "COMMAND ACTIONS".
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 8, 2, 10),
+                    child: Text('COMMAND ACTIONS', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w800, color: c.textSecondary)),
+                  ),
+                  BusyButton('Open Shipment Board', busy: false, icon: Icons.qr_code_scanner,
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrackingBoardScreen())).then((_) => _load())),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    for (final (i, (icon, label, page)) in <(IconData, String, Widget)>[
+                      (Icons.sort, 'Sort Parcels', const SortingScreen()),
+                      (Icons.send_outlined, 'Dispatch', const DispatchScreen()),
+                    ].indexed) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) => _load()),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: c.surface,
+                            side: BorderSide(color: c.border, width: 1.5),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: Icon(icon, size: 18, color: kOrange),
+                          label: Text(label, style: TextStyle(color: Alvy.slate, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ]),
                 ]),
               ),
       ),
@@ -201,42 +336,72 @@ class _CoverageScreenState extends State<CoverageScreen> {
         onRetry: _load,
         child: d == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                // The design's coverage header: how many barangays of the municipality are covered.
+                if (d['has_municipality'] == true)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(16),
+                    decoration: cardBox(context, radius: 20),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Text('DELIVERY COVERAGE', style: TextStyle(fontSize: 11.5, letterSpacing: 0.5, fontWeight: FontWeight.w800, color: c.textSecondary)),
+                      Text('${d['municipality']}', style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w800)),
+                      const SizedBox(height: 10),
+                      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text('${asList(d['areas']).length}', style: Alvy.display(size: 28, color: kOrange, weight: FontWeight.w800)),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5, left: 4),
+                          child: Text('/ ${d['barangay_total']} barangays covered', style: TextStyle(color: c.textSecondary)),
+                        ),
+                      ]),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: asInt(d['barangay_total']) == 0 ? 0 : (asList(d['areas']).length / asInt(d['barangay_total'])).clamp(0.0, 1.0),
+                          minHeight: 8,
+                          color: kOrange,
+                          backgroundColor: c.subtle,
+                        ),
+                      ),
+                    ]),
+                  ),
                 if (d['has_municipality'] != true)
-                  const Card(
-                    color: Color(0xFFFFF7ED),
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text('Your account has not been assigned a municipality yet. Contact an administrator.', style: TextStyle(color: Color(0xFF9A3412))),
-                    ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(14)),
+                    child: Text('Your account has not been assigned a municipality yet. Contact an administrator.', style: TextStyle(color: Alvy.warnText)),
                   )
                 else
                   SectionCard(
-                    title: 'Add a barangay of ${d['municipality']}',
+                    title: 'Add a barangay',
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      Text('${asList(d['areas']).length} of ${d['barangay_total']} barangays covered.', style: TextStyle(color: c.muted)),
-                      const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: _psgc,
-                        decoration: const InputDecoration(labelText: 'Barangay', border: OutlineInputBorder(), isDense: true),
+                        decoration: const InputDecoration(labelText: 'Barangay', isDense: true),
                         items: [for (final b in asList(d['barangays'])) DropdownMenuItem(value: '${b['psgc']}', child: Text('${b['name']}'))],
                         onChanged: (v) => setState(() => _psgc = v),
                       ),
                       const SizedBox(height: 8),
-                      BusyButton('Add to coverage', busy: false, onPressed: () {
+                      BusyButton('Add to coverage', busy: false, icon: Icons.add_location_alt_outlined, onPressed: () {
                         final b = asList(d['barangays']).where((x) => '${x['psgc']}' == _psgc).firstOrNull;
                         _do(() => LogisticsApi.addArea(_psgc ?? '', b?['code']?.toString()));
                       }),
                     ]),
                   ),
+                if (asList(d['areas']).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 6, 2, 10),
+                    child: Text('Covered Barangays', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+                  ),
                 for (final a in asList(d['areas']))
-                  Card(
-                    elevation: 0,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      title: Text('${a['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('${a['barangay_code'] ?? '—'} · ${a['riders']} rider(s)'),
+                  infoRow(
+                      context,
+                      boxed: false,
+                      icon: Icons.place_outlined,
+                      title: '${a['name']}',
+                      subtitle: '${a['barangay_code'] ?? '—'} · ${a['riders']} rider(s)',
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
                         onPressed: () async {
@@ -245,7 +410,6 @@ class _CoverageScreenState extends State<CoverageScreen> {
                           }
                         },
                       ),
-                    ),
                   ),
               ]),
       ),
@@ -329,19 +493,22 @@ class _RatesScreenState extends State<RatesScreen> {
         onRetry: _load,
         child: d == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
-                Text('A change applies to checkouts started from now on.', style: TextStyle(color: c.muted)),
-                const SizedBox(height: 8),
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                Text('SHIPPING RATES', style: TextStyle(fontSize: 11.5, letterSpacing: 0.5, fontWeight: FontWeight.w800, color: c.textSecondary)),
+                Text('Rates & Delivery Zones', style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text('A change applies to checkouts started from now on.', style: TextStyle(color: c.textSecondary)),
+                const SizedBox(height: 14),
                 SectionCard(
                   title: 'Rates by route',
                   child: Column(children: [
                     for (final r in asList(d['rates']))
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${r['label']}'),
-                        subtitle: Text('${peso(r['first_kg'])} first kg + ${peso(r['additional_kg'])} each additional kg'),
-                        trailing: const Icon(Icons.edit_outlined, size: 18),
+                      infoRow(
+                        context,
+                        icon: Icons.route_outlined,
+                        title: '${r['label']}',
+                        subtitle: '${peso(r['first_kg'])} first kg + ${peso(r['additional_kg'])} each additional kg',
+                        trailing: Icon(Icons.edit_outlined, size: 18, color: Alvy.slate),
                         onTap: () async {
                           final v = await _ask('${r['label']}', first: '${r['first_kg']}', extra: '${r['additional_kg']}');
                           if (v != null) _do(() => LogisticsApi.updateRate('${r['route']}', v['first']!, v['extra']!));
@@ -354,12 +521,8 @@ class _RatesScreenState extends State<RatesScreen> {
                   child: Column(children: [
                     if (asList(d['zones']).isEmpty) Text('No extra zones yet.', style: TextStyle(color: c.muted)),
                     for (final z in asList(d['zones']))
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${z['name']} (${z['province']})'),
-                        subtitle: Text('${peso(z['first_kg'])} + ${peso(z['additional_kg'])}/kg'),
-                      ),
+                      infoRow(context, icon: Icons.map_outlined, navy: true, title: '${z['name']} (${z['province']})',
+                          subtitle: '${peso(z['first_kg'])} + ${peso(z['additional_kg'])}/kg'),
                   ]),
                 ),
                 SectionCard(
@@ -367,10 +530,11 @@ class _RatesScreenState extends State<RatesScreen> {
                   child: Column(children: [
                     if (asList(d['uncovered']).isEmpty) Text('Every province is covered.', style: TextStyle(color: c.muted)),
                     for (final u in asList(d['uncovered']))
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${u['name']}'),
+                      infoRow(
+                        context,
+                        icon: Icons.add_location_outlined,
+                        navy: true,
+                        title: '${u['name']}',
                         trailing: TextButton(
                           onPressed: () async {
                             final v = await _ask('Add a zone for ${u['name']}', name: true);
@@ -457,11 +621,11 @@ class _LogisticsReportsScreenState extends State<LogisticsReportsScreen> {
         onRetry: _load,
         child: d == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
                 Text('${formatDate(_from)} – ${formatDate(_to)}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
                 const SizedBox(height: 8),
-                Wrap(spacing: 6, children: [
-                  for (final t in tabs) ChoiceChip(label: Text(t.$2), selected: _tab == t.$1, onSelected: (_) => setState(() => _tab = t.$1)),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final t in tabs) FilterPill(t.$2, selected: _tab == t.$1, onTap: () => setState(() => _tab = t.$1)),
                 ]),
                 const SizedBox(height: 8),
                 SectionCard(child: _table(d)),
@@ -473,12 +637,23 @@ class _LogisticsReportsScreenState extends State<LogisticsReportsScreen> {
 
   Widget _table(Map<String, dynamic> d) {
     final c = context.bc;
-    Widget line(String title, String sub, [String? trailing]) => ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(sub),
-          trailing: trailing == null ? null : Text(trailing, style: const TextStyle(fontWeight: FontWeight.w800)),
+    Widget line(String title, String sub, [String? trailing]) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                const SizedBox(height: 2),
+                Text(sub, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+              ]),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              Text(trailing, style: Alvy.display(size: 16, color: kOrange, weight: FontWeight.w800)),
+            ],
+          ]),
         );
     final rows = switch (_tab) {
       'rider' => [
@@ -512,14 +687,17 @@ class ActivityScreen extends StatelessWidget {
       title: 'Activity Log',
       empty: 'No activity yet.',
       fetch: (page, tab) => LogisticsApi.activity(page: page),
-      itemBuilder: (ctx, l, reload) => ListTile(
-        dense: true,
-        title: Text('${l['action'] ?? ''}${(l['description'] ?? '').toString().isNotEmpty ? ' · ${l['description']}' : ''}'),
-        subtitle: Text([
+      itemBuilder: (ctx, l, reload) => infoRow(
+        ctx,
+        boxed: false,
+        navy: true,
+        icon: Icons.history,
+        title: '${l['action'] ?? ''}${(l['description'] ?? '').toString().isNotEmpty ? ' · ${l['description']}' : ''}',
+        subtitle: [
           if (l['old_value'] != null || l['new_value'] != null) '${l['old_value'] ?? '—'} → ${l['new_value'] ?? '—'}',
           if (l['reason'] != null) 'Reason: ${l['reason']}',
           '${formatDateTime(l['created_at'])}${l['ip'] != null ? ' · ${l['ip']}' : ''}',
-        ].join('\n')),
+        ].join('\n'),
       ),
     );
   }
@@ -574,17 +752,19 @@ class _LogisticsChatScreenState extends State<LogisticsChatScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
-              decoration: const InputDecoration(hintText: 'Search contacts', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+              decoration: const InputDecoration(hintText: 'Search contacts', prefixIcon: Icon(Icons.search), isDense: true),
               onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
             ),
           ),
           Expanded(
-            child: ListView(children: [
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
               for (final c in list)
-                ListTile(
-                  leading: CircleAvatar(backgroundColor: kOrange, child: Text('${c['name']}'.isEmpty ? '?' : '${c['name']}'[0].toUpperCase(), style: const TextStyle(color: Colors.white))),
-                  title: Text('${c['name']}'),
-                  subtitle: Text('${c['role']}'.replaceAll('_', ' ')),
+                infoRow(
+                  context,
+                  boxed: false,
+                  icon: Icons.chat_bubble_outline,
+                  title: '${c['name']}',
+                  subtitle: '${c['role']}'.replaceAll('_', ' '),
                   trailing: asInt(c['unread']) > 0 ? Pill('${c['unread']}') : null,
                   onTap: () async {
                     await Navigator.push(context, MaterialPageRoute(builder: (_) => LogisticsConversationScreen(contactId: asInt(c['id']), name: '${c['name']}')));
@@ -718,7 +898,7 @@ class _LogisticsConversationScreenState extends State<LogisticsConversationScree
                   maxLength: 2000,
                   minLines: 1,
                   maxLines: 4,
-                  decoration: const InputDecoration(hintText: 'Message', isDense: true, counterText: '', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(hintText: 'Message', isDense: true, counterText: ''),
                 ),
               ),
               IconButton(onPressed: _sending ? null : _send, icon: const Icon(Icons.send, color: kOrange)),
@@ -813,7 +993,7 @@ class _LogisticsAccountScreenState extends State<LogisticsAccountScreen> {
         onRetry: _load,
         child: d == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
                 Text('${co['business_name'] ?? co['name']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
                 Text('${co['municipality'] ?? 'No municipality assigned'}', style: TextStyle(color: c.muted)),
                 const SizedBox(height: 10),

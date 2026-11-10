@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
 import '../../../widgets/buyer_kit.dart' show cardBox;
 export '../../../widgets/order_progress.dart';
@@ -37,9 +38,9 @@ Color orderStatusColor(String status) {
     case 'shipped':
     case 'in_transit':
     case 'out_for_delivery':
-      return const Color(0xFF1565C0);
+      return Alvy.slate;
     case 'processing':
-      return const Color(0xFF9333EA);
+      return Alvy.orangeDark;
     case 'cancelled':
     case 'failed':
     case 'returned':
@@ -81,14 +82,14 @@ class AccountCard extends StatelessWidget {
     final c = context.bc;
     return Container(
       width: double.infinity,
-      decoration: cardBox(context),
+      decoration: cardBox(context, radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Text(title!, style: GoogleFonts.plusJakartaSans(fontSize: 15.5, fontWeight: FontWeight.w800, color: c.text)),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Text(title!, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w700, color: c.text)),
             ),
           Padding(padding: padding, child: child),
         ],
@@ -128,9 +129,14 @@ class AccountEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: c.muted),
-            const SizedBox(height: 16),
-            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: c.text)),
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+              child: Icon(icon, size: 44, color: Alvy.orange),
+            ),
+            const SizedBox(height: 18),
+            Text(title, textAlign: TextAlign.center, style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700)),
             const SizedBox(height: 6),
             Text(message, textAlign: TextAlign.center, style: TextStyle(color: c.muted)),
             if (action != null) ...[const SizedBox(height: 20), action!],
@@ -151,3 +157,43 @@ void showAccountSnack(BuildContext context, String message, {bool error = false}
 }
 
 String errorText(Object e) => e.toString().replaceFirst('Exception: ', '');
+
+/// The design's settings row: an icon in a soft square, a title and a muted line, then a trailing widget.
+class AccountRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool navy;
+
+  const AccountRow({super.key, required this.icon, required this.title, this.subtitle, this.trailing, this.onTap, this.navy = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.bc;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(color: navy ? Alvy.slateSoft : Alvy.orangeSoft, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, size: 21, color: navy ? Alvy.slate : Alvy.orange),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+              if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+            ]),
+          ),
+          trailing ?? (onTap != null ? Icon(Icons.chevron_right, color: c.muted) : const SizedBox()),
+        ]),
+      ),
+    );
+  }
+}

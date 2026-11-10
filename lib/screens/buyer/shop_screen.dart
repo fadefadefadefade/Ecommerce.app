@@ -1,5 +1,6 @@
 import '../../widgets/responsive.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/allie.dart';
 import '../../theme/app_theme.dart';
 
 import '../../services/buyer_api.dart';
@@ -7,6 +8,7 @@ import '../../theme/buyer_colors.dart';
 import '../../widgets/buyer_kit.dart';
 import '../../widgets/buyer_product_card.dart';
 import 'buyer_main_screen.dart';
+import 'assistant_screen.dart';
 import 'store_screen.dart';
 
 /// The website's Shop (search + filters, shop/index) and category pages (categories/show).
@@ -215,6 +217,14 @@ class _ShopScreenState extends State<ShopScreen> {
                               Icon(Icons.tune, size: 20, color: context.bc.text),
                               const SizedBox(width: 6),
                               Text('Filters', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.text)),
+                              if (_activeFilters.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                CircleAvatar(
+                                  radius: 10,
+                                  backgroundColor: kOrange,
+                                  child: Text('${_activeFilters.length}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                                ),
+                              ],
                             ]),
                           ),
                         ),
@@ -242,7 +252,40 @@ class _ShopScreenState extends State<ShopScreen> {
                     style: TextStyle(fontSize: 15, color: context.bc.muted)),
               ),
               _sortPills(),
-            ] else
+            ] else ...[
+            if (!inCategory)
+              SizedBox(
+                height: 46,
+                child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(bottom: 8), children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterPill('All Items', selected: _activeFilters.isEmpty, onTap: () {
+                      setState(_clearFilters);
+                      _load();
+                    }),
+                  ),
+                  for (final (label, clear) in _activeFilters)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(99),
+                        onTap: () {
+                          setState(clear);
+                          _load();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(label, style: const TextStyle(color: Alvy.orangeDark, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.cancel_outlined, size: 16, color: Alvy.orangeDark),
+                          ]),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
             if (inCategory && subcategories.isNotEmpty)
               SizedBox(
                 height: 46,
@@ -257,16 +300,17 @@ class _ShopScreenState extends State<ShopScreen> {
                     ),
                 ]),
               ),
+            ],
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(children: [
-              const Icon(Icons.inventory_2_outlined, size: 17, color: kOrange),
+              Icon(location != null ? Icons.place_outlined : Icons.inventory_2_outlined, size: 17, color: kOrange),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                     inCategory
                         ? '${products.length} items'
-                        : (_search.text.trim().isEmpty ? '$total items' : '$total results for "${_search.text.trim()}"'),
+                        : (_search.text.trim().isEmpty ? '$total items' : '$total results for "${_search.text.trim()}"') + (location != null ? ' in $location' : ''),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.text)),
@@ -309,7 +353,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     leading: CircleAvatar(
-                      backgroundColor: const Color(0xFFFFF1EE),
+                      backgroundColor: Alvy.orangeSoft,
                       backgroundImage: st['logo_url'] != null ? NetworkImage('${st['logo_url']}') : null,
                       child: st['logo_url'] == null ? const Icon(Icons.storefront, color: kOrange) : null,
                     ),
@@ -328,7 +372,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   Container(
                     width: 88,
                     height: 88,
-                    decoration: const BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
                     child: const Icon(Icons.search_off_rounded, size: 40, color: kOrange),
                   ),
                   const SizedBox(height: 14),
@@ -348,6 +392,37 @@ class _ShopScreenState extends State<ShopScreen> {
                 children: [for (final p in products) BuyerProductCard(product: Map<String, dynamic>.from(p), onCartChanged: _refreshCart)],
               ),
             if (page < last) TextButton(onPressed: () => _load(more: true), child: const Text('Load more')),
+            if (!wide && products.isNotEmpty && page >= last)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssistantScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Alvy.orange, Alvy.orangeDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: Alvy.buttonShadow,
+                    ),
+                    child: Row(children: [
+                      const CircleAvatar(radius: 24, backgroundColor: Colors.white, child: AllieAvatar(size: 40)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Text('ALVY CONCIERGE', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
+                          const SizedBox(height: 2),
+                          Text("Can't find what you need?", style: Alvy.display(size: 19, color: Colors.white, weight: FontWeight.w800)),
+                          const SizedBox(height: 2),
+                          const Text('Ask the ALVY Assistant to help you find it.', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ]),
+                      ),
+                      const SizedBox(width: 8),
+                      CircleAvatar(radius: 18, backgroundColor: Colors.white.withValues(alpha: 0.2), child: const Icon(Icons.arrow_forward, color: Colors.white, size: 18)),
+                    ]),
+                  ),
+                ),
+              ),
           ])),
         ),
       ),
@@ -395,6 +470,26 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   int _filtersVersion = 0;   // a new number rebuilds the filter fields, so "Clear" shows the cleared values
+
+  List<(String, VoidCallback)> get _activeFilters => [
+        if (category != null) (category!, () => category = null),
+        if (location != null) (location!, () => location = null),
+        if (rating != null) ('$rating★ & up', () => rating = null),
+        if (store != null) (stores.where((x) => x['id'] == store).map((x) => '${x['name']}').firstOrNull ?? 'Store', () => store = null),
+        if (_min.text.trim().isNotEmpty || _max.text.trim().isNotEmpty)
+          (
+            _min.text.trim().isNotEmpty && _max.text.trim().isNotEmpty
+                ? '₱${_min.text.trim()} – ₱${_max.text.trim()}'
+                : _min.text.trim().isNotEmpty
+                    ? 'From ₱${_min.text.trim()}'
+                    : 'Under ₱${_max.text.trim()}',
+            () {
+              _min.clear();
+              _max.clear();
+            }
+          ),
+        if (soldOut) ('Sold out too', () => soldOut = false),
+      ];
 
   void _clearFilters() {
     _filtersVersion++;
@@ -464,8 +559,7 @@ class _ShopScreenState extends State<ShopScreen> {
     Widget stars(int n) => Row(mainAxisSize: MainAxisSize.min, children: [
           for (var i = 0; i < 5; i++) Icon(Icons.star_rounded, size: 17, color: i < n ? const Color(0xFFF59E0B) : const Color(0xFFD1D5DB)),
         ]);
-    InputDecoration box(String hint) => InputDecoration(hintText: hint, isDense: true, border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10));
+    InputDecoration box(String hint) => InputDecoration(hintText: hint, isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10));
     return [
       heading('Price range'),
       Row(children: [

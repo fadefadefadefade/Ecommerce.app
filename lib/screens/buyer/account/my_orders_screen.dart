@@ -5,6 +5,7 @@ import '../../../services/buyer_api.dart';
 import '../../../theme/buyer_colors.dart';
 import '../../../widgets/buyer_kit.dart';
 import '../../../widgets/net_image.dart';
+import '../chat_screen.dart';
 import 'order_detail_screen.dart';
 
 /// The website's My Purchases (profile/orders): tabs with counts and the orders in each.
@@ -62,14 +63,26 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
-        title: const Text('My Purchases'),
+        title: Row(children: [
+          const Text('My Purchases'),
+          if ((counts['to_pay'] ?? 0) + (counts['to_ship'] ?? 0) + (counts['to_receive'] ?? 0) > 0) ...[
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+              child: Text('${(counts['to_pay'] ?? 0) + (counts['to_ship'] ?? 0) + (counts['to_receive'] ?? 0)} active',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Alvy.orangeDark)),
+            ),
+          ],
+        ]),
         // The status filters: pills with their counts (the design's "All · To Pay 1 · To Ship 2 …").
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(58),
           child: SizedBox(
             height: 58,
             child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(16, 6, 16, 12), children: [
-              for (final t in _tabs)
+              // Return/Refund only when the server lists it (returns are on, or this buyer has old return orders).
+              for (final t in _tabs.where((t) => t.$1 != 'return_refund' || counts.containsKey('return_refund')))
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterPill(
@@ -100,7 +113,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                       Container(
                         width: 88,
                         height: 88,
-                        decoration: const BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+                        decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
                         child: const Icon(Icons.receipt_long_outlined, size: 40, color: kOrange),
                       ),
                       const SizedBox(height: 14),
@@ -113,6 +126,23 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               : ListView(padding: const EdgeInsets.fromLTRB(16, 14, 16, 24), children: [
                   for (final o in orders) _order(Map.from(o)),
                   if (page < last) TextButton(onPressed: () => _load(more: true), child: const Text('Load more')),
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(20)),
+                    child: Row(children: [
+                      CircleAvatar(radius: 22, backgroundColor: Alvy.orangeSoft, child: const Icon(Icons.verified_user_outlined, color: kOrange)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('ALVY Buyer Protection', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text('Your payment is checked by ALVY, and you can ask for a return if the item is not as described.',
+                              style: TextStyle(fontSize: 12.5, color: c.textSecondary, height: 1.4)),
+                        ]),
+                      ),
+                    ]),
+                  ),
                 ]),
         ),
       ),
@@ -125,7 +155,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     if (l.contains('cancel') || l.contains('fail') || l.contains('reject') || l.contains('refund')) return const Color(0xFFDC2626);
     if (l.contains('deliver') || l.contains('complete') || l.contains('received')) return const Color(0xFF15803D);
     if (l.contains('pay') || l.contains('pending') || l.contains('verif') || l.contains('pack')) return const Color(0xFFB45309);
-    return const Color(0xFF2563EB);
+    return Alvy.slate;
   }
 
   Widget _order(Map o) {
@@ -154,8 +184,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: const Color(0xFFD1E4FF),
-                  child: Text(initials.isEmpty ? 'S' : initials, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Alvy.slate)),
+                  backgroundColor: Alvy.slateSoft,
+                  child: Text(initials.isEmpty ? 'S' : initials, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Alvy.slate)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -198,29 +228,75 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text('+${items.length - 2} more item${items.length - 2 == 1 ? '' : 's'}', style: TextStyle(fontSize: 12, color: c.muted)),
                 ),
+              if (const ['to_pay', 'to_ship', 'to_receive', 'completed'].contains(o['tab'])) _timeline('${o['tab']}'),
               Divider(height: 18, color: c.border),
               Row(children: [
                 Expanded(child: Text('Order Total ($count item${count == 1 ? '' : 's'})', style: TextStyle(fontSize: 13, color: c.textSecondary))),
                 Text(peso(o['total']), style: Alvy.display(size: 20, color: kOrange, weight: FontWeight.w700)),
               ]),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: open,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Alvy.orangeSoft,
-                    foregroundColor: kOrange,
-                    minimumSize: const Size(0, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+              Row(children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(type: 'order', id: '${o['id']}', title: store))),
+                    style: FilledButton.styleFrom(backgroundColor: c.subtle, foregroundColor: c.text, minimumSize: const Size(0, 42)),
+                    icon: const Icon(Icons.chat_outlined, size: 17),
+                    label: const FittedBox(child: Text('Contact Seller')),
                   ),
-                  child: const Text('View Order Details'),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: open,
+                    style: FilledButton.styleFrom(backgroundColor: Alvy.orangeSoft, foregroundColor: kOrange, minimumSize: const Size(0, 42)),
+                    child: const FittedBox(child: Text('View Order Details')),
+                  ),
+                ),
+              ]),
             ]),
           ),
         ),
       ),
+    );
+  }
+
+  /// Four steps with a line between: done steps navy with a check, the current one orange, the rest grey.
+  Widget _timeline(String tab) {
+    final c = context.bc;
+    const steps = [('Placed', Icons.receipt_long_outlined), ('Packing', Icons.inventory_2_outlined), ('On the way', Icons.two_wheeler), ('Delivered', Icons.home_outlined)];
+    final at = const {'to_pay': 0, 'to_ship': 1, 'to_receive': 2, 'completed': 3}[tab] ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('ORDER PROGRESS', style: TextStyle(fontSize: 11, letterSpacing: 0.5, fontWeight: FontWeight.w800, color: c.text)),
+        const SizedBox(height: 10),
+        Row(children: [
+          for (var i = 0; i < steps.length; i++) ...[
+            if (i > 0) Expanded(child: Container(height: 2, color: i <= at ? (i == at ? kOrange : Alvy.slate) : c.border)),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: i < at || (i == at && tab == 'completed') ? Alvy.slate : (i == at ? kOrange : c.surface),
+              ),
+              child: Icon(i < at || (i == at && tab == 'completed') ? Icons.check : steps[i].$2, size: 15,
+                  color: i <= at ? Colors.white : c.muted),
+            ),
+          ],
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          for (var i = 0; i < steps.length; i++)
+            Expanded(
+              child: Text(steps[i].$1,
+                  textAlign: i == 0 ? TextAlign.left : (i == steps.length - 1 ? TextAlign.right : TextAlign.center),
+                  style: TextStyle(fontSize: 11, fontWeight: i == at ? FontWeight.w700 : FontWeight.w500, color: i == at ? kOrange : (i < at ? Alvy.slate : c.muted))),
+            ),
+        ]),
+      ]),
     );
   }
 

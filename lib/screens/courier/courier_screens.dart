@@ -14,10 +14,12 @@ import '../../services/rider_api.dart';
 import '../../theme/buyer_colors.dart';
 import '../../widgets/product_thumb.dart';
 import '../seller/seller_kit.dart';
+import '../../widgets/design_kit.dart';
+import '../../theme/app_theme.dart';
 
 Color _statusColor(String s) => switch (s) {
       'delivered' => const Color(0xFF059669),
-      'in_transit' => const Color(0xFFC2410C),
+      'in_transit' => Alvy.warnText,
       'picked_up' => const Color(0xFF6B4C3B),
       'accepted' => const Color(0xFF4338CA),
       'failed' => const Color(0xFFDC2626),
@@ -105,17 +107,19 @@ class _CourierDashboardScreenState extends State<CourierDashboardScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Text('Hi, ${asMap(d['courier'])['name']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
-                  Text('${asMap(d['courier'])['hub']}', style: TextStyle(color: c.muted)),
-                  const SizedBox(height: 10),
-                  StatGrid([
-                    StatTile(label: 'Delivered today', value: '${d['today_done']}', icon: Icons.check_circle_outline, color: const Color(0xFF15803D)),
-                    StatTile(label: 'Total earnings', value: peso(d['total_earnings']), icon: Icons.account_balance_wallet_outlined),
-                    StatTile(label: 'To pick up', value: '${asList(d['for_pickup']).length}', icon: Icons.inventory_2_outlined, color: const Color(0xFF4338CA)),
-                    StatTile(label: 'To deliver', value: '${asList(d['for_delivery']).length}', icon: Icons.local_shipping_outlined, color: const Color(0xFFC2410C)),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  Text('Welcome back,', style: TextStyle(color: c.textSecondary)),
+                  Text('${asMap(d['courier'])['name']}', style: Alvy.display(size: 24, color: c.text, weight: FontWeight.w800)),
+                  Text('${asMap(d['courier'])['hub']}', style: TextStyle(color: Alvy.slate, fontSize: 13)),
+                  const SizedBox(height: 14),
+                  riderHero('Total earnings', peso(d['total_earnings']), [('Delivered today', '${d['today_done']}'), ('Waiting', '${asList(d['available']).length}')],
+                      icon: Icons.account_balance_wallet_outlined),
+                  Row(children: [
+                    riderFigure(context, 'To pick up', '${asList(d['for_pickup']).length}', Icons.inventory_2_outlined),
+                    const SizedBox(width: 10),
+                    riderFigure(context, 'To deliver', '${asList(d['for_delivery']).length}', Icons.local_shipping_outlined),
                   ]),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   _section('Available deliveries', asList(d['available']), 'No deliveries waiting for a courier right now.'),
                   _section('To pick up from the seller', asList(d['for_pickup']), 'Nothing to pick up.'),
                   _section('To deliver', asList(d['for_delivery']), 'Nothing to deliver.'),
@@ -138,33 +142,53 @@ class _CourierDashboardScreenState extends State<CourierDashboardScreen> {
     final c = context.bc;
     final a = asMap(x['actions']);
     final step = _nextStep.entries.where((e) => a[e.key] == true).map((e) => e.value).firstOrNull;
+    // A job as a beige box: order and state, the two stops with orange / navy dots, the fee and the next step.
     return InkWell(
+      borderRadius: BorderRadius.circular(14),
       onTap: x['status'] == 'available' ? null : () => _open(asInt(x['id'])),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('Order ${x['order_number']}', style: TextStyle(fontWeight: FontWeight.w800, color: c.text))),
+            Expanded(child: Text('Order ${x['order_number']}', style: Alvy.display(size: 15, color: c.text, weight: FontWeight.w800))),
             Pill('${x['status_label']}', color: _statusColor('${x['status']}')),
           ]),
-          Text('Pick up: ${x['pickup_name']}${x['pickup_address'] != null ? ' — ${x['pickup_address']}' : ''}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-          Text('Deliver to: ${x['buyer'] ?? ''} — ${x['address'] ?? ''}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-          Text('${x['items_count']} item(s) · fee ${peso(x['fee'])}', style: TextStyle(fontSize: 12, color: c.muted)),
+          const SizedBox(height: 8),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(padding: EdgeInsets.only(top: 4), child: Icon(Icons.circle, size: 9, color: Alvy.orange)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('${x['pickup_name']}${x['pickup_address'] != null ? ' — ${x['pickup_address']}' : ''}',
+                  style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(padding: const EdgeInsets.only(top: 4), child: Icon(Icons.circle, size: 9, color: Alvy.slate)),
+            const SizedBox(width: 8),
+            Expanded(child: Text('${x['buyer'] ?? ''} — ${x['address'] ?? ''}', style: TextStyle(fontSize: 12.5, color: c.textSecondary))),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: Text('${x['items_count']} item(s)', style: TextStyle(fontSize: 12, color: c.muted))),
+            Text(peso(x['fee']), style: Alvy.display(size: 15, color: Alvy.orange, weight: FontWeight.w800)),
+          ]),
           if (step != null)
-            Align(
-              alignment: Alignment.centerRight,
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
               child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: kOrange),
                 onPressed: _busy
                     ? null
                     : () async {
                         if (step.$1 == 'complete') return _open(asInt(x['id']));   // notes on the delivery page
                         _act(asInt(x['id']), step.$1);
                       },
+                style: FilledButton.styleFrom(backgroundColor: kOrange, minimumSize: const Size.fromHeight(44)),
                 child: Text(step.$2),
               ),
             ),
-          const Divider(height: 12),
         ]),
       ),
     );
@@ -236,20 +260,16 @@ class _CourierDeliveryScreenState extends State<CourierDeliveryScreen> {
     final c = context.bc;
     final a = asMap(d['actions']);
     const steps = [('accepted', 'Accepted', 'accepted_at'), ('picked_up', 'Picked up', 'picked_up_at'), ('delivered', 'Delivered', 'delivered_at')];
-    return ListView(padding: const EdgeInsets.all(12), children: [
-      Row(children: [
-        Pill('${d['status_label']}', color: _statusColor('${d['status']}')),
-        const Spacer(),
-        Text('Fee ${peso(d['fee'])}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
-      ]),
-      const SizedBox(height: 10),
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+      riderHero('Delivery fee', peso(d['fee']), [], icon: Icons.local_shipping_outlined, badge: '${d['status_label']}'),
       SectionCard(
+        title: 'Progress',
         child: Column(children: [
           for (final s in steps)
             Row(children: [
-              Icon(d[s.$3] != null ? Icons.check_circle : Icons.radio_button_unchecked, size: 18, color: d[s.$3] != null ? const Color(0xFF15803D) : c.muted),
-              const SizedBox(width: 8),
-              Expanded(child: Text(s.$2)),
+              Icon(d[s.$3] != null ? Icons.check_circle : Icons.radio_button_unchecked, size: 20, color: d[s.$3] != null ? Alvy.orange : c.muted),
+              const SizedBox(width: 10),
+              Expanded(child: Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(s.$2, style: TextStyle(color: c.text, fontWeight: FontWeight.w600)))),
               Text(d[s.$3] != null ? formatDateTime(d[s.$3]) : '—', style: TextStyle(fontSize: 12, color: c.muted)),
             ]),
         ]),
@@ -257,7 +277,7 @@ class _CourierDeliveryScreenState extends State<CourierDeliveryScreen> {
       SectionCard(
         title: 'Pick up from',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${d['pickup_name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text('${d['pickup_name']}', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
           if (d['pickup_address'] != null) Text('${d['pickup_address']}'),
           if (d['pickup_phone'] != null) Text('${d['pickup_phone']}'),
           if (d['pickup_scheduled_at'] != null) Text('Pickup ${formatDateTime(d['pickup_scheduled_at'])}', style: TextStyle(color: c.muted)),
@@ -266,7 +286,7 @@ class _CourierDeliveryScreenState extends State<CourierDeliveryScreen> {
       SectionCard(
         title: 'Deliver to',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${d['buyer'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text('${d['buyer'] ?? ''}', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
           Text('${d['buyer_phone'] ?? ''}'),
           Text('${d['address'] ?? ''}'),
           if ((d['notes'] ?? '').toString().isNotEmpty) Text('Notes: ${d['notes']}', style: TextStyle(color: c.muted)),
@@ -289,10 +309,10 @@ class _CourierDeliveryScreenState extends State<CourierDeliveryScreen> {
       ),
       if (a['pickup'] == true) BusyButton('Confirm pickup', busy: _busy, icon: Icons.inventory_2_outlined, onPressed: () => _act('pickup')),
       if (a['in_transit'] == true)
-        BusyButton('Mark Out for Delivery', busy: _busy, color: const Color(0xFFC2410C), icon: Icons.local_shipping_outlined, onPressed: () => _act('in-transit')),
+        BusyButton('Mark Out for Delivery', busy: _busy, color: Alvy.navyFill, icon: Icons.local_shipping_outlined, onPressed: () => _act('in-transit')),
       if (a['complete'] == true) ...[
         FormInput(_notes, 'Delivery notes (optional)', maxLines: 2, maxLength: 500),
-        BusyButton('Mark as delivered', busy: _busy, color: const Color(0xFF15803D), icon: Icons.check_circle_outline, onPressed: () => _act('complete')),
+        BusyButton('Mark as delivered', busy: _busy, icon: Icons.check_circle_outline, onPressed: () => _act('complete')),
       ],
     ]);
   }
@@ -380,7 +400,7 @@ class _CourierHistoryScreenState extends State<CourierHistoryScreen> {
               StatTile(label: 'Delivered', value: '${_summary['delivered'] ?? 0}', icon: Icons.check_circle_outline, color: const Color(0xFF15803D)),
               StatTile(label: 'In progress', value: '${_summary['in_progress'] ?? 0}', icon: Icons.local_shipping_outlined, color: const Color(0xFFB45309)),
               StatTile(label: 'Failed / returned', value: '${_summary['failed'] ?? 0}', icon: Icons.error_outline, color: const Color(0xFFDC2626)),
-              StatTile(label: 'Earned from deliveries', value: peso(_summary['earned']), icon: Icons.payments_outlined, color: const Color(0xFF2563EB)),
+              StatTile(label: 'Earned from deliveries', value: peso(_summary['earned']), icon: Icons.payments_outlined, color: Alvy.slate),
             ]),
           ),
         Padding(
@@ -390,7 +410,7 @@ class _CourierHistoryScreenState extends State<CourierHistoryScreen> {
               child: TextField(
                 controller: _order,
                 onSubmitted: (_) => _refresh(),
-                decoration: const InputDecoration(hintText: 'Order # or tracking no.', isDense: true, prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
+                decoration: const InputDecoration(hintText: 'Order # or tracking no.', isDense: true, prefixIcon: Icon(Icons.search)),
               ),
             ),
             const SizedBox(width: 8),
@@ -443,7 +463,7 @@ class _CourierHistoryScreenState extends State<CourierHistoryScreen> {
                         return Card(
                           elevation: 0,
                           color: c.surface,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           child: ListTile(
                             onTap: () => _open(x),
                             title: Text('Order ${x['order_number']} · ${x['buyer'] ?? ''}'),
@@ -516,7 +536,7 @@ class _CourierProfitScreenState extends State<CourierProfitScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
                   StatGrid([
                     StatTile(label: 'Total earned', value: peso(d['total_earnings']), icon: Icons.account_balance_wallet_outlined, color: const Color(0xFF15803D)),
                     StatTile(label: 'This month', value: peso(d['month']), icon: Icons.calendar_month),
@@ -647,7 +667,7 @@ class _CourierAccountScreenState extends State<CourierAccountScreen> {
         onRetry: _load,
         child: c == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
                 Center(
                   child: GestureDetector(
                     onTap: () async {
@@ -780,7 +800,7 @@ class _CourierStatusScreenState extends State<CourierStatusScreen> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _tab,
           onDestinationSelected: _go,
-          indicatorColor: const Color(0xFFFFF1EE),
+          indicatorColor: Alvy.orangeSoft,
           destinations: const [
             NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard, color: kOrange), label: 'Dashboard'),
             NavigationDestination(
@@ -828,12 +848,12 @@ class _CourierStatusScreenState extends State<CourierStatusScreen> {
                   ),
                   if (!rejected && a.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    const Card(
-                      color: Color(0xFFFFF7ED),
+                    Card(
+                      color: Alvy.warnSoft,
                       child: ListTile(
-                        leading: Icon(Icons.lock_clock_outlined, color: Color(0xFF9A3412)),
-                        title: Text('Deliveries open after approval', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF9A3412))),
-                        subtitle: Text('Until then you can see your application, notifications and profile.', style: TextStyle(color: Color(0xFF9A3412))),
+                        leading: Icon(Icons.lock_clock_outlined, color: Alvy.warnText),
+                        title: Text('Deliveries open after approval', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.warnText)),
+                        subtitle: Text('Until then you can see your application, notifications and profile.', style: TextStyle(color: Alvy.warnText)),
                       ),
                     ),
                   ],
@@ -884,7 +904,7 @@ class _CourierStatusScreenState extends State<CourierStatusScreen> {
         Center(
           child: CircleAvatar(
             radius: 36,
-            backgroundColor: const Color(0xFFFFF1EE),
+            backgroundColor: Alvy.orangeSoft,
             child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: kOrange)),
           ),
         ),

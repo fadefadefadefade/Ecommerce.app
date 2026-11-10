@@ -1,28 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/staff_shell.dart';
 
 /// ALVY Commerce design tokens (Mobile design/…/alvy_commerce/DESIGN.md, the Stitch screens): a warm cream page,
 /// white rounded cards with soft shadows, the web's bright ALVY orange (#FA4E1C) for actions, warm beige fills for inputs and secondary
 /// buttons, Plus Jakarta Sans for headings and prices, Inter for text.
 /// (The names navy/orange are kept so every screen picks up the new colors.)
 class Alvy {
-  static const navy = Color(0xFF1E1B17); // ink: headings and main text
-  static const navyLight = Color(0xFF33302C);
-  static const slate = Color(0xFF406185); // secondary: links, store names, info
+  /// Set from the app's resolved theme (main.dart) so the tokens below follow light / dark mode.
+  static bool isDark = false;
+
+  // The light values (the design) and their dark counterparts.
+  static const _navyL = Color(0xFF1E1B17);
+  static const _slateL = Color(0xFF002B4D);
+  static const _slateSoftL = Color(0xFFDCE8F2);
+  static const _orangeSoftL = Color(0xFFFFF1EE);
+  static const _pageL = Color(0xFFFFF8F2);
+  static const _subtleL = Color(0xFFF4EDE6);
+  static const _borderL = Color(0xFFEEE7E0);
+  static const _inputL = Color(0xFFE8E1DB);
+  static const _textSubL = Color(0xFF5C4039);
+  static const _textMutedL = Color(0xFF8A716A);
+
+  static Color get navy => isDark ? const Color(0xFFF2E6DE) : _navyL; // ink: headings and main text
+  static Color get navyLight => isDark ? const Color(0xFFD6C2B8) : const Color(0xFF33302C);
+  static Color get slate => isDark ? const Color(0xFFA8C9F3) : _slateL; // the logo's navy: secondary (links, store names, info, header icons)
+  /// The logo's navy as a fill under white text (buttons, the COD vault card): stays a deep navy in dark mode.
+  static Color get navyFill => isDark ? const Color(0xFF1D4A73) : _slateL;
+  static Color get slateSoft => isDark ? const Color(0xFF1F2E3D) : _slateSoftL; // navy tint: info pills, avatars
   static const orange = Color(0xFFFA4E1C); // primary actions
   static const orangeDark = Color(0xFFD93D0E);
   static const orangeLight = Color(0xFFFF7A45);
-  static const orangeSoft = Color(0xFFFFF1EE);
-  static const page = Color(0xFFFFF8F2);
-  static const surface = Colors.white;
-  static const subtle = Color(0xFFF4EDE6); // input shells, secondary buttons, chips
-  static const subtleHigh = Color(0xFFEEE7E0);
-  static const border = Color(0xFFEEE7E0);
-  static const input = Color(0xFFE8E1DB);
-  static const text = navy;
-  static const textSub = Color(0xFF5C4039);
-  static const textMuted = Color(0xFF8A716A);
+  static Color get orangeSoft => isDark ? const Color(0xFF3D2116) : _orangeSoftL;
+  static Color get page => isDark ? const Color(0xFF15110E) : _pageL;
+  static Color get surface => isDark ? const Color(0xFF211C18) : Colors.white;
+  static Color get subtle => isDark ? const Color(0xFF2B2520) : _subtleL; // input shells, secondary buttons, chips
+  static Color get subtleHigh => isDark ? const Color(0xFF332C26) : _borderL;
+  static Color get border => isDark ? const Color(0xFF3A322C) : _borderL;
+  static Color get input => isDark ? const Color(0xFF3A322C) : _inputL;
+  static Color get text => navy;
+  static Color get textSub => isDark ? const Color(0xFFD6C2B8) : _textSubL;
+  static Color get textMuted => isDark ? const Color(0xFFA48F85) : _textMutedL;
+  // Tinted boxes (alerts, notices) and the text that sits on them.
+  static Color get dangerSoft => isDark ? const Color(0xFF3B1A1A) : const Color(0xFFFEF2F2);
+  static Color get warnSoft => isDark ? const Color(0xFF3A2A14) : const Color(0xFFFFF7ED);
+  static Color get successSoft => isDark ? const Color(0xFF15301F) : const Color(0xFFECFDF5);
+  static Color get dangerText => isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C);
+  static Color get warnText => isDark ? const Color(0xFFFDBA74) : const Color(0xFF9A3412);
+  static Color get successText => isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46);
   static const success = Color(0xFF16A34A);
   static const warning = Color(0xFFB45309);
   static const danger = Color(0xFFDC2626);
@@ -36,23 +62,23 @@ class Alvy {
   static const buttonShadow = [BoxShadow(color: Color(0x47FA4E1C), blurRadius: 10, offset: Offset(0, 3))];
 
   /// Headings and prices.
-  static TextStyle display({double size = 20, Color color = navy, FontWeight weight = FontWeight.w800}) =>
-      GoogleFonts.plusJakartaSans(fontSize: size, fontWeight: weight == FontWeight.w900 ? FontWeight.w800 : weight, color: color, height: 1.2, letterSpacing: -0.2);
+  static TextStyle display({double size = 20, Color? color, FontWeight weight = FontWeight.w800}) =>
+      GoogleFonts.plusJakartaSans(fontSize: size, fontWeight: weight == FontWeight.w900 ? FontWeight.w800 : weight, color: color ?? navy, height: 1.2, letterSpacing: -0.2);
 
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness b) {
     final dark = b == Brightness.dark;
-    final bg = dark ? const Color(0xFF15110E) : page;
-    final card = dark ? const Color(0xFF211C18) : surface;
-    final fill = dark ? const Color(0xFF2B2520) : subtle;
-    final line = dark ? const Color(0xFF3A322C) : border;
-    final ink = dark ? const Color(0xFFF2E6DE) : text;
-    final sub = dark ? const Color(0xFFD6C2B8) : textSub;
-    final muted = dark ? const Color(0xFFA48F85) : textMuted;
+    final bg = dark ? const Color(0xFF15110E) : _pageL;
+    final card = dark ? const Color(0xFF211C18) : Colors.white;
+    final fill = dark ? const Color(0xFF2B2520) : _subtleL;
+    final line = dark ? const Color(0xFF3A322C) : _borderL;
+    final ink = dark ? const Color(0xFFF2E6DE) : _navyL;
+    final sub = dark ? const Color(0xFFD6C2B8) : _textSubL;
+    final muted = dark ? const Color(0xFFA48F85) : _textMutedL;
     final action = dark ? orangeLight : orange;
-    final tint = dark ? const Color(0xFF3D2116) : orangeSoft;
+    final tint = dark ? const Color(0xFF3D2116) : _orangeSoftL;
 
     final base = ThemeData(useMaterial3: true, brightness: b);
     final body = GoogleFonts.interTextTheme(base.textTheme).apply(bodyColor: ink, displayColor: ink);
@@ -73,6 +99,11 @@ class Alvy {
     OutlineInputBorder field(Color c, [double w = 1]) => OutlineInputBorder(borderRadius: r12, borderSide: BorderSide(color: c, width: w));
 
     return base.copyWith(
+      // Pages opened over a staff portal stay a readable column on wide tablets (widgets/staff_shell.dart).
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: StaffPageFrame(),
+        TargetPlatform.iOS: StaffPageFrame(),
+      }),
       colorScheme: ColorScheme.fromSeed(
         seedColor: orange,
         brightness: b,
@@ -80,7 +111,7 @@ class Alvy {
         onPrimary: Colors.white,
         primaryContainer: tint,
         onPrimaryContainer: dark ? const Color(0xFFFFDBD1) : orangeDark,
-        secondary: dark ? const Color(0xFFA8C9F3) : slate,
+        secondary: dark ? const Color(0xFFA8C9F3) : _slateL,
         onSecondary: Colors.white,
         surface: card,
         onSurface: ink,
@@ -88,8 +119,8 @@ class Alvy {
         surfaceContainerLowest: card,
         surfaceContainerLow: dark ? const Color(0xFF1C1814) : const Color(0xFFFAF2EB),
         surfaceContainer: fill,
-        surfaceContainerHigh: dark ? const Color(0xFF332C26) : subtleHigh,
-        surfaceContainerHighest: dark ? const Color(0xFF3A322C) : input,
+        surfaceContainerHigh: dark ? const Color(0xFF332C26) : _borderL,
+        surfaceContainerHighest: dark ? const Color(0xFF3A322C) : _inputL,
         outline: line,
         outlineVariant: line,
         error: danger,
@@ -113,7 +144,7 @@ class Alvy {
         systemOverlayStyle: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(statusBarColor: Colors.transparent),
         titleTextStyle: GoogleFonts.plusJakartaSans(fontSize: 18.5, fontWeight: FontWeight.w700, color: ink, letterSpacing: -0.2),
         iconTheme: IconThemeData(color: ink, size: 23),
-        actionsIconTheme: IconThemeData(color: dark ? ink : slate, size: 23),
+        actionsIconTheme: IconThemeData(color: dark ? ink : _slateL, size: 23),
       ),
       cardTheme: CardThemeData(
         color: card,
@@ -230,7 +261,7 @@ class Alvy {
         backgroundColor: card,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
-        dragHandleColor: dark ? line : input,
+        dragHandleColor: dark ? line : _inputL,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       ),
       dialogTheme: DialogThemeData(

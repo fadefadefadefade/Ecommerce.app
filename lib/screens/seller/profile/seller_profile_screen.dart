@@ -12,6 +12,8 @@ import '../panel/panel_screens.dart';
 import '../reports/seller_commissions_screen.dart';
 
 /// Seller profile: the rest of the web's seller menu (store, marketing, money, account).
+const _orange = Color(0xFFFA4E1C);
+
 class SellerProfileScreen extends StatelessWidget {
   const SellerProfileScreen({super.key});
 
@@ -32,38 +34,51 @@ class SellerProfileScreen extends StatelessWidget {
           email: user?.email ?? '',
           roleLabel: verified ? 'Verified Seller' : 'Seller',
           roleIcon: verified ? Icons.verified : Icons.storefront,
-          avatarColor: const Color(0xFFFA4E1C),
+          avatarColor: _orange,
         ),
         const SizedBox(height: 16),
-        ProfileActionGrid(actions: [
-          ProfileAction(icon: Icons.storefront_outlined, label: 'Store Settings', color: const Color(0xFFFA4E1C),
+        // The buyer account hub's grouped rows, in the logo's two colors: orange for selling, navy for the account.
+        ProfileMenuGroup(title: 'Store', rows: [
+          ProfileMenuRow(icon: Icons.storefront_outlined, color: _orange, title: 'Store Settings', subtitle: 'Name, logo, banner and vacation mode',
               onTap: () => _push(context, const SellerStoreSettingsScreen())),
-          ProfileAction(icon: Icons.category_outlined, label: 'Store Categories', color: const Color(0xFF0891B2),
+          ProfileMenuRow(icon: Icons.category_outlined, color: _orange, title: 'Store Categories', subtitle: 'Group your products for buyers',
               onTap: () => _push(context, const SellerStoreCategoriesScreen())),
-          ProfileAction(icon: Icons.confirmation_number_outlined, label: 'Vouchers', color: const Color(0xFF9333EA),
-              onTap: () => _push(context, const SellerVouchersScreen())),
-          ProfileAction(icon: Icons.flash_on_outlined, label: 'Flash Sales', color: const Color(0xFFDC2626),
-              onTap: () => _push(context, const SellerFlashSalesScreen())),
-          ProfileAction(icon: Icons.redeem_outlined, label: 'Bundles & Promos', color: const Color(0xFFDB2777),
-              onTap: () => _push(context, const SellerPromotionsScreen())),
-          ProfileAction(icon: Icons.reviews_outlined, label: 'Reviews', color: const Color(0xFFF59E0B),
+          ProfileMenuRow(icon: Icons.reviews_outlined, color: _orange, title: 'Reviews', subtitle: 'What buyers say, and your replies',
               onTap: () => _push(context, const SellerReviewsScreen())),
-          ProfileAction(icon: Icons.account_balance_wallet_outlined, label: 'Earnings', color: const Color(0xFF15803D),
-              onTap: () => _push(context, const SellerEarningsScreen())),
-          ProfileAction(icon: Icons.percent, label: 'Commissions', color: const Color(0xFF9333EA),
-              onTap: () => _push(context, const SellerCommissionsScreen())),
-          ProfileAction(icon: Icons.chat_bubble_outline, label: 'Messages', color: const Color(0xFF2563EB),
-              onTap: () => _push(context, const ChatListScreen())),
-          ProfileAction(icon: Icons.notifications_outlined, label: 'Notifications', color: const Color(0xFFF59E0B),
-              onTap: () => _push(context, const NotificationsScreen())),
-          ProfileAction(icon: Icons.person_outline, label: 'Account', color: const Color(0xFF2563EB),
-              onTap: () => _push(context, const SellerAccountScreen())),
-          ProfileAction(icon: Icons.lock_outline, label: 'Security', color: const Color(0xFF6B7280),
-              onTap: () => _push(context, const SecurityScreen())),
-          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF5C4039),
-              onTap: () => _push(context, const PoliciesScreen())),
-          ProfileAction.logout(context),
         ]),
+        const SizedBox(height: 14),
+        ProfileMenuGroup(title: 'Marketing', rows: [
+          ProfileMenuRow(icon: Icons.confirmation_number_outlined, color: _orange, title: 'Vouchers', subtitle: 'Discount codes for your store',
+              onTap: () => _push(context, const SellerVouchersScreen())),
+          ProfileMenuRow(icon: Icons.flash_on_outlined, color: _orange, title: 'Flash Sales', subtitle: 'Time-limited prices',
+              onTap: () => _push(context, const SellerFlashSalesScreen())),
+          ProfileMenuRow(icon: Icons.redeem_outlined, color: _orange, title: 'Bundles & Promos', subtitle: 'Buy-more-save-more deals',
+              onTap: () => _push(context, const SellerPromotionsScreen())),
+        ]),
+        const SizedBox(height: 14),
+        ProfileMenuGroup(title: 'Money', rows: [
+          ProfileMenuRow(icon: Icons.account_balance_wallet_outlined, title: 'Earnings', subtitle: 'What you earned and your payouts',
+              onTap: () => _push(context, const SellerEarningsScreen())),
+          ProfileMenuRow(icon: Icons.percent, title: 'Commissions', subtitle: 'ALVY fees per order',
+              onTap: () => _push(context, const SellerCommissionsScreen())),
+        ]),
+        const SizedBox(height: 14),
+        ProfileMenuGroup(title: 'Account & Preferences', rows: [
+          ProfileMenuRow(icon: Icons.chat_bubble_outline, title: 'Messages', subtitle: 'Chats with buyers', onTap: () => _push(context, const ChatListScreen())),
+          ProfileMenuRow(icon: Icons.notifications_outlined, title: 'Notifications', subtitle: 'Orders, stock and payouts',
+              onTap: () => _push(context, const NotificationsScreen())),
+          ProfileMenuRow(icon: Icons.person_outline, title: 'Account', subtitle: 'Name, email, phone and photo', onTap: () => _push(context, const SellerAccountScreen())),
+          ProfileMenuRow(icon: Icons.lock_outline, title: 'Security', subtitle: 'Password', onTap: () => _push(context, const SecurityScreen())),
+          const DarkModeRow(),
+          ProfileMenuRow(icon: Icons.policy_outlined, title: 'Policies', subtitle: 'Seller terms and rules', onTap: () => _push(context, const PoliciesScreen())),
+        ]),
+        const SizedBox(height: 18),
+        TextButton.icon(
+          onPressed: ProfileAction.logout(context).onTap,
+          icon: const Icon(Icons.logout, size: 20),
+          label: const Text('Log Out'),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }

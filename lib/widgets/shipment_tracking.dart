@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/buyer_colors.dart';
@@ -29,8 +30,8 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
     final hubs = (t['hubs'] as List? ?? const []).map((e) => '$e').toList();
     final expected = (t['expected'] as List? ?? const []).map((e) => '$e').toList();
     final visible = _older ? events : events.take(_shown).toList();
-    final pillBg = delivered ? const Color(0xFFECFDF5) : (trouble ? const Color(0xFFFEF2F2) : const Color(0xFFFFF1EE));
-    final pillFg = delivered ? const Color(0xFF047857) : (trouble ? const Color(0xFFB91C1C) : const Color(0xFFD93D0E));
+    final pillBg = delivered ? Alvy.successSoft : (trouble ? Alvy.dangerSoft : Alvy.orangeSoft);
+    final pillFg = delivered ? Alvy.successText : (trouble ? Alvy.dangerText : const Color(0xFFD93D0E));
 
     return SectionCard(
       title: 'Shipment tracking',
@@ -76,7 +77,7 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
                   height: 4,
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    color: i <= reached ? (trouble && i == reached ? const Color(0xFFDC2626) : kOrange) : const Color(0xFFEEE7E0),
+                    color: i <= reached ? (trouble && i == reached ? const Color(0xFFDC2626) : kOrange) : Alvy.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -101,7 +102,7 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(children: [
-              Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFEEE7E0), width: 2))),
+              Container(width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Alvy.border, width: 2))),
               const SizedBox(width: 10),
               Text('$step (expected)', style: TextStyle(fontSize: 13, color: c.muted)),
             ]),
@@ -113,12 +114,12 @@ class _ShipmentTrackingCardState extends State<ShipmentTrackingCard> {
   Widget _event(Map<String, dynamic> e, {required bool latest, required bool line}) {
     final c = context.bc;
     final warn = e['warning'] == true;
-    final color = warn ? const Color(0xFFDC2626) : (latest ? (e['type'] == 'delivered' ? const Color(0xFF059669) : kOrange) : const Color(0xFFEEE7E0));
+    final color = warn ? const Color(0xFFDC2626) : (latest ? (e['type'] == 'delivered' ? const Color(0xFF059669) : kOrange) : Alvy.border);
     return IntrinsicHeight(
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Column(children: [
           Container(margin: const EdgeInsets.only(top: 4), width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          if (line) Expanded(child: Container(width: 1, color: const Color(0xFFEEE7E0))),
+          if (line) Expanded(child: Container(width: 1, color: Alvy.border)),
         ]),
         const SizedBox(width: 10),
         Expanded(

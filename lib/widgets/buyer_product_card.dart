@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'motion.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../screens/buyer/product_detail_screen.dart';
@@ -64,7 +65,7 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
     final sold = asNum(p['sold']).toInt();
 
     final c = context.bc;
-    return Container(
+    return PressScale(child: Container(
       decoration: cardBox(context),
       clipBehavior: Clip.antiAlias,
       child: Material(
@@ -97,8 +98,8 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
                       top: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(20)),
-                        child: Text('-$discount%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFBA1A1A))),
+                        decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(20)),
+                        child: Text('-$discount%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Alvy.dangerText)),
                       ),
                     ),
                   if (outOfStock)
@@ -115,7 +116,7 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
                     right: 6,
                     top: 6,
                     child: Material(
-                      color: Colors.white,
+                      color: Alvy.surface,
                       shape: const CircleBorder(),
                       elevation: 1,
                       shadowColor: const Color(0x332A1A10),
@@ -127,7 +128,7 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
                           child: SizedBox(
                             width: 32,
                             height: 32,
-                            child: Icon(_wished ? Icons.favorite : Icons.favorite_border, size: 17, color: _wished ? kOrange : const Color(0xFF5C4039)),
+                            child: PopOnChange(value: _wished, child: Icon(_wished ? Icons.favorite : Icons.favorite_border, size: 17, color: _wished ? kOrange : Alvy.textSub)),
                           ),
                         ),
                       ),
@@ -161,7 +162,7 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
                   else if (p['category'] != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Text(p['category'], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Alvy.slate)),
+                      child: Text(p['category'], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: Alvy.slate)),
                     ),
                   const Spacer(),
                   Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -180,10 +181,11 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
                         ),
                       ]),
                     ),
+                    const SizedBox(width: 6),
                     if (onVacation)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(20)),
+                        decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(20)),
                         child: const Text('On vacation', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
                       )
                     else if (!outOfStock)
@@ -210,7 +212,7 @@ class _BuyerProductCardState extends State<BuyerProductCard> {
           ]),
         ),
       ),
-    );
+    ));
   }
 }
 

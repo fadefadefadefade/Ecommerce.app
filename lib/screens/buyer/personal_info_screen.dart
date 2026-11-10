@@ -1,6 +1,7 @@
 import 'dart:io';
 import '../../theme/buyer_colors.dart';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -148,7 +149,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -162,8 +163,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                             width: 100,
                             height: 100,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E1B17),
+                              color: Alvy.orange,
                               shape: BoxShape.circle,
+                              border: Border.all(color: Alvy.surface, width: 4),
+                              boxShadow: Alvy.buttonShadow,
                               image: _selectedImage != null
                                   ? DecorationImage(
                                       image: FileImage(_selectedImage!),
@@ -197,9 +200,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFA4E1C),
+                                color: Alvy.navyFill,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
+                                border: Border.all(color: Alvy.surface, width: 2),
                               ),
                               child: const Icon(
                                 Icons.camera_alt,
@@ -223,36 +226,20 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     
                     // Form Fields Card
                     Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: context.bc.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
+                      padding: const EdgeInsets.all(18),
+                      decoration: cardBox(context, radius: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text('Personal Information', style: Alvy.display(size: 18, color: context.bc.text, weight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text('How sellers and riders see you', style: TextStyle(fontSize: 12.5, color: context.bc.textSecondary)),
+                          const SizedBox(height: 16),
                           // Full Name
                           TextFormField(
                             controller: _nameController,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Full Name *',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFFA4E1C),
-                                  width: 2,
-                                ),
-                              ),
                             ),
                             validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
                           ),
@@ -262,19 +249,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           TextFormField(
                             controller: _emailController,
                             readOnly: true,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Email Address *',
                               helperText: 'Change it on Security (a code is sent to confirm).',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFFA4E1C),
-                                  width: 2,
-                                ),
-                              ),
                             ),
                             keyboardType: TextInputType.emailAddress,
                             validator: (v) {
@@ -289,20 +266,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           TextFormField(
                             controller: _phoneController,
                             readOnly: true,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Phone Number',
                               helperText: 'Change it on Security (a code is sent to confirm).',
                               hintText: '09123456789',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFFA4E1C),
-                                  width: 2,
-                                ),
-                              ),
                             ),
                             keyboardType: TextInputType.phone,
                           ),
@@ -311,18 +278,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           // Gender
                           DropdownButtonFormField<String>(
                             initialValue: _selectedGender,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Gender',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFFA4E1C),
-                                  width: 2,
-                                ),
-                              ),
                             ),
                             items: const [
                               DropdownMenuItem(value: null, child: Text('Prefer not to say')),
@@ -341,19 +298,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           InkWell(
                             onTap: _selectDate,
                             child: InputDecorator(
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Date of Birth',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFFA4E1C),
-                                    width: 2,
-                                  ),
-                                ),
-                                suffixIcon: const Icon(Icons.calendar_today),
+                                suffixIcon: Icon(Icons.calendar_today),
                               ),
                               child: Text(
                                 _selectedBirthday != null
@@ -372,19 +319,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           // Bio
                           TextFormField(
                             controller: _bioController,
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Bio',
                               hintText: 'Tell us a little about yourself...',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFFA4E1C),
-                                  width: 2,
-                                ),
-                              ),
                               alignLabelWithHint: true,
                             ),
                             maxLines: 3,
@@ -402,8 +339,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           child: OutlinedButton(
                             onPressed: _isSaving ? null : () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: context.bc.muted,
-                              side: BorderSide(color: context.bc.subtle),
+                              foregroundColor: context.bc.text,
+                              backgroundColor: context.bc.subtle,
+                              side: BorderSide.none,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -421,10 +359,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           flex: 2,
-                          child: ElevatedButton(
+                          child: FilledButton(
                             onPressed: _isSaving ? null : _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFA4E1C),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Alvy.orange,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(

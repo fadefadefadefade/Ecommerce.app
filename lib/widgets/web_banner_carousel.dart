@@ -103,7 +103,7 @@ class _WebBannerCarouselState extends State<WebBannerCarousel> {
               final s = slides[i];
               return Stack(fit: StackFit.expand, children: [
                 Image.network(s.img, fit: BoxFit.cover, alignment: s.focus,
-                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF33302C))),
+                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E1B17))),
                 // A dark fade from the bottom (phones) or the left (tablets) so the white text reads on any photo.
                 DecoratedBox(
                   decoration: BoxDecoration(

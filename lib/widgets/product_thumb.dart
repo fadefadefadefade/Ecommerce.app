@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'net_image.dart';
 import '../config/api_config.dart';
 
@@ -23,7 +24,7 @@ class ProductThumb extends StatelessWidget {
     final placeholder = Container(
       width: size,
       height: size,
-      color: const Color(0xFFF4EDE6),
+      color: Alvy.subtle,
       child: Icon(Icons.inventory_2_outlined, size: size * 0.45, color: const Color(0xFFFA4E1C)),
     );
 

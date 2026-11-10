@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 import '../../services/buyer_api.dart';
 import '../../theme/buyer_colors.dart';
+import '../../widgets/allie.dart';
 import '../../widgets/buyer_kit.dart';
+import '../../widgets/motion.dart';
 import 'product_detail_screen.dart';
 
-/// The website's ALVY Assistant (the chat bubble on the shop pages): ask about products, orders and vouchers.
+/// ALLIE, the website's assistant (the chat bubble on the shop pages): ask about products, orders and vouchers.
 /// Answers can carry product cards and actions the buyer confirms (add to cart, cancel an order, contact support).
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({super.key});
@@ -20,6 +25,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
   String _mode = 'ai';
   bool _loading = true;
   bool _asking = false;
+  bool _happy = false;
+  Timer? _happyTimer;
+  // Messages from history appear as they are; only new ones rise in.
+  int _historyCount = 0;
 
   @override
   void initState() {
@@ -29,6 +38,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   @override
   void dispose() {
+    _happyTimer?.cancel();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -44,6 +54,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
         _messages
           ..clear()
           ..addAll(List.from(r.body['messages'] ?? []).map((m) => Map<String, dynamic>.from(m as Map)));
+        _historyCount = _messages.length;
       }
     });
     _toBottom();
@@ -70,6 +81,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ? {'role': 'assistant', 'content': '${r.body['reply'] ?? ''}', 'cards': r.body['cards'] ?? [], 'actions': r.body['actions'] ?? []}
           : {'role': 'assistant', 'content': r.message, 'error': true});
       if (r.ok && r.body['mode'] != null) _mode = '${r.body['mode']}';
+      _happy = r.ok;
+    });
+    // She smiles for a moment when her answer arrives.
+    _happyTimer?.cancel();
+    _happyTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _happy = false);
     });
     _toBottom();
   }
@@ -87,7 +104,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Future<void> _reset() async {
     await BuyerApi.assistantReset();
     if (!mounted) return;
-    setState(() => _messages.clear());
+    setState(() {
+      _messages.clear();
+      _historyCount = 0;
+    });
   }
 
   @override
@@ -96,9 +116,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('ALVY Assistant'),
-          Text(_mode == 'ai' ? 'Ask about products, orders and vouchers' : 'Quick help', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        titleSpacing: 0,
+        title: Row(children: [
+          AllieAvatar(size: 40, hello: true, mood: _asking ? AllieMood.thinking : (_happy ? AllieMood.happy : AllieMood.idle)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('ALLIE'),
+              Text(_asking ? 'Thinking…' : (_mode == 'ai' ? 'Ask about products, orders and vouchers' : 'Quick help'),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.textSecondary, fontWeight: FontWeight.w500)),
+            ]),
+          ),
         ]),
         actions: [IconButton(tooltip: 'Start over', onPressed: _reset, icon: const Icon(Icons.refresh))],
       ),
@@ -106,27 +134,46 @@ class _AssistantScreenState extends State<AssistantScreen> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: kOrange))
-              : ListView(controller: _scroll, padding: const EdgeInsets.all(12), children: [
+              : ListView(controller: _scroll, padding: const EdgeInsets.fromLTRB(16, 12, 16, 12), children: [
                   if (_messages.isEmpty) ...[
-                    _bubble({'role': 'assistant', 'content': 'Hi! I can help you find products, check your orders and vouchers. What are you looking for?'}),
+                    _bubble({'role': 'assistant', 'content': "Hi! I'm ALLIE. I can help you find products, check your orders and vouchers. What are you looking for?"}),
                     Wrap(spacing: 6, runSpacing: 6, children: [
                       for (final q in const ['Where is my order?', 'Show me bags under ₱500', 'What vouchers can I use?'])
-                        ActionChip(label: Text(q), onPressed: () => _ask(q)),
+                        ActionChip(
+                          avatar: const Icon(Icons.auto_awesome, size: 16, color: Alvy.orange),
+                          label: Text(q, style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
+                          backgroundColor: c.subtle,
+                          side: BorderSide.none,
+                          shape: const StadiumBorder(),
+                          onPressed: () => _ask(q),
+                        ),
                     ]),
                   ],
-                  for (final m in _messages) _bubble(m),
+                  for (final (i, m) in _messages.indexed) RiseIn(enabled: i >= _historyCount, child: _bubble(m)),
                   if (_asking)
-                    const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Row(children: [SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kOrange)), SizedBox(width: 8), Text('Thinking…')]),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(children: [
+                        const AllieAvatar(size: 30, mood: AllieMood.thinking),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(18)),
+                          child: AllieTypingDots(color: c.muted),
+                        ),
+                      ]),
                     ),
                 ]),
         ),
         SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-            child: Row(children: [
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            decoration: BoxDecoration(
+              color: c.surface,
+              boxShadow: const [BoxShadow(color: Color(0x0F2A1A10), blurRadius: 10, offset: Offset(0, -2))],
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Expanded(
                 child: TextField(
                   controller: _input,
@@ -134,12 +181,25 @@ class _AssistantScreenState extends State<AssistantScreen> {
                   minLines: 1,
                   maxLines: 4,
                   maxLength: 500,
-                  decoration: const InputDecoration(hintText: 'Ask ALVY…', counterText: '', isDense: true, border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    hintText: 'Ask ALLIE…',
+                    counterText: '',
+                    filled: true,
+                    fillColor: c.subtle,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                  ),
                   onSubmitted: (_) => _ask(),
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filled(style: IconButton.styleFrom(backgroundColor: kOrange), onPressed: _asking ? null : _ask, icon: const Icon(Icons.send)),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: IconButton.filled(style: IconButton.styleFrom(backgroundColor: kOrange), onPressed: _asking ? null : _ask, icon: const Icon(Icons.send_rounded, size: 20)),
+              ),
             ]),
           ),
         ),
@@ -152,31 +212,36 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final mine = m['role'] == 'user';
     final cards = List.from(m['cards'] ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     final actions = List.from(m['actions'] ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .82),
+    final bubble = ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * (mine ? .82 : .74)),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(10),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          // The chat's bubbles: orange for you, white cards for ALVY.
           decoration: BoxDecoration(
-            color: mine ? kOrange : (m['error'] == true ? const Color(0xFFFEF2F2) : c.surface),
-            borderRadius: BorderRadius.circular(12),
-            border: mine ? null : Border.all(color: c.border),
+            color: mine ? kOrange : (m['error'] == true ? Alvy.dangerSoft : c.surface),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(18),
+              topRight: const Radius.circular(18),
+              bottomLeft: Radius.circular(mine ? 18 : 4),
+              bottomRight: Radius.circular(mine ? 4 : 18),
+            ),
+            boxShadow: mine ? null : const [BoxShadow(color: Color(0x0F2A1A10), blurRadius: 10, offset: Offset(0, 2))],
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${m['content']}', style: TextStyle(color: mine ? Colors.white : c.text)),
+            Text('${m['content']}', style: TextStyle(color: mine ? Colors.white : c.text, height: 1.35)),
             for (final p in cards)
-              Card(
-                margin: const EdgeInsets.only(top: 6),
-                elevation: 0,
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
                 child: ListTile(
                   dense: true,
                   leading: p['image'] != null
                       ? ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.network('${p['image']}', width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image)))
                       : const Icon(Icons.shopping_bag_outlined),
                   title: Text('${p['name']}', maxLines: 2, overflow: TextOverflow.ellipsis),
-                  subtitle: Text([p['price'], if (p['was'] != null) 'was ${p['was']}', if (p['stock'] != null) p['stock']].join(' · ')),
+                  subtitle: Text([p['price'], if (p['was'] != null) 'was ${p['was']}', if (p['stock'] != null) p['stock']].join(' · '),
+                      style: const TextStyle(color: Alvy.orange, fontWeight: FontWeight.w700)),
                   onTap: () {
                     final slug = '${p['link'] ?? ''}'.split('/products/').last;
                     if (slug.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailScreen(slug: slug)));
@@ -194,7 +259,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
               ),
           ]),
         ),
-      ),
-    );
+      );
+    if (mine) return Align(alignment: Alignment.centerRight, child: bubble);
+    return Row(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+      const Padding(padding: EdgeInsets.only(bottom: 10, right: 6), child: AllieAvatar(size: 30, animate: false)),
+      Flexible(child: bubble),
+    ]);
   }
 }

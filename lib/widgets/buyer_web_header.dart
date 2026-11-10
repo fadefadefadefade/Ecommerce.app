@@ -88,7 +88,7 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                       width: 36,
                       height: 36,
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: Alvy.subtle, borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: Alvy.isDark ? const Color(0xFFFFE4DC) : Alvy.subtle, borderRadius: BorderRadius.circular(12)),
                       child: Image.asset('assets/images/logo-mark.png', fit: BoxFit.contain),
                     ),
                     if (!_compact) ...[
@@ -105,7 +105,7 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                     decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(14)),
                     child: Row(children: [
                       const SizedBox(width: 12),
-                      const Icon(Icons.search, color: Alvy.textMuted, size: 20),
+                      Icon(Icons.search, color: Alvy.textMuted, size: 20),
                       Expanded(
                         child: TextField(
                           controller: _search,
@@ -139,11 +139,11 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
                 ),
                 SizedBox(width: _compact ? 2 : 8),
                 _icon(Icons.chat_bubble_outline, 'Messages', widget.onMessages),
-                if (widget.onWishlist != null) _icon(Icons.favorite_border_rounded, 'Wishlist', widget.onWishlist!),
+                if (widget.onWishlist != null) _icon(Icons.favorite_border_rounded, 'Wishlist', widget.onWishlist!, active: t == 2),
                 _icon(Icons.notifications_none, 'Notifications', widget.onNotifications),
-                _icon(Icons.shopping_cart_outlined, 'Cart', () => widget.onTab(2), badge: widget.cartCount, active: t == 2),
+                _icon(Icons.shopping_cart_outlined, 'Cart', () => widget.onTab(3), badge: widget.cartCount, active: t == 3),
                 const SizedBox(width: 6),
-                _accountPill(t == 3),
+                _accountPill(t == 4),
               ]),
             ),
           ),
@@ -162,7 +162,7 @@ class _BuyerWebHeaderState extends State<BuyerWebHeader> {
       shape: StadiumBorder(side: BorderSide(color: active ? kOrange : Colors.transparent, width: 1.5)),
       child: InkWell(
         customBorder: const StadiumBorder(),
-        onTap: () => widget.onTab(3),
+        onTap: () => widget.onTab(4),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
           child: Row(mainAxisSize: MainAxisSize.min, children: [

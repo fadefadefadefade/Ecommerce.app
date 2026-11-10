@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/app_theme.dart';
 
 import '../../../services/seller_api.dart';
 import '../../../theme/buyer_colors.dart';
@@ -94,16 +95,19 @@ class _SellerCommissionsScreenState extends State<SellerCommissionsScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Wrap(spacing: 6, children: [
-                    for (final (key, label) in const [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('custom', 'Custom')])
-                      ChoiceChip(label: Text(label), selected: _period == key, selectedColor: kOrange.withValues(alpha: .15), onSelected: (_) => _pickPeriod(key)),
-                  ]),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  SizedBox(
+                    height: 44,
+                    child: ListView(scrollDirection: Axis.horizontal, children: [
+                      for (final (key, label) in const [('today', 'Today'), ('week', 'This week'), ('month', 'This month'), ('custom', 'Custom')])
+                        Padding(padding: const EdgeInsets.only(right: 8), child: FilterPill(label, selected: _period == key, onTap: () => _pickPeriod(key))),
+                    ]),
+                  ),
                   Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text('${d['range_label']}', style: TextStyle(color: c.muted, fontSize: 12))),
                   StatGrid([
-                    StatTile(label: 'Sales', value: peso(s['gross']), icon: Icons.payments_outlined, color: const Color(0xFF2563EB),
+                    StatTile(label: 'Sales', value: peso(s['gross']), icon: Icons.payments_outlined, color: Alvy.slate,
                         hint: asNum(s['refunds']) > 0 ? '${peso(s['refunds'])} refunded' : null),
-                    StatTile(label: 'Commission', value: peso(s['commission']), icon: Icons.percent, color: const Color(0xFF9333EA),
+                    StatTile(label: 'Commission', value: peso(s['commission']), icon: Icons.percent, color: const Color(0xFFD93D0E),
                         hint: 'Pending ${peso(s['pending_commission'])} · final ${peso(s['finalized_commission'])}'),
                     StatTile(label: 'Net earnings', value: peso(s['net']), icon: Icons.account_balance_wallet_outlined, color: const Color(0xFF15803D)),
                     StatTile(label: 'Lines', value: '${asInt(s['lines'])}', icon: Icons.list_alt, hint: 'Current rate ${asNum(d['configured_rate'])}%'),
@@ -114,7 +118,7 @@ class _SellerCommissionsScreenState extends State<SellerCommissionsScreen> {
                       child: DropdownButtonFormField<String?>(
                         initialValue: _status,
                         isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Status', isDense: true, border: OutlineInputBorder()),
+                        decoration: const InputDecoration(labelText: 'Status', isDense: true),
                         items: [
                           const DropdownMenuItem<String?>(value: null, child: Text('All statuses')),
                           for (final e in statuses.entries) DropdownMenuItem<String?>(value: e.key, child: Text('${e.value}')),

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../services/api_client.dart';
 import '../../services/location.dart';
 import '../../services/logistics_api.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/buyer_colors.dart';
 import 'logistics_kit.dart';
 import 'rider_admin_screens.dart' show showDocument;
@@ -122,7 +123,6 @@ class DocField extends StatelessWidget {
             errorMaxLines: 3,
             helperText: 'Camera, gallery or Files · JPG, PNG or PDF, max 5 MB',
             isDense: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
           child: Row(children: [
             if (path != null && !path!.toLowerCase().endsWith('.pdf'))
@@ -161,8 +161,6 @@ Widget staffField(TextEditingController c, String label,
         errorText: error,
         errorMaxLines: 3,
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kOrange, width: 2)),
       ),
     ),
   );
@@ -179,8 +177,7 @@ Widget dateField(BuildContext context, String label, DateTime? value, ValueChang
         if (d != null) onPicked(d);
       },
       child: InputDecorator(
-        decoration: InputDecoration(labelText: label, errorText: error, errorMaxLines: 3, isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            suffixIcon: const Icon(Icons.event)),
+        decoration: InputDecoration(labelText: label, errorText: error, errorMaxLines: 3, isDense: true, suffixIcon: const Icon(Icons.event)),
         child: Text(value == null ? 'mm/dd/yyyy' : formatDate(ymd(value), 'MM/dd/yyyy'), style: TextStyle(color: value == null ? context.bc.muted : context.bc.text)),
       ),
     ),
@@ -332,7 +329,7 @@ class _AddRiderScreenState extends _StaffFormState<AddRiderScreen> {
       ...personSection(context),
       DropdownButtonFormField<String>(
         initialValue: vehicle,
-        decoration: InputDecoration(labelText: 'Vehicle type *', errorText: errors['vehicle_type'], border: const OutlineInputBorder(), isDense: true),
+        decoration: InputDecoration(labelText: 'Vehicle type *', errorText: errors['vehicle_type'], isDense: true),
         items: [for (final v in const ['Motorcycle', 'Car', 'Van']) DropdownMenuItem(value: v, child: Text(v))],
         onChanged: (v) => setState(() => vehicle = v),
       ),
@@ -341,7 +338,7 @@ class _AddRiderScreenState extends _StaffFormState<AddRiderScreen> {
       DropdownButtonFormField<String>(
         isExpanded: true,
         initialValue: _psgc,
-        decoration: InputDecoration(labelText: 'Barangay of ${widget.municipality} *', errorText: errors['barangay_psgc'], border: const OutlineInputBorder(), isDense: true),
+        decoration: InputDecoration(labelText: 'Barangay of ${widget.municipality} *', errorText: errors['barangay_psgc'], isDense: true),
         items: [
           for (final b in widget.barangays)
             DropdownMenuItem(value: '${b['psgc']}', child: Text('${b['name']}${b['covered'] == true ? '' : ' (adds to your coverage)'}', overflow: TextOverflow.ellipsis)),
@@ -419,14 +416,14 @@ class _AddCourierScreenState extends _StaffFormState<AddCourierScreen> {
       ...personSection(context),
       DropdownButtonFormField<String>(
         initialValue: _licenseType,
-        decoration: InputDecoration(labelText: 'License type *', errorText: errors['license_type'], border: const OutlineInputBorder(), isDense: true,
+        decoration: InputDecoration(labelText: 'License type *', errorText: errors['license_type'], isDense: true,
             helperText: 'Couriers need a professional license.'),
         items: [for (final t in asList(widget.options['license_types']).map((e) => '$e')) DropdownMenuItem(value: t, child: Text(t))],
         onChanged: (v) => setState(() => _licenseType = v),
       ),
       const SizedBox(height: 12),
       InputDecorator(
-        decoration: InputDecoration(labelText: 'DL codes *', errorText: errors['dl_codes'] ?? _codesProblem, errorMaxLines: 2, border: const OutlineInputBorder(), isDense: true),
+        decoration: InputDecoration(labelText: 'DL codes *', errorText: errors['dl_codes'] ?? _codesProblem, errorMaxLines: 2, isDense: true),
         child: Wrap(spacing: 6, runSpacing: 4, children: [
           for (final code in asList(widget.options['dl_codes']).map((e) => '$e'))
             FilterChip(
@@ -441,7 +438,7 @@ class _AddCourierScreenState extends _StaffFormState<AddCourierScreen> {
       DropdownButtonFormField<String>(
         initialValue: vehicle,
         isExpanded: true,
-        decoration: InputDecoration(labelText: 'Vehicle type *', errorText: errors['vehicle_type'], border: const OutlineInputBorder(), isDense: true),
+        decoration: InputDecoration(labelText: 'Vehicle type *', errorText: errors['vehicle_type'], isDense: true),
         items: [for (final v in _vehicles) DropdownMenuItem(value: '${v['name']}', child: Text('${v['name']}'))],
         onChanged: (v) => setState(() => vehicle = v),
       ),
@@ -456,7 +453,7 @@ class _AddCourierScreenState extends _StaffFormState<AddCourierScreen> {
       DropdownButtonFormField<int>(
         initialValue: _hub,
         isExpanded: true,
-        decoration: InputDecoration(labelText: 'Home hub *', errorText: errors['home_hub_id'], border: const OutlineInputBorder(), isDense: true),
+        decoration: InputDecoration(labelText: 'Home hub *', errorText: errors['home_hub_id'], isDense: true),
         items: [for (final h in hubs) DropdownMenuItem(value: asInt(h['id']), child: Text('${h['label']}', overflow: TextOverflow.ellipsis))],
         onChanged: (v) => setState(() => _hub = v),
       ),
@@ -502,26 +499,24 @@ class _CouriersScreenState extends State<CouriersScreen> {
         label: const Text('Add courier'),
       ),
       fetch: (page, tab) => LogisticsApi.couriers(status: tab ?? 'approved', page: page),
-      itemBuilder: (ctx, c, reload) => Card(
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
+      itemBuilder: (ctx, c, reload) => infoRow(
+          ctx,
+          boxed: false,
           onTap: () async {
             await Navigator.push(ctx, MaterialPageRoute(builder: (_) => CourierDetailScreen(courierId: asInt(c['id']))));
             reload();
           },
-          leading: const Icon(Icons.local_shipping_outlined),
-          title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text([
+          icon: Icons.local_shipping_outlined,
+          title: '${c['name']}',
+          subtitle: [
             '${c['vehicle_type'] ?? ''} ${c['plate_number'] ?? ''}'.trim(),
             if (c['load_capacity_kg'] != null) '${c['load_capacity_kg']} kg',
             if (c['home_hub'] != null) '${c['home_hub']}',
             if (c['duty_label'] != null) '${c['duty_label']}',
             if (c['needs_reverification'] == true) 'Re-verify',
-          ].where((e) => e.isNotEmpty).join(' · ')),
+          ].where((e) => e.isNotEmpty).join(' · '),
           trailing: Pill('${c['status_label'] ?? c['status']}', color: Pill.forState('${c['status']}' == 'pending_activation' ? 'pending' : '${c['status']}')),
         ),
-      ),
     );
   }
 }
@@ -583,7 +578,7 @@ class _CourierDetailScreenState extends State<CourierDetailScreen> {
         onRetry: _load,
         child: c == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
                 Align(alignment: Alignment.centerLeft, child: Pill('${c['status_label'] ?? c['status']}', color: Pill.forState('${c['status']}' == 'pending_activation' ? 'pending' : '${c['status']}'))),
                 const SizedBox(height: 10),
                 SectionCard(
@@ -621,9 +616,9 @@ class _CourierDetailScreenState extends State<CourierDetailScreen> {
                   ),
                 if (c['needs_reverification'] == true)
                   Card(
-                    color: const Color(0xFFFFF7ED),
+                    color: Alvy.warnSoft,
                     child: ListTile(
-                      title: const Text('Capacity, plate or documents changed: check them', style: TextStyle(color: Color(0xFF9A3412))),
+                      title: Text('Capacity, plate or documents changed: check them', style: TextStyle(color: Alvy.warnText)),
                       trailing: FilledButton(
                         style: FilledButton.styleFrom(backgroundColor: kOrange),
                         onPressed: () => act(context, () => LogisticsApi.verifyCourier(widget.courierId), then: _load),
@@ -786,20 +781,21 @@ class _HubsScreenState extends State<HubsScreen> {
         loading: _loading,
         error: _error,
         onRetry: _load,
-        child: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), children: [
-          Text('A courier drives from a home hub. Couriers see only your own hubs.', style: TextStyle(color: context.bc.muted, fontSize: 12)),
-          const SizedBox(height: 8),
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
+          Text('Your Hubs', style: Alvy.display(size: 21, color: context.bc.text, weight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text('A courier drives from a home hub. Couriers see only your own hubs.', style: TextStyle(color: context.bc.textSecondary, fontSize: 12.5)),
+          const SizedBox(height: 14),
           for (final h in _hubs)
-            Card(
-              elevation: 0,
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: const Icon(Icons.warehouse_outlined),
-                title: Text('${h['code']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text([h['name'], h['address'], h['latitude'] == null ? 'No map location yet' : 'Map location set']
-                    .where((e) => e != null && '$e'.isNotEmpty).join(' · ')),
-                trailing: TextButton(onPressed: () => _setLocation(h), child: const Text('Use here')),
-              ),
+            infoRow(
+              context,
+              boxed: false,
+              navy: true,
+              icon: Icons.warehouse_outlined,
+              title: '${h['code']}',
+              subtitle: [h['name'], h['address'], h['latitude'] == null ? 'No map location yet' : 'Map location set']
+                  .where((e) => e != null && '$e'.isNotEmpty).join(' · '),
+              trailing: TextButton(onPressed: () => _setLocation(h), child: const Text('Use here', style: TextStyle(fontWeight: FontWeight.w700))),
             ),
         ]),
       ),

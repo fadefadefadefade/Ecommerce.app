@@ -7,12 +7,14 @@ import 'package:image_picker/image_picker.dart';
 import '../../services/api_client.dart';
 import '../../services/linehaul_api.dart';
 import '../../services/location.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/buyer_colors.dart';
 import '../../widgets/reason_dialog.dart';
 import '../../widgets/waybill_scanner.dart';
 import '../logistics/rider_admin_screens.dart' show showDocument;
 import '../logistics/staff_screens.dart' show DocField, dateField, staffField;
 import '../seller/seller_kit.dart';
+import '../../widgets/design_kit.dart';
 
 // A courier of a logistics company drives hub-to-hub trips: On Duty after the pre-trip checklist, then
 // Accept → Start Loading (scan every parcel) → seal and Depart → Arrived; the destination hub scans the parcels in.
@@ -154,40 +156,75 @@ class _LinehaulHomeScreenState extends State<LinehaulHomeScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  SectionCard(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${me['name']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
-                      Text('${me['company']}', style: TextStyle(color: c.muted)),
-                      const SizedBox(height: 6),
-                      Text('Home hub ${me['home_hub_label'] ?? me['home_hub']}', style: TextStyle(color: c.text)),
-                      Text('${me['vehicle_type']} · ${me['plate_number']} · ${me['load_capacity_kg']} kg', style: TextStyle(color: c.text)),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  // The design's captain card: avatar, name, duty tag, and the truck in a beige box.
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: cardBox(context, radius: 20),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: Alvy.orangeSoft,
+                          child: Text(riderInitials('${me['name']}'), style: Alvy.display(size: 17, color: Alvy.orange, weight: FontWeight.w800)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${me['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w800)),
+                            Text('${me['company']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Alvy.slate, fontSize: 13)),
+                          ]),
+                        ),
+                        riderTag('${me['duty_label']}'.toUpperCase(), live: me['on_duty_now'] == true),
+                      ]),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+                        child: Row(children: [
+                          const Icon(Icons.local_shipping_outlined, color: Alvy.orange),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${me['vehicle_type']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                              Text('Plate ${me['plate_number']} · ${me['load_capacity_kg']} kg', style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+                            ]),
+                          ),
+                        ]),
+                      ),
                       const SizedBox(height: 10),
                       Row(children: [
-                        Pill('${me['duty_label']}', color: me['on_duty_now'] == true ? _green : (suspended ? _red : const Color(0xFF6B7280))),
-                        const Spacer(),
-                        Text('Today ${peso(d['today_earnings'])}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        Icon(Icons.warehouse_outlined, size: 16, color: c.textSecondary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text('Home hub ${me['home_hub_label'] ?? me['home_hub']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: c.textSecondary, fontSize: 13)),
+                        ),
+                        Text('Today ', style: TextStyle(color: c.textSecondary, fontSize: 13)),
+                        Text(peso(d['today_earnings']), style: Alvy.display(size: 15, color: Alvy.orange, weight: FontWeight.w800)),
                       ]),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       if (suspended)
                         const Text('Your account is suspended by your logistics company. You cannot go On Duty.', style: TextStyle(color: _red))
                       else if (me['on_duty'] == true)
-                        BusyButton('Go Off Duty', busy: _busy, color: const Color(0xFF6B7280), icon: Icons.power_settings_new, onPressed: _goOffDuty)
+                        BusyButton('Go Off Duty', busy: _busy, color: Alvy.navyFill, icon: Icons.power_settings_new, onPressed: _goOffDuty)
                       else
-                        BusyButton('Go On Duty', busy: _busy, color: _green, icon: Icons.play_arrow, onPressed: _goOnDuty),
+                        BusyButton('Go On Duty', busy: _busy, icon: Icons.play_arrow, onPressed: _goOnDuty),
                     ]),
                   ),
                   for (final n in asList(d['needs_note']))
-                    Card(
-                      color: const Color(0xFFFFF7ED),
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(16)),
                       child: ListTile(
-                        leading: const Icon(Icons.edit_note, color: Color(0xFF9A3412)),
+                        leading: const Icon(Icons.edit_note, color: Alvy.orangeDark),
                         title: Text('${n['code']} had a discrepancy'),
                         subtitle: const Text('Add your note about what happened.'),
                         onTap: () => _open(asInt(n['id'])),
                       ),
                     ),
-                  Padding(padding: const EdgeInsets.only(top: 8, bottom: 6), child: Text('Current trip', style: TextStyle(fontWeight: FontWeight.w800, color: c.text))),
+                  Padding(padding: const EdgeInsets.only(top: 4, bottom: 10), child: Text('Current Trip', style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700))),
                   if (trip == null)
                     Text(me['on_duty'] == true ? 'No trip yet. Trips assigned to you will show here.' : 'Go On Duty to get trips.', style: TextStyle(color: c.muted))
                   else
@@ -206,18 +243,72 @@ class _TripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: ListTile(
-        onTap: onTap,
-        leading: const Icon(Icons.local_shipping_outlined, color: kOrange),
-        title: Text('${t['code']} · ${t['route']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('${t['parcels']} parcel(s) · ${t['weight_kg']} kg · ${peso(t['pay'])}${t['delayed'] == true ? ' · Delayed' : ''}'),
-        trailing: Pill('${t['status_label']}', color: Pill.forState('${t['status']}')),
+    final c = context.bc;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: cardBox(context, radius: 20),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(6)),
+                  child: const Text('TRIP ASSIGNMENT', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Alvy.orangeDark, letterSpacing: 0.4)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text('${t['code']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.textSecondary, fontWeight: FontWeight.w600))),
+                Pill('${t['status_label']}', color: Pill.forState('${t['status']}')),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                const Icon(Icons.route_outlined, color: Alvy.orange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text('${t['route']}', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700))),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                _box(context, Icons.inventory_2_outlined, 'Parcels', '${t['parcels']}'),
+                const SizedBox(width: 8),
+                _box(context, Icons.scale_outlined, 'Weight', '${t['weight_kg']} kg'),
+                const SizedBox(width: 8),
+                _box(context, Icons.payments_outlined, 'Pay', peso(t['pay']), accent: true),
+              ]),
+              if (t['delayed'] == true)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text('Delayed', style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w700)),
+                ),
+            ]),
+          ),
+        ),
       ),
     );
   }
 }
+
+/// A small beige figure box (the design's "Distance 96.5 km").
+Widget _box(BuildContext context, IconData icon, String label, String value, {bool accent = false}) => Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 14, color: Alvy.slate),
+            const SizedBox(width: 4),
+            Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: Alvy.slate, fontWeight: FontWeight.w600))),
+          ]),
+          const SizedBox(height: 4),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: Alvy.display(size: 16, color: accent ? Alvy.orange : context.bc.text, weight: FontWeight.w800)),
+        ]),
+      ),
+    );
 
 /// The pre-trip checklist: every item OK or Not OK; a Not OK item needs a note (10–300 characters).
 class _ChecklistSheet extends StatefulWidget {
@@ -439,8 +530,8 @@ class _LinehaulTripScreenState extends State<LinehaulTripScreen> {
     Widget row(String l, dynamic v) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 110, child: Text(l, style: TextStyle(color: c.muted))),
-            Expanded(child: Text('${v ?? '—'}', style: const TextStyle(fontWeight: FontWeight.w600))),
+            SizedBox(width: 110, child: Text(l, style: TextStyle(color: c.textSecondary))),
+            Expanded(child: Text('${v ?? '—'}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
           ]),
         );
     final status = '${t?['status']}';
@@ -458,46 +549,116 @@ class _LinehaulTripScreenState extends State<LinehaulTripScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Row(children: [
-                    Pill('${t['status_label']}', color: Pill.forState(status)),
-                    if (t['delayed'] == true) ...[const SizedBox(width: 6), const Pill('Delayed', color: Color(0xFFB45309))],
-                  ]),
-                  const SizedBox(height: 10),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  // The design's route card: from → to on a dotted line, then the figures.
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: cardBox(context, radius: 20),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        Pill('${t['status_label']}', color: Pill.forState(status)),
+                        if (t['delayed'] == true) ...[const SizedBox(width: 6), const Pill('Delayed', color: Color(0xFFB45309))],
+                        const Spacer(),
+                        Text('${t['code']}', style: TextStyle(fontSize: 12, color: c.textSecondary, fontWeight: FontWeight.w600)),
+                      ]),
+                      const SizedBox(height: 14),
+                      _stop(Alvy.orange, origin),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Container(width: 2, height: 18, color: c.border),
+                      ),
+                      _stop(Alvy.slate, dest),
+                      const SizedBox(height: 14),
+                      Row(children: [
+                        _box(context, Icons.inventory_2_outlined, 'Parcels', '${t['parcels']}'),
+                        const SizedBox(width: 8),
+                        _box(context, Icons.scale_outlined, 'Weight', '${t['weight_kg']} kg'),
+                        const SizedBox(width: 8),
+                        _box(context, Icons.payments_outlined, 'Pay', peso(t['pay']), accent: true),
+                      ]),
+                    ]),
+                  ),
                   SectionCard(
                     child: Column(children: [
-                      row('From', '${origin['label']}\n${origin['address'] ?? ''}'.trim()),
-                      row('To', '${dest['label']}\n${dest['address'] ?? ''}'.trim()),
-                      row('Parcels', '${t['parcels']} · ${t['weight_kg']} kg'),
                       row('Departure', t['scheduled_departure_at'] != null ? formatDateTime(t['scheduled_departure_at']) : 'As soon as loaded'),
-                      row('Pay', peso(t['pay'])),
                       if (t['seal_number'] != null) row('Seal', t['seal_number']),
                       if (t['eta_at'] != null) row('ETA', '${formatDateTime(t['eta_at'])}${t['delay_reason'] != null ? ' (${t['delay_reason']})' : ''}'),
                       if (t['courier_note'] != null) row('Your note', t['courier_note']),
                     ]),
                   ),
                   if (t['needs_rescan'] == true)
-                    const Card(
-                      color: Color(0xFFFFF7ED),
-                      child: ListTile(title: Text('This trip was given to you on the road: scan every parcel before continuing.', style: TextStyle(color: Color(0xFF9A3412)))),
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(14)),
+                      child: const Text('This trip was given to you on the road: scan every parcel before continuing.',
+                          style: TextStyle(color: Alvy.orangeDark, fontWeight: FontWeight.w600)),
                     ),
                   const SizedBox(height: 8),
                   ..._actions(status, origin, dest),
-                  const SizedBox(height: 12),
-                  Text('Parcels (${t['loaded']}/${t['parcels']} loaded)', style: TextStyle(fontWeight: FontWeight.w800, color: c.text)),
-                  for (final p in asList(t['items']))
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(p['status'] == 'loaded' || p['status'] == 'received' ? Icons.check_circle : Icons.radio_button_unchecked,
-                          color: p['status'] == 'loaded' || p['status'] == 'received' ? _green : c.muted),
-                      title: Text('${p['tracking']}'),
-                      subtitle: Text('${p['weight_kg']} kg · ${p['status']}'),
+                  const SizedBox(height: 14),
+                  SectionCard(
+                    title: 'Parcels',
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(99)),
+                      child: Text('${t['loaded']} of ${t['parcels']} loaded', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.textSecondary)),
                     ),
+                    child: Column(children: [
+                      Builder(builder: (_) {
+                        final total = asInt(t['parcels']);
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(
+                            value: total == 0 ? 0 : (asInt(t['loaded']) / total).clamp(0.0, 1.0),
+                            minHeight: 8,
+                            backgroundColor: c.subtle,
+                            color: Alvy.orange,
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                      for (final p in asList(t['items']))
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                          child: Row(children: [
+                            Icon(p['status'] == 'loaded' || p['status'] == 'received' ? Icons.check_circle : Icons.radio_button_unchecked,
+                                color: p['status'] == 'loaded' || p['status'] == 'received' ? Alvy.slate : c.muted, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text('${p['tracking']}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+                            Text('${p['weight_kg']} kg · ${p['status']}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                          ]),
+                        ),
+                    ]),
+                  ),
                 ]),
               ),
       ),
     );
+  }
+
+  Widget _stop(Color color, Map<String, dynamic> hub) {
+    final c = context.bc;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18), border: Border.all(color: color, width: 3)),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${hub['label']}', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+          if ((hub['address'] ?? '').toString().isNotEmpty) Text('${hub['address']}', style: TextStyle(fontSize: 12.5, color: Alvy.slate)),
+        ]),
+      ),
+    ]);
   }
 
   List<Widget> _actions(String status, Map<String, dynamic> origin, Map<String, dynamic> dest) {
@@ -506,7 +667,7 @@ class _LinehaulTripScreenState extends State<LinehaulTripScreen> {
     switch (status) {
       case 'assigned':
         return [
-          BusyButton('Accept', busy: _busy, color: _green, onPressed: () => _do(() => LinehaulApi.accept(widget.tripId))),
+          BusyButton('Accept', busy: _busy, icon: Icons.check_circle_outline, onPressed: () => _do(() => LinehaulApi.accept(widget.tripId))),
           gap(),
           OutlinedButton(onPressed: _busy ? null : _decline, child: const Text('Decline')),
         ];
@@ -523,7 +684,7 @@ class _LinehaulTripScreenState extends State<LinehaulTripScreen> {
         return [
           BusyButton('Scan parcel (${t['loaded']}/${t['parcels']})', busy: _busy, icon: Icons.qr_code_scanner, onPressed: _scan),
           gap(),
-          BusyButton('Seal and Depart', busy: _busy, color: all ? _green : const Color(0xFF6B7280), icon: Icons.local_shipping, onPressed: _depart),
+          BusyButton('Seal and Depart', busy: _busy, color: all ? kOrange : Alvy.slate, icon: Icons.local_shipping, onPressed: _depart),
         ];
       case 'in_transit':
         return [
@@ -531,7 +692,7 @@ class _LinehaulTripScreenState extends State<LinehaulTripScreen> {
             BusyButton('Scan parcel (${t['loaded']}/${t['parcels']})', busy: _busy, icon: Icons.qr_code_scanner, onPressed: _scan),
             gap(),
           ],
-          BusyButton('Arrived at ${dest['code']}', busy: _busy, color: _green, icon: Icons.flag, onPressed: _arrived),
+          BusyButton('Arrived at ${dest['code']}', busy: _busy, icon: Icons.flag, onPressed: _arrived),
           gap(),
           OutlinedButton.icon(onPressed: () => _navigate(dest), icon: const Icon(Icons.navigation_outlined), label: Text('Navigate to ${dest['code']}')),
           gap(),
@@ -609,7 +770,7 @@ class _LinehaulHistoryScreenState extends State<LinehaulHistoryScreen> {
         child: RefreshIndicator(
           color: kOrange,
           onRefresh: _load,
-          child: ListView(padding: const EdgeInsets.all(12), children: [
+          child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
             if (_range != null)
               InputChip(label: Text('${formatDate(ymd(_range!.start))} – ${formatDate(ymd(_range!.end))}'), onDeleted: () {
                 setState(() => _range = null);
@@ -617,18 +778,8 @@ class _LinehaulHistoryScreenState extends State<LinehaulHistoryScreen> {
               }),
             if (_rows.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text('No trips yet.', textAlign: TextAlign.center, style: TextStyle(color: c.muted))),
             for (final h in _rows)
-              Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text('${h['code']} · ${h['route']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text('${formatDateTime(h['date'])} · ${h['parcels']} parcel(s)${h['reason'] != null ? '\n${h['reason']}' : ''}'),
-                  trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(peso(h['pay']), style: const TextStyle(fontWeight: FontWeight.w800)),
-                    Text('${h['result']}', style: TextStyle(fontSize: 12, color: c.muted)),
-                  ]),
-                ),
-              ),
+              _tripRow(context, '${h['code']}', '${h['route']}', '${formatDateTime(h['date'])} · ${h['parcels']} parcel(s)${h['reason'] != null ? '\n${h['reason']}' : ''}',
+                  h['pay'], '${h['result']}'),
           ]),
         ),
       ),
@@ -668,14 +819,6 @@ class _LinehaulEarningsScreenState extends State<LinehaulEarningsScreen> {
   Widget build(BuildContext context) {
     final d = _d;
     final c = context.bc;
-    Widget tile(String label, dynamic v) => Expanded(
-          child: SectionCard(
-            child: Column(children: [
-              Text(label, style: TextStyle(color: c.muted)),
-              Text(peso(v), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            ]),
-          ),
-        );
     return Scaffold(
       backgroundColor: c.background,
       appBar: sellerBar('Earnings', actions: [
@@ -699,19 +842,23 @@ class _LinehaulEarningsScreenState extends State<LinehaulEarningsScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  Row(children: [tile('Today', d['today']), const SizedBox(width: 8), tile('This week', d['week'])]),
+                child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                  riderHero('Linehaul pay · this week', peso(d['week']), [('Today', peso(d['today'])), ('Per trip', peso(d['pay_per_trip']))],
+                      icon: Icons.local_shipping_outlined),
                   Text('${d['vehicle_type']}: ${peso(d['pay_per_trip'])} per completed trip. Declined and reassigned trips pay ₱0.00.',
-                      style: TextStyle(color: c.muted, fontSize: 12)),
-                  const SizedBox(height: 8),
-                  if (_range != null) Text('${formatDate(ymd(_range!.start))} – ${formatDate(ymd(_range!.end))}: ${peso(d['range_total'])}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      style: TextStyle(color: c.textSecondary, fontSize: 12)),
+                  const SizedBox(height: 12),
+                  if (_range != null)
+                    Row(children: [
+                      riderFigure(context, '${formatDate(ymd(_range!.start))} – ${formatDate(ymd(_range!.end))}', peso(d['range_total']), Icons.date_range_outlined),
+                    ]),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 12, 2, 10),
+                    child: Text('Trip Breakdown', style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700)),
+                  ),
+                  if (asList(d['trips']).isEmpty) Text('No trips yet.', style: TextStyle(color: c.muted)),
                   for (final t in asList(d['trips']))
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${t['code']} · ${t['route']}'),
-                      subtitle: Text('${formatDateTime(t['completed_at'])} · ${t['result']}'),
-                      trailing: Text(peso(t['pay']), style: const TextStyle(fontWeight: FontWeight.w800)),
-                    ),
+                    _tripRow(context, '${t['code']}', '${t['route']}', formatDateTime(t['completed_at']), t['pay'], '${t['result']}'),
                 ]),
               ),
       ),
@@ -760,8 +907,8 @@ class _LinehaulProfileScreenState extends State<LinehaulProfileScreen> {
     Widget row(String l, dynamic v) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 120, child: Text(l, style: TextStyle(color: c.muted))),
-            Expanded(child: Text('${v ?? '—'}', style: const TextStyle(fontWeight: FontWeight.w600))),
+            SizedBox(width: 120, child: Text(l, style: TextStyle(color: c.textSecondary))),
+            Expanded(child: Text('${v ?? '—'}', style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
           ]),
         );
     final docs = asMap(p?['documents']);
@@ -774,13 +921,34 @@ class _LinehaulProfileScreenState extends State<LinehaulProfileScreen> {
         onRetry: _load,
         child: p == null
             ? const SizedBox()
-            : ListView(padding: const EdgeInsets.all(12), children: [
-                Align(alignment: Alignment.centerLeft, child: Pill('${p['status']}', color: p['status'] == 'Active' ? _green : _red)),
-                const SizedBox(height: 8),
+            : ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: cardBox(context, radius: 20),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Alvy.orange, width: 2)),
+                      child: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Alvy.orangeSoft,
+                        child: Text(riderInitials('${p['name']}'), style: Alvy.display(size: 18, color: Alvy.orange, weight: FontWeight.w800)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${p['name']}', style: Alvy.display(size: 19, color: c.text, weight: FontWeight.w800)),
+                        Text('${p['company']}', style: TextStyle(color: Alvy.slate, fontSize: 13)),
+                        const SizedBox(height: 6),
+                        Pill('${p['status']}', color: p['status'] == 'Active' ? _green : _red),
+                      ]),
+                    ),
+                  ]),
+                ),
                 SectionCard(
                   child: Column(children: [
-                    row('Name', p['name']),
-                    row('Company', p['company']),
                     row('Home hub', p['home_hub']),
                     row('License', '${p['license_number']} (${p['license_type']})'),
                     row('DL codes', p['dl_codes']),
@@ -791,15 +959,29 @@ class _LinehaulProfileScreenState extends State<LinehaulProfileScreen> {
                 ),
                 if (p['needs_reverification'] == true)
                   Text('Your changes are waiting for your logistics company to check them.', style: TextStyle(color: c.muted)),
-                Wrap(spacing: 8, children: [
-                  for (final (key, label) in const [('license', 'Driver\'s license'), ('or-cr', 'OR/CR'), ('nbi', 'NBI clearance')])
-                    if (docs[key] == true)
-                      OutlinedButton.icon(
-                        onPressed: () => showDocument(context, LinehaulApi.document(key), label),
-                        icon: const Icon(Icons.description_outlined),
-                        label: Text(label),
+                SectionCard(
+                  title: 'Documents',
+                  child: Column(children: [
+                    for (final (key, label) in const [('license', 'Driver\'s license'), ('or-cr', 'OR/CR'), ('nbi', 'NBI clearance')])
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+                        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+                        child: Row(children: [
+                          Icon(docs[key] == true ? Icons.check_circle : Icons.radio_button_unchecked, size: 20, color: docs[key] == true ? _green : c.muted),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+                          if (docs[key] == true)
+                            TextButton(
+                              onPressed: () => showDocument(context, LinehaulApi.document(key), label),
+                              child: Text('View', style: TextStyle(color: Alvy.slate, fontWeight: FontWeight.w700)),
+                            )
+                          else
+                            Padding(padding: const EdgeInsets.all(10), child: Text('Not uploaded', style: TextStyle(fontSize: 12, color: c.muted))),
+                        ]),
                       ),
-                ]),
+                  ]),
+                ),
               ]),
       ),
     );
@@ -873,4 +1055,31 @@ class _EditVehicleScreenState extends State<_EditVehicleScreen> {
       ]),
     );
   }
+}
+
+/// A finished trip as the design's trip-breakdown card.
+Widget _tripRow(BuildContext context, String code, String route, String sub, dynamic pay, String result) {
+  final c = context.bc;
+  final paid = asNum(pay) > 0;
+  return Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(12),
+    decoration: cardBox(context, radius: 16),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      CircleAvatar(radius: 18, backgroundColor: c.subtle, child: Icon(Icons.local_shipping_outlined, size: 18, color: c.textSecondary)),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(code, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+          Text(route, style: TextStyle(fontSize: 12.5, color: c.text)),
+          Text(sub, style: TextStyle(fontSize: 12, color: c.textSecondary)),
+        ]),
+      ),
+      const SizedBox(width: 8),
+      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text('${paid ? '+' : ''}${peso(pay)}', style: Alvy.display(size: 15, color: paid ? Alvy.orange : c.muted, weight: FontWeight.w800)),
+        Text(result, style: TextStyle(fontSize: 11.5, color: c.textSecondary)),
+      ]),
+    ]),
+  );
 }

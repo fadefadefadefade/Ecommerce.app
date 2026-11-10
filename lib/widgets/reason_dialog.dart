@@ -88,7 +88,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
             maxLines: 3,
             minLines: 2,
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(hintText: widget.hint, border: const OutlineInputBorder()),
+            decoration: InputDecoration(hintText: widget.hint),
           ),
         ],
       ),

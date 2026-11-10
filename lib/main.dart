@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'widgets/route_watch.dart';
+import 'widgets/staff_shell.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'config/api_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/update_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,10 +36,18 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: Alvy.light(),
           darkTheme: Alvy.dark(),
-          // Only buyer screens are theme-aware so far; other roles stay light.
-          themeMode: auth.user?.isBuyer == true ? theme.mode : ThemeMode.light,
+          // Every role follows the Appearance setting (Light / Dark / System).
+          themeMode: theme.mode,
           navigatorObservers: [appRouteObserver],
-          home: const AuthWrapper(),
+          // Tablet: the buyer side has its own website-like layout; the seller, rider and logistics portals
+          // get a sidebar (StaffShell), and pages opened over them stay a centred column (StaffPageFrame).
+          builder: (context, child) {
+            // The shared color tokens (Alvy.surface, Alvy.slate…) follow the resolved theme.
+            Alvy.isDark = Theme.of(context).brightness == Brightness.dark;
+            StaffPageFrame.enabled = auth.user != null && !auth.user!.isBuyer;
+            return child!;
+          },
+          home: const UpdateGate(child: AuthWrapper()),
         ),
       ),
     );

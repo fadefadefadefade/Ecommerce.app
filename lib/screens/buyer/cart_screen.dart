@@ -152,7 +152,7 @@ class _CartScreenState extends State<CartScreen> {
                     Container(
                       width: 96,
                       height: 96,
-                      decoration: const BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
                       child: const Icon(Icons.shopping_cart_outlined, size: 44, color: kOrange),
                     ),
                     const SizedBox(height: 16),
@@ -185,8 +185,10 @@ class _CartScreenState extends State<CartScreen> {
                         ]),
                       )
                     : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
+                        _steps(),
                         SectionTitle('Items in Cart (${_lines.length})', padding: const EdgeInsets.fromLTRB(0, 12, 0, 14)),
                         for (final s in stores) _store(Map.from(s)),
+                        _summary(),
                         // Shipping and vouchers come at checkout.
                         Container(
                           padding: const EdgeInsets.all(14),
@@ -235,6 +237,65 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  /// The design's step header: "1 Cart & Shipping · Step 1 of 2" with a progress bar (checkout is step 2).
+  Widget _steps() {
+    final c = context.bc;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: kOrange, shape: BoxShape.circle),
+            child: const Text('1', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Cart & Shipping', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700))),
+          Text('Step 1 of 2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Alvy.slate)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(value: .5, minHeight: 5, color: kOrange, backgroundColor: c.border),
+        ),
+        const SizedBox(height: 6),
+        Row(children: [
+          const Text('Your items', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: kOrange)),
+          const Spacer(),
+          Text('Checkout & Payment', style: TextStyle(fontSize: 11.5, color: c.muted)),
+        ]),
+      ]),
+    );
+  }
+
+  /// The design's "Payment Summary": what is ticked, the subtotal and the total so far.
+  Widget _summary() {
+    final c = context.bc;
+    final count = _lines.where((l) => selected.contains(l['id'])).fold<int>(0, (n, l) => n + asNum(l['quantity']).toInt());
+    Widget row(String label, String value, {bool bold = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Expanded(child: Text(label, style: TextStyle(fontSize: 13.5, color: bold ? c.text : c.textSecondary, fontWeight: bold ? FontWeight.w700 : FontWeight.w400))),
+            Text(value, style: TextStyle(fontSize: 13.5, color: c.text, fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
+          ]),
+        );
+    return SectionCard(
+      title: 'Payment Summary',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        row('Items Subtotal ($count item${count == 1 ? '' : 's'})', peso(_total)),
+        row('Delivery Fee', 'At checkout'),
+        row('Vouchers', 'At checkout'),
+        Divider(height: 20, color: c.border),
+        Row(children: [
+          Expanded(child: Text('Total so far', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700))),
+          Text(peso(_total), style: Alvy.display(size: 22, color: kOrange, weight: FontWeight.w700)),
+        ]),
+      ]),
+    );
+  }
+
   Widget _store(Map s) {
     final c = context.bc;
     final lines = List<Map>.from(s['lines']);
@@ -252,11 +313,11 @@ class _CartScreenState extends State<CartScreen> {
               value: all,
               onChanged: ids.isEmpty ? null : (v) => setState(() => v == true ? selected.addAll(ids) : selected.removeAll(ids)),
             ),
-            const Icon(Icons.storefront_outlined, size: 18, color: Alvy.slate),
+            Icon(Icons.storefront_outlined, size: 18, color: Alvy.slate),
             const SizedBox(width: 6),
             Expanded(
               child: Text(s['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: Alvy.slate)),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: Alvy.slate)),
             ),
             if (s['on_vacation'] == true) const Pill('On vacation', color: Color(0xFFB45309)),
           ]),
@@ -319,47 +380,28 @@ class _CartScreenState extends State<CartScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Pill('Only $stock left', color: const Color(0xFFB45309)),
               ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(peso(l['unit_price']), style: Alvy.display(size: 18, color: kOrange, weight: FontWeight.w700)),
+            ),
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(peso(l['unit_price']), style: Alvy.display(size: 18, color: kOrange, weight: FontWeight.w700)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // The quantity stepper: a beige pill with − and +.
-              Container(
-                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(10)),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  _qtyButton(Icons.remove, qty > 1 && !busy ? () => _setQty(l, qty - 1) : null),
-                  SizedBox(width: 28, child: Text('$qty', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
-                  _qtyButton(Icons.add, qty < stock && !busy ? () => _setQty(l, qty + 1) : null),
-                ]),
+              // The quantity: type it (large orders) or tap − / +; saved when typing ends.
+              QuantityStepper(value: qty, max: stock < 1 ? qty : stock, height: 36, onChanged: busy ? null : (n) => _setQty(l, n)),
+              const Spacer(),
+              IconButton(
+                onPressed: busy ? null : () => _remove(l),
+                tooltip: 'Remove item',
+                style: IconButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                icon: const Icon(Icons.delete_outline, size: 21),
               ),
             ]),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: busy ? null : () => _remove(l),
-                style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626), padding: const EdgeInsets.symmetric(horizontal: 4), minimumSize: const Size(0, 34)),
-                icon: const Icon(Icons.delete_outline, size: 17),
-                label: const Text('Remove item', style: TextStyle(fontSize: 12.5)),
-              ),
-            ),
           ]),
         ),
       ]),
     );
   }
 
-  Widget _qtyButton(IconData icon, VoidCallback? onTap) => Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onTap,
-          child: SizedBox(width: 34, height: 34, child: Icon(icon, size: 17, color: onTap == null ? context.bc.muted.withValues(alpha: .5) : context.bc.text)),
-        ),
-      );
 }

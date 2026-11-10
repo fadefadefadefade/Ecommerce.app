@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/buyer_colors.dart';
@@ -36,16 +37,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   List<_Item> _items(BuildContext context) => [
-        (icon: Icons.shopping_bag_outlined, label: 'My Orders', color: const Color(0xFF2563EB), page: const MyOrdersScreen()),
-        (icon: Icons.favorite_border, label: 'Wishlist', color: const Color(0xFFE11D48), page: const WishlistScreen()),
+        (icon: Icons.shopping_bag_outlined, label: 'My Orders', color: Alvy.slate, page: const MyOrdersScreen()),
+        (icon: Icons.favorite_border, label: 'Wishlist', color: const Color(0xFFFA4E1C), page: const WishlistScreen()),
         (icon: Icons.confirmation_number_outlined, label: 'My Vouchers', color: const Color(0xFFFA4E1C), page: const VouchersScreen()),
-        (icon: Icons.storefront_outlined, label: 'Following', color: const Color(0xFF0EA5E9), page: const FollowingScreen()),
-        (icon: Icons.chat_bubble_outline, label: 'Messages', color: const Color(0xFF059669), page: const ChatListScreen()),
-        (icon: Icons.notifications_outlined, label: 'Notifications', color: const Color(0xFFF59E0B), page: const NotificationsScreen()),
-        (icon: Icons.location_on_outlined, label: 'Addresses', color: const Color(0xFF8B5CF6), page: const AddressesScreen()),
-        (icon: Icons.lock_outline, label: 'Security', color: const Color(0xFFDC2626), page: const SecurityScreen()),
+        (icon: Icons.storefront_outlined, label: 'Following', color: Alvy.slate, page: const FollowingScreen()),
+        (icon: Icons.chat_bubble_outline, label: 'Messages', color: Alvy.slate, page: const ChatListScreen()),
+        (icon: Icons.notifications_outlined, label: 'Notifications', color: const Color(0xFFFA4E1C), page: const NotificationsScreen()),
+        (icon: Icons.location_on_outlined, label: 'Addresses', color: Alvy.slate, page: const AddressesScreen()),
+        (icon: Icons.lock_outline, label: 'Security', color: const Color(0xFFFA4E1C), page: const SecurityScreen()),
         (icon: Icons.settings_outlined, label: 'Settings', color: context.bc.muted, page: const SettingsScreen()),
-        (icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF5C4039), page: const PoliciesScreen()),
+        (icon: Icons.policy_outlined, label: 'Policies', color: Alvy.slate, page: const PoliciesScreen()),
       ];
 
   /// The overview: who is signed in and their details (the phone's page, the tablet's right side at first).
@@ -109,9 +110,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         ProfileMenuGroup(title: 'Rewards & Discovery', rows: [
           ProfileMenuRow(icon: Icons.confirmation_number_outlined, color: const Color(0xFFFA4E1C), title: 'My Vouchers', subtitle: 'Vouchers you have claimed', onTap: () => go(const VouchersScreen())),
-          ProfileMenuRow(icon: Icons.favorite_border, color: const Color(0xFFE11D48), title: 'Wishlist', subtitle: 'Items you saved for later', onTap: () => go(const WishlistScreen())),
+          ProfileMenuRow(icon: Icons.favorite_border, color: const Color(0xFFFA4E1C), title: 'Wishlist', subtitle: 'Items you saved for later', onTap: () => go(const WishlistScreen())),
           ProfileMenuRow(icon: Icons.storefront_outlined, title: 'Following', subtitle: 'Stores you follow', onTap: () => go(const FollowingScreen())),
-          ProfileMenuRow(icon: Icons.chat_bubble_outline, color: const Color(0xFF059669), title: 'Messages', subtitle: 'Chats with sellers and ALVY', onTap: () => go(const ChatListScreen())),
+          ProfileMenuRow(icon: Icons.chat_bubble_outline, title: 'Messages', subtitle: 'Chats with sellers and ALVY', onTap: () => go(const ChatListScreen())),
         ]),
         const SizedBox(height: 16),
         ProfileMenuGroup(title: 'Account & Preferences', rows: [
@@ -157,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ListTile(
                   dense: true,
                   selected: _selected == null,
-                  selectedTileColor: const Color(0xFFFFF1EE),
+                  selectedTileColor: Alvy.orangeSoft,
                   leading: const Icon(Icons.person_outline),
                   title: const Text('Overview'),
                   onTap: () {
@@ -169,7 +170,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ListTile(
                     dense: true,
                     selected: _selected == i.label,
-                    selectedTileColor: const Color(0xFFFFF1EE),
+                    selectedTileColor: Alvy.orangeSoft,
                     leading: Icon(i.icon, color: i.color),
                     title: Text(i.label),
                     onTap: () => openInPane(i.label, i.page),

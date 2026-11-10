@@ -110,10 +110,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const ink = Alvy.navy;
+    final ink = Alvy.navy;
     Widget label(String t) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text(t, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: ink)),
+          child: Text(t, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: ink)),
         );
     return Scaffold(
       backgroundColor: Alvy.page,
@@ -135,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 104,
                         height: 104,
                         padding: const EdgeInsets.all(22),
-                        decoration: const BoxDecoration(color: Color(0xFFFFDBD1), shape: BoxShape.circle),
+                        decoration: BoxDecoration(color: Alvy.isDark ? const Color(0xFFFFE4DC) : Alvy.orangeSoft, shape: BoxShape.circle),
                         child: Image.asset('assets/images/logo-mark.png', fit: BoxFit.contain),
                       ),
                     ),
@@ -150,24 +150,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ]),
                     const SizedBox(height: 4),
-                    const Text('Welcome back to ALVY', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: Alvy.textSub)),
+                    Text('Welcome back to ALVY', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: Alvy.textSub)),
                     const SizedBox(height: 26),
 
                     // The credentials card.
                     Container(
                       padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: Alvy.cardShadow),
+                      decoration: BoxDecoration(color: Alvy.surface, borderRadius: BorderRadius.circular(20), boxShadow: Alvy.cardShadow),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                         Text('Log in to your account', style: Alvy.display(size: 17, weight: FontWeight.w700)),
                         const SizedBox(height: 18),
                         if (_error != null) ...[
                           Container(
                             padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(12)),
+                            decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(12)),
                             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              const Icon(Icons.error_outline, size: 18, color: Color(0xFF93000A)),
+                              Icon(Icons.error_outline, size: 18, color: Alvy.dangerText),
                               const SizedBox(width: 8),
-                              Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFF93000A), fontSize: 13, height: 1.35))),
+                              Expanded(child: Text(_error!, style: TextStyle(color: Alvy.dangerText, fontSize: 13, height: 1.35))),
                             ]),
                           ),
                           const SizedBox(height: 16),
@@ -253,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text("Don't have an account?  ", style: TextStyle(fontSize: 15, color: Alvy.textSub)),
+                        Text("Don't have an account?  ", style: TextStyle(fontSize: 15, color: Alvy.textSub)),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
@@ -273,9 +273,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Icon(Icons.verified_user_outlined, size: 15, color: Alvy.textMuted),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text('Your account is protected by ALVY', style: TextStyle(fontSize: 12.5, color: Alvy.textMuted, fontWeight: FontWeight.w600)),
                     ]),
                   ],

@@ -7,6 +7,7 @@ import 'orders/seller_orders_screen.dart';
 import 'reports/seller_reports_screen.dart';
 import 'profile/seller_profile_screen.dart';
 import '../auth/login_screen.dart';
+import '../../widgets/staff_shell.dart';
 
 class SellerMainScreen extends StatefulWidget {
   const SellerMainScreen({super.key});
@@ -71,99 +72,28 @@ class SellerMainScreenState extends State<SellerMainScreen> {
           );
         }
 
-        return Scaffold(
+        final user = authProvider.user!;
+        return StaffShell(
+          brand: 'SELLER',
+          place: 'Seller Center',
+          userName: user.name,
+          userRole: 'Seller',
+          index: _currentIndex,
+          onSelect: goTo,
+          tabs: [
+            for (var i = 0; i < _screens.length; i++) (_navIcons[i], _navLabels[i], _screens[i]),
+          ],
           body: IndexedStack(
             index: _currentIndex,
             children: [
               for (var i = 0; i < _screens.length; i++) KeyedSubtree(key: ValueKey('tab-$i-${_opened[i] ?? 0}'), child: _screens[i]),
             ],
           ),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(
-                      icon: Icons.dashboard,
-                      label: 'Dashboard',
-                      index: 0,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.inventory_2,
-                      label: 'Products',
-                      index: 1,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.shopping_cart,
-                      label: 'Orders',
-                      index: 2,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.analytics,
-                      label: 'Reports',
-                      index: 3,
-                    ),
-                    _buildNavItem(
-                      icon: Icons.person,
-                      label: 'More',
-                      index: 4,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         );
       },
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-  }) {
-    final isActive = _currentIndex == index;
-    
-    return Expanded(
-      child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => goTo(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFFA4E1C).withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? const Color(0xFFFA4E1C) : const Color(0xFF5C4039),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? const Color(0xFFFA4E1C) : const Color(0xFF5C4039),
-              ),
-            ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
+  static const _navIcons = [Icons.dashboard, Icons.inventory_2, Icons.shopping_cart, Icons.analytics, Icons.person];
+  static const _navLabels = ['Home', 'Products', 'Orders', 'Reports', 'More'];
 }

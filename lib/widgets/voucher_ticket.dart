@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 import '../theme/buyer_colors.dart';
@@ -57,9 +58,9 @@ class VoucherTicket extends StatelessWidget {
             ? '${_num(value)}% off${v['max'] != null ? ' · capped at ${_peso(v['max'])}' : ''}'
             : '${_peso(value)} off';
     final tone = switch (k) {
-      'shipping' => const Color(0xFF0F9F8A),
+      'shipping' => Alvy.slate, // the logo's navy
       'seller' => const Color(0xFFFA4E1C),
-      _ => const Color(0xFFE0431A),
+      _ => const Color(0xFFD93D0E),
     };
     final end = _date(v['ends_at']);
     final now = DateTime.now();
@@ -83,12 +84,12 @@ class VoucherTicket extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         clipBehavior: Clip.antiAlias,
-        decoration: cardBox(context),
+        decoration: cardBox(context, radius: 16),
         child: IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Container(
               width: 92,
-              color: grey ? const Color(0xFF8A716A) : tone,
+              color: grey ? Alvy.textMuted : tone,
               padding: const EdgeInsets.all(8),
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 if (ship) const Icon(Icons.local_shipping_outlined, color: Colors.white, size: 20),

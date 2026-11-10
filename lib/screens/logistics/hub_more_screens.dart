@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 import '../../services/logistics_api.dart';
 import 'hub_screens.dart';
@@ -57,17 +58,17 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         return Column(children: [
           StatGrid([
             StatTile(label: 'Dispatched', value: '${s['dispatched'] ?? 0}', icon: Icons.assignment_ind_outlined),
-            StatTile(label: 'Out for delivery', value: '${s['out_for_delivery'] ?? 0}', icon: Icons.local_shipping_outlined, color: const Color(0xFF2563EB)),
+            StatTile(label: 'Out for delivery', value: '${s['out_for_delivery'] ?? 0}', icon: Icons.local_shipping_outlined, color: Alvy.slate),
             StatTile(label: 'Delivered today', value: '${s['delivered'] ?? 0}', icon: Icons.check_circle_outline, color: const Color(0xFF15803D)),
             StatTile(label: 'Failed', value: '${s['failed'] ?? 0}', icon: Icons.error_outline, color: const Color(0xFFDC2626)),
           ]),
           SizedBox(
-            height: 50,
+            height: 58,
             child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(vertical: 8), children: [
               for (final f in filters)
                 Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(label: Text(f.$2), selected: _status == f.$1, onSelected: (_) {
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterPill(f.$2, selected: _status == f.$1, onTap: () {
                     _status = f.$1;
                     reload();
                   }),
@@ -145,7 +146,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
           Expanded(
             child: TextField(
               textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(hintText: 'Tracking, order no. or receiver', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
+              decoration: const InputDecoration(hintText: 'Tracking, order no. or receiver', prefixIcon: Icon(Icons.search), isDense: true),
               onSubmitted: (v) {
                 _q = v.trim().isEmpty ? null : v.trim();
                 reload();

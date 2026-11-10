@@ -54,6 +54,8 @@ class LogisticsApi {
   static Future<ApiResponse> manualAssign(int parcelId, int riderId) => ApiClient.post('$_p/dispatch/$parcelId/assign', {'rider_id': riderId});
   static Future<ApiResponse> reassign(int parcelId, int riderId) => ApiClient.post('$_p/dispatch/$parcelId/reassign', {'rider_id': riderId});
   static Future<ApiResponse> bulkAssign(int riderId, List<int> parcelIds) => ApiClient.post('$_p/dispatch/bulk', {'rider_id': riderId, 'parcel_ids': parcelIds});
+  /// Every waiting pickup or delivery ([kind]) goes to the Online rider of its barangay.
+  static Future<ApiResponse> autoAssignAll(String kind) => ApiClient.post('$_p/dispatch/auto-all/$kind');
   static Future<ApiResponse> riders({String tab = 'all', int page = 1}) => ApiClient.get('$_p/riders', query: {'tab': tab, 'page': page});
   static Future<ApiResponse> addRider(Map<String, dynamic> body) => ApiClient.post('$_p/riders', body);
   static Future<ApiResponse> rider(int id) => ApiClient.get('$_p/riders/$id');
@@ -91,6 +93,14 @@ class LogisticsApi {
   static Future<ApiResponse> damagedParcel(int id, int parcelId, String? photo) =>
       ApiClient.multipart('$_p/trips/$id/parcels/$parcelId/damaged', {}, files: {if (photo != null) 'photo': photo});
   static Future<ApiResponse> closeReceiving(int id, {bool confirm = false}) => ApiClient.post('$_p/trips/$id/close', {'confirm': confirm});
+  // Linehaul between sorting centers: parcels (no limit), Auto-assign, the receiver's acceptance, messages, receive all.
+  static Future<ApiResponse> addTripParcels(int id, List<int> parcelIds) => ApiClient.post('$_p/trips/$id/parcels', {'parcel_ids': parcelIds});
+  static Future<ApiResponse> autoAddTripParcels(int id) => ApiClient.post('$_p/trips/$id/auto');
+  static Future<ApiResponse> autoAssignTrips(int originHubId) => ApiClient.post('$_p/trips/auto-assign', {'origin_hub_id': originHubId});
+  static Future<ApiResponse> respondTrip(int id, bool accept, {String? note}) =>
+      ApiClient.post('$_p/trips/$id/respond', {'decision': accept ? 'accept' : 'reject', if (note != null) 'note': note});
+  static Future<ApiResponse> tripMessage(int id, String body) => ApiClient.post('$_p/trips/$id/message', {'body': body});
+  static Future<ApiResponse> receiveTrip(int id, List<int> found) => ApiClient.post('$_p/trips/$id/receive-all', {'found': found});
   static Future<ApiResponse> dutyBoard() => ApiClient.get('$_p/linehaul-couriers');
   static Future<ApiResponse> suspendCourier(int id, String reason) => ApiClient.post('$_p/couriers/$id/suspend', {'reason': reason});
   static Future<ApiResponse> reactivateCourier(int id) => ApiClient.post('$_p/couriers/$id/reactivate');

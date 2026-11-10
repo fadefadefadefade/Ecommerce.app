@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import 'app_update.dart';
 import 'upload_shrink.dart';
 
 /// The answer of an /api/v1 call: the HTTP status, the JSON body, and the web's messages.
@@ -80,8 +81,10 @@ class ApiClient {
 
   static Future<Map<String, String>> _headers({bool json = true}) async {
     final t = await token();
+    final build = await AppUpdate.buildNumber();
     return {
       'Accept': 'application/json',
+      if (build > 0) 'X-App-Build': '$build',
       if (json) 'Content-Type': 'application/json',
       if (t != null) 'Authorization': 'Bearer $t',
     };

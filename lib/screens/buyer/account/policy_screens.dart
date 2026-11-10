@@ -26,19 +26,35 @@ class PoliciesScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(title: const Text('Policies')),
-      body: ListView(padding: const EdgeInsets.all(12), children: [
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+        Text('LEGAL', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w700, color: c.textSecondary)),
+        Text('ALVY Policies', style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text('How ALVY works for buyers, sellers and riders.', style: TextStyle(color: c.textSecondary)),
+        const SizedBox(height: 14),
         Container(
-          decoration: cardBox(context),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: cardBox(context, radius: 20),
           child: Column(children: [
-            for (final (i, p) in kPolicies.indexed) ...[
-              if (i > 0) Divider(height: 1, color: c.border),
-              ListTile(
-                leading: Icon(p.$3, color: kOrange),
-                title: Text(p.$2),
-                trailing: Icon(Icons.chevron_right, color: c.muted),
+            for (final p in kPolicies)
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PolicyScreen(policyKey: p.$1, title: p.$2))),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(12)),
+                      child: Icon(p.$3, size: 21, color: Alvy.slate),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(p.$2, style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+                    Icon(Icons.chevron_right, color: c.muted),
+                  ]),
+                ),
               ),
-            ],
           ]),
         ),
       ]),
@@ -101,7 +117,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                   child: html == null
                       ? Column(children: [
                           const SizedBox(height: 12),
-                          const Text('📄', style: TextStyle(fontSize: 36)),
+                          const Icon(Icons.description_outlined, size: 40, color: Alvy.orange),
                           const SizedBox(height: 8),
                           Text('Policy not yet published', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
                           const SizedBox(height: 4),

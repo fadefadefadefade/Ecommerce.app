@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -165,8 +166,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       _places = [];
     });
     try {
-      final res = await http.get(Uri.parse('${ApiConfig.webUrl}/api/geo/search?q=${Uri.encodeQueryComponent(q)}'), headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 20));
+      final res = await http.get(Uri.parse('${ApiConfig.webUrl}/api/geo/search?q=${Uri.encodeQueryComponent(q)}'),
+          headers: {'Accept': 'application/json'}).timeout(const Duration(seconds: 20));
       final list = res.statusCode == 200 ? (jsonDecode(res.body) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList() : null;
       if (!mounted) return;
       setState(() {
@@ -196,8 +197,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     final loc = (lat: lat, lng: lng);
     Map<String, dynamic> geo = {};
     try {
-      final res = await http.get(Uri.parse('${ApiConfig.webUrl}/api/geo/reverse?lat=${loc.lat}&lon=${loc.lng}'), headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 20));
+      final res = await http.get(Uri.parse('${ApiConfig.webUrl}/api/geo/reverse?lat=${loc.lat}&lon=${loc.lng}'),
+          headers: {'Accept': 'application/json'}).timeout(const Duration(seconds: 20));
       geo = Map<String, dynamic>.from(jsonDecode(res.body) as Map);
       if (res.statusCode != 200) {
         if (!mounted) return;
@@ -291,6 +292,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       print('Error loading provinces: $e');
     }
   }
+
   Future<void> _loadMunicipalities(String provinceCode) async {
     try {
       final municipalities = await PsgcService.getMunicipalities(provinceCode);
@@ -328,432 +330,468 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Full Name
-              const Text('Full Name *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _fullNameController,
-                decoration: InputDecoration(
-                  hintText: 'Enter full name',
-                  filled: true,
-                  fillColor: context.bc.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                validator: (value) => value?.trim().isEmpty == true ? 'Please enter your full name' : null,
-              ),
-              const SizedBox(height: 20),
-
-              // Phone
-              const Text('Phone Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                inputFormatters: phoneFormatters,
-                decoration: InputDecoration(
-                  hintText: '09XXXXXXXXX',
-                  counterText: '',
-                  filled: true,
-                  fillColor: context.bc.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Label
-              const Text('Label', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final label in _labels)
-                    ChoiceChip(
-                      label: Text(label),
-                      selected: _selectedLabel == label,
-                      selectedColor: const Color(0xFFFA4E1C).withValues(alpha: 0.15),
-                      onSelected: (_) => setState(() => _selectedLabel = label),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Address Section
-              const Text('Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              Text('Select your region, province, city/municipality, then barangay',
-                style: TextStyle(fontSize: 12, color: context.bc.muted)),
-              if (_isEdit && _selectedMunicipalityName == null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'Current: ${[widget.address!['barangay'], widget.address!['city'], widget.address!['province']].where((s) => s != null && '$s'.isNotEmpty).join(', ')}'
-                  ' — leave blank to keep it',
-                  style: TextStyle(fontSize: 12, color: context.bc.textSecondary),
-                ),
-              ],
-              const SizedBox(height: 16),
-
-              // Pin your location (optional): search a place, tap the map, or use the phone's location.
-              Row(children: [
-                const Text('Pin your location ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                Text('(optional)', style: TextStyle(fontSize: 12, color: context.bc.muted)),
-              ]),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _search,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _findPlace(),
-                    decoration: InputDecoration(
-                      hintText: 'Search a place, e.g. SM Calamba',
-                      isDense: true,
-                      filled: true,
-                      fillColor: context.bc.surface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(onPressed: _searching ? null : _findPlace, child: const Text('Search')),
-              ]),
-              if (_searchNote != null)
-                Padding(padding: const EdgeInsets.only(top: 6), child: Text(_searchNote!, style: TextStyle(fontSize: 12, color: context.bc.muted))),
-              for (final pl in _places)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.place_outlined, color: Color(0xFFFA4E1C)),
-                  title: Text('${pl['label']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                  onTap: () => _pinAt((pl['lat'] as num).toDouble(), (pl['lon'] as num).toDouble()),
-                ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  height: 220,
-                  child: FlutterMap(
-                    mapController: _map,
-                    options: MapOptions(
-                      initialCenter: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : _phCenter,
-                      initialZoom: _lat != null ? 17 : 5,
-                      onTap: (_, point) => _locating ? null : _pinAt(point.latitude, point.longitude),
-                    ),
-                    children: [
-                      TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.alvy_app'),
-                      if (_lat != null && _lng != null)
-                        MarkerLayer(markers: [
-                          Marker(
-                            point: LatLng(_lat!, _lng!),
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.topCenter,
-                            // Drag the pin to the house; letting go looks up the address there.
-                            child: GestureDetector(
-                              onPanUpdate: _locating
-                                  ? null
-                                  : (d) {
-                                      final cam = _map.camera;
-                                      final to = cam.screenOffsetToLatLng(cam.latLngToScreenOffset(LatLng(_lat!, _lng!)) + d.delta);
-                                      setState(() {
-                                        _lat = to.latitude;
-                                        _lng = to.longitude;
-                                      });
-                                    },
-                              onPanEnd: _locating ? null : (_) => _pinAt(_lat!, _lng!),
-                              child: const Icon(Icons.location_pin, size: 40, color: Color(0xFFFA4E1C)),
-                            ),
-                          ),
-                        ]),
-                      const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text("Tap the map or drag the pin to your house. We'll fill in the address below for you.", style: TextStyle(fontSize: 12, color: context.bc.muted)),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _locating ? null : _useMyLocation,
-                icon: _locating
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.my_location, color: Color(0xFFFA4E1C)),
-                label: Text(_lat == null ? 'Use my current location' : 'Update the pin to my location'),
-              ),
-              if (_pinned != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text('📍 $_pinned', style: TextStyle(fontSize: 12, color: context.bc.muted)),
-                ),
-              const SizedBox(height: 16),
-
-              // Region Dropdown
-              const Text('Region *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: cardBox(context),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedRegion,
-                    hint: const Text('— Select Region —', style: TextStyle(fontSize: 12)),
-                    isExpanded: true,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRegion = value;
-                        _selectedRegionName = _regions.firstWhere((r) => r['code'] == value)['name'];
-                      });
-                      if (value != null) _loadProvinces(value);
-                    },
-                    items: _regions.map<DropdownMenuItem<String>>((region) {
-                      return DropdownMenuItem<String>(
-                        value: region['code'],
-                        child: Text(
-                          region['name'],
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Province and Municipality Row
-              Row(
-                children: [
-                  // Province
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Province *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: cardBox(context),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedProvince,
-                              hint: Text(
-                                _selectedRegion == null ? 'Select region' : '— Province —',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              isExpanded: true,
-                              onChanged: _selectedRegion == null ? null : (value) {
-                                setState(() {
-                                  _selectedProvince = value;
-                                  _selectedProvinceName = _provinces.firstWhere((p) => p['code'] == value)['name'];
-                                });
-                                if (value != null) _loadMunicipalities(value);
-                              },
-                              items: _provinces.map<DropdownMenuItem<String>>((province) {
-                                return DropdownMenuItem<String>(
-                                  value: province['code'],
-                                  child: Text(
-                                    province['name'],
-                                    style: const TextStyle(fontSize: 11),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ],
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                decoration: cardBox(context, radius: 20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.person_outline, size: 19, color: Alvy.orange),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Municipality
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('City/Municipality *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: cardBox(context),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedMunicipality,
-                              hint: Text(
-                                _selectedProvince == null ? 'Select province' : '— City —',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              isExpanded: true,
-                              onChanged: _selectedProvince == null ? null : (value) {
-                                setState(() {
-                                  _selectedMunicipality = value;
-                                  _selectedMunicipalityName = _municipalities.firstWhere((m) => m['code'] == value)['name'];
-                                });
-                                if (value != null) _loadBarangays(value);
-                              },
-                              items: _municipalities.map<DropdownMenuItem<String>>((municipality) {
-                                return DropdownMenuItem<String>(
-                                  value: municipality['code'],
-                                  child: Text(
-                                    municipality['name'],
-                                    style: const TextStyle(fontSize: 12),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 10),
+                    Text('Contact Person', style: Alvy.display(size: 17, color: context.bc.text, weight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: 14),
+                  // Full Name
+                  const Text('Full Name *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _fullNameController,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter full name',
                     ),
+                    validator: (value) => value?.trim().isEmpty == true ? 'Please enter your full name' : null,
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
-              // Barangay and ZIP Row
-              Row(
-                children: [
-                  // Barangay
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Barangay *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: cardBox(context),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedBarangay,
-                              hint: Text(
-                                _selectedMunicipality == null ? 'Select city first' : '— Barangay —',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              isExpanded: true,
-                              onChanged: _selectedMunicipality == null ? null : (value) {
-                                setState(() {
-                                  _selectedBarangay = value;
-                                  _selectedBarangayName = _barangays.firstWhere((b) => b['code'] == value)['name'];
-                                });
-                              },
-                              items: _barangays.map<DropdownMenuItem<String>>((barangay) {
-                                return DropdownMenuItem<String>(
-                                  value: barangay['code'],
-                                  child: Text(
-                                    barangay['name'],
-                                    style: const TextStyle(fontSize: 11),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ],
+                  // Phone
+                  const Text('Phone Number', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: phoneFormatters,
+                    decoration: const InputDecoration(
+                      hintText: '09XXXXXXXXX',
+                      counterText: '',
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // ZIP Code
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('ZIP Code *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _zipController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 4,
-                          validator: (value) {
-                          final v = value?.trim() ?? '';
-                          if (v.isEmpty) return 'ZIP code is required';
-                          if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Enter a 4-digit ZIP code';
-                          return null;
+                  const SizedBox(height: 20),
+
+                  // Label
+                  const Text('Label', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final label in _labels) FilterPill(label, selected: _selectedLabel == label, onTap: () => setState(() => _selectedLabel = label)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                ]),
+              ),
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                decoration: cardBox(context, radius: 20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.place_outlined, size: 19, color: Alvy.orange),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('Location', style: Alvy.display(size: 17, color: context.bc.text, weight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: 14),
+                  // Address Section
+                  Text('Select your region, province, city/municipality, then barangay', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                  if (_isEdit && _selectedMunicipalityName == null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Current: ${[
+                        widget.address!['barangay'],
+                        widget.address!['city'],
+                        widget.address!['province']
+                      ].where((s) => s != null && '$s'.isNotEmpty).join(', ')}'
+                      ' — leave blank to keep it',
+                      style: TextStyle(fontSize: 12, color: context.bc.textSecondary),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+
+                  // Pin your location (optional): search a place, tap the map, or use the phone's location.
+                  Row(children: [
+                    const Text('Pin your location ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text('(optional)', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _search,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (_) => _findPlace(),
+                        decoration: const InputDecoration(
+                          hintText: 'Search a place, e.g. SM Calamba',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(onPressed: _searching ? null : _findPlace, child: const Text('Search')),
+                  ]),
+                  if (_searchNote != null)
+                    Padding(padding: const EdgeInsets.only(top: 6), child: Text(_searchNote!, style: TextStyle(fontSize: 12, color: context.bc.muted))),
+                  for (final pl in _places)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.place_outlined, color: Color(0xFFFA4E1C)),
+                      title: Text('${pl['label']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                      onTap: () => _pinAt((pl['lat'] as num).toDouble(), (pl['lon'] as num).toDouble()),
+                    ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      height: 220,
+                      child: FlutterMap(
+                        mapController: _map,
+                        options: MapOptions(
+                          initialCenter: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : _phCenter,
+                          initialZoom: _lat != null ? 17 : 5,
+                          onTap: (_, point) => _locating ? null : _pinAt(point.latitude, point.longitude),
+                        ),
+                        children: [
+                          TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.alvy_app'),
+                          if (_lat != null && _lng != null)
+                            MarkerLayer(markers: [
+                              Marker(
+                                point: LatLng(_lat!, _lng!),
+                                width: 40,
+                                height: 40,
+                                alignment: Alignment.topCenter,
+                                // Drag the pin to the house; letting go looks up the address there.
+                                child: GestureDetector(
+                                  onPanUpdate: _locating
+                                      ? null
+                                      : (d) {
+                                          final cam = _map.camera;
+                                          final to = cam.screenOffsetToLatLng(cam.latLngToScreenOffset(LatLng(_lat!, _lng!)) + d.delta);
+                                          setState(() {
+                                            _lat = to.latitude;
+                                            _lng = to.longitude;
+                                          });
+                                        },
+                                  onPanEnd: _locating ? null : (_) => _pinAt(_lat!, _lng!),
+                                  child: const Icon(Icons.location_pin, size: 40, color: Color(0xFFFA4E1C)),
+                                ),
+                              ),
+                            ]),
+                          const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text("Tap the map or drag the pin to your house. We'll fill in the address below for you.",
+                      style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _locating ? null : _useMyLocation,
+                    icon: _locating
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.my_location, color: Color(0xFFFA4E1C)),
+                    label: Text(_lat == null ? 'Use my current location' : 'Update the pin to my location'),
+                  ),
+                  if (_pinned != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text('Pinned: $_pinned', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+                    ),
+                  const SizedBox(height: 16),
+
+                  // Region Dropdown
+                  const Text('Region *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedRegion,
+                        hint: const Text('— Select Region —', style: TextStyle(fontSize: 12)),
+                        isExpanded: true,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedRegion = value;
+                            _selectedRegionName = _regions.firstWhere((r) => r['code'] == value)['name'];
+                          });
+                          if (value != null) _loadProvinces(value);
                         },
-                          decoration: InputDecoration(
-                            counterText: '',
-                            hintText: 'ZIP',
-                            hintStyle: const TextStyle(fontSize: 11),
-                            filled: true,
-                            fillColor: context.bc.surface,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            contentPadding: const EdgeInsets.all(10),
-                          ),
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ],
+                        items: _regions.map<DropdownMenuItem<String>>((region) {
+                          return DropdownMenuItem<String>(
+                            value: region['code'],
+                            child: Text(
+                              region['name'],
+                              style: const TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  // Province and Municipality Row
+                  Row(
+                    children: [
+                      // Province
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Province *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedProvince,
+                                  hint: Text(
+                                    _selectedRegion == null ? 'Select region' : '— Province —',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  isExpanded: true,
+                                  onChanged: _selectedRegion == null
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            _selectedProvince = value;
+                                            _selectedProvinceName = _provinces.firstWhere((p) => p['code'] == value)['name'];
+                                          });
+                                          if (value != null) _loadMunicipalities(value);
+                                        },
+                                  items: _provinces.map<DropdownMenuItem<String>>((province) {
+                                    return DropdownMenuItem<String>(
+                                      value: province['code'],
+                                      child: Text(
+                                        province['name'],
+                                        style: const TextStyle(fontSize: 11),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Municipality
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('City/Municipality *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedMunicipality,
+                                  hint: Text(
+                                    _selectedProvince == null ? 'Select province' : '— City —',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  isExpanded: true,
+                                  onChanged: _selectedProvince == null
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            _selectedMunicipality = value;
+                                            _selectedMunicipalityName = _municipalities.firstWhere((m) => m['code'] == value)['name'];
+                                          });
+                                          if (value != null) _loadBarangays(value);
+                                        },
+                                  items: _municipalities.map<DropdownMenuItem<String>>((municipality) {
+                                    return DropdownMenuItem<String>(
+                                      value: municipality['code'],
+                                      child: Text(
+                                        municipality['name'],
+                                        style: const TextStyle(fontSize: 12),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-              // House Number
-              const Text('House / Unit Number *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _houseNumberController,
-                decoration: InputDecoration(
-                  hintText: 'Enter house/unit number',
-                  hintStyle: const TextStyle(fontSize: 12),
-                  filled: true,
-                  fillColor: context.bc.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-                validator: (value) => value?.isEmpty == true ? 'Please enter house/unit number' : null,
+                  // Barangay and ZIP Row
+                  Row(
+                    children: [
+                      // Barangay
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Barangay *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _selectedBarangay,
+                                  hint: Text(
+                                    _selectedMunicipality == null ? 'Select city first' : '— Barangay —',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  isExpanded: true,
+                                  onChanged: _selectedMunicipality == null
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            _selectedBarangay = value;
+                                            _selectedBarangayName = _barangays.firstWhere((b) => b['code'] == value)['name'];
+                                          });
+                                        },
+                                  items: _barangays.map<DropdownMenuItem<String>>((barangay) {
+                                    return DropdownMenuItem<String>(
+                                      value: barangay['code'],
+                                      child: Text(
+                                        barangay['name'],
+                                        style: const TextStyle(fontSize: 11),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // ZIP Code
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('ZIP Code *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _zipController,
+                              keyboardType: TextInputType.number,
+                              maxLength: 4,
+                              validator: (value) {
+                                final v = value?.trim() ?? '';
+                                if (v.isEmpty) return 'ZIP code is required';
+                                if (!RegExp(r'^\d{4}$').hasMatch(v)) return 'Enter a 4-digit ZIP code';
+                                return null;
+                              },
+                              decoration: const InputDecoration(
+                                counterText: '',
+                                hintText: 'ZIP',
+                                hintStyle: TextStyle(fontSize: 11),
+                                contentPadding: EdgeInsets.all(10),
+                              ),
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                ]),
               ),
-              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                decoration: cardBox(context, radius: 20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.home_outlined, size: 19, color: Alvy.orange),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('Address Details', style: Alvy.display(size: 17, color: context.bc.text, weight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: 14),
+                  // House Number
+                  const Text('House / Unit Number *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _houseNumberController,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter house/unit number',
+                      hintStyle: TextStyle(fontSize: 12),
+                      contentPadding: EdgeInsets.all(12),
+                    ),
+                    validator: (value) => value?.isEmpty == true ? 'Please enter house/unit number' : null,
+                  ),
+                  const SizedBox(height: 20),
 
-              // Street
-              const Text('Street / Subdivision *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _streetController,
-                decoration: InputDecoration(
-                  hintText: 'Enter street name or subdivision',
-                  hintStyle: const TextStyle(fontSize: 12),
-                  filled: true,
-                  fillColor: context.bc.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-                validator: (value) => value?.trim().isEmpty == true ? 'Please enter street name' : null,
+                  // Street
+                  const Text('Street / Subdivision *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _streetController,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter street name or subdivision',
+                      hintStyle: TextStyle(fontSize: 12),
+                      contentPadding: EdgeInsets.all(12),
+                    ),
+                    validator: (value) => value?.trim().isEmpty == true ? 'Please enter street name' : null,
+                  ),
+                  const SizedBox(height: 12),
+
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Set as default address', style: TextStyle(fontSize: 14)),
+                    value: _isDefault,
+                    activeThumbColor: const Color(0xFFFA4E1C),
+                    onChanged: (v) => setState(() => _isDefault = v),
+                  ),
+                  const SizedBox(height: 20),
+                ]),
               ),
-              const SizedBox(height: 12),
-
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Set as default address', style: TextStyle(fontSize: 14)),
-                value: _isDefault,
-                activeThumbColor: const Color(0xFFFA4E1C),
-                onChanged: (v) => setState(() => _isDefault = v),
-              ),
-              const SizedBox(height: 20),
-
               // Save Button
               SizedBox(
                 width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
+                height: 52,
+                child: FilledButton(
                   onPressed: _isSaving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFA4E1C),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
+                  style: FilledButton.styleFrom(backgroundColor: Alvy.orange, foregroundColor: Colors.white),
                   child: _isSaving
                       ? const SizedBox(
                           width: 22,

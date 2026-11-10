@@ -18,6 +18,8 @@ class SellerApi {
   /// The website's report file: format csv or xlsx.
   /// The GCash receipt the buyer uploaded (orders paid by GCash receipt).
   static Future<ApiDownload> paymentProof(int orderId) => ApiClient.download('/seller/orders/$orderId/payment-proof');
+  /// The rider's proof-of-delivery photo for a delivered order.
+  static Future<ApiDownload> proofOfDelivery(int orderId) => ApiClient.download('/seller/orders/$orderId/proof-of-delivery');
   static Future<ApiDownload> exportReport(String format, {String? from, String? to}) =>
       ApiClient.download('/seller/reports/export', query: {'format': format, 'from': from, 'to': to});
 

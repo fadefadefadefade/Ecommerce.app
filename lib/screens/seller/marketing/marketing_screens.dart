@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../theme/app_theme.dart';
 
 import '../../../services/api_client.dart';
 import '../../../services/seller_api.dart';
@@ -65,20 +67,27 @@ Widget _fab(String label, VoidCallback onPressed) => FloatingActionButton.extend
 
 Widget _tile(BuildContext context, {required String title, required String subtitle, required List<Widget> trailing, Widget? leading}) {
   final c = context.bc;
-  return Card(
-    elevation: 0,
-    margin: const EdgeInsets.only(bottom: 8),
-    color: c.surface,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: c.border)),
+  // The design's list card: the icon in a soft orange square, a Jakarta title, muted details.
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: cardBox(context, radius: 16),
     child: Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       child: Row(children: [
-        if (leading != null) ...[leading, const SizedBox(width: 10)],
+        if (leading != null) ...[
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(12)),
+            child: Center(child: leading),
+          ),
+          const SizedBox(width: 12),
+        ],
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
-            const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(fontSize: 12, color: c.muted)),
+            Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 15, color: c.text)),
+            const SizedBox(height: 3),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: c.textSecondary, height: 1.35)),
           ]),
         ),
         ...trailing,
@@ -108,7 +117,7 @@ class _SellerVouchersScreenState extends _ListPageState<SellerVouchersScreen> {
   Widget build(BuildContext context) => page('Store vouchers', (d) {
         final list = asList(d['vouchers']);
         if (list.isEmpty) return ListView(children: const [EmptyNote(Icons.confirmation_number_outlined, 'No store vouchers yet.')]);
-        return ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), children: [
+        return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 90), children: [
           for (final v in list)
             InkWell(
               onTap: () => _open(asInt(v['id'])),
@@ -176,6 +185,12 @@ class _VoucherFormScreenState extends State<VoucherFormScreen> {
   @override
   void initState() {
     super.initState();
+    // The live preview follows what is typed.
+    for (final c in [_code, _name, _value, _min]) {
+      c.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
     _load();
   }
 
@@ -216,6 +231,7 @@ class _VoucherFormScreenState extends State<VoucherFormScreen> {
       _active = v['is_active'] == true;
       _claimable = v['is_claimable'] == true;
       _productIds.addAll([for (final id in (v['product_ids'] as List? ?? [])) asInt(id)]);
+      _someProducts = _productIds.isNotEmpty;
     }
     setState(() => _loading = false);
   }
@@ -249,81 +265,240 @@ class _VoucherFormScreenState extends State<VoucherFormScreen> {
     if (r.ok) Navigator.pop(context, true);
   }
 
-  Widget _date(String label, String? value, ValueChanged<String?> set, String field, {bool enabled = true}) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: InkWell(
-          onTap: !enabled
-              ? null
-              : () async {
-                  final v = await pickDateTime(context, initial: value, future: false);
-                  if (v != null) setState(() => set(v));
-                },
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: label,
-              isDense: true,
-              enabled: enabled,
-              errorText: _errors[field],
-              errorMaxLines: 3,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              suffixIcon: value == null || !enabled ? const Icon(Icons.event, size: 18) : InkWell(onTap: () => setState(() => set(null)), child: const Icon(Icons.close, size: 18)),
+  /// "Selected products" chosen on the Eligible Products card (none ticked = the whole store, like before).
+  bool _someProducts = false;
+
+  /// The design's section card: an icon square and a Jakarta title, then the fields.
+  Widget _sec(String title, IconData icon, List<Widget> children) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+        decoration: cardBox(context, radius: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 18, color: kOrange),
             ),
-            child: Text(value ?? 'No limit', style: const TextStyle(fontSize: 13)),
+            const SizedBox(width: 10),
+            Text(title, style: Alvy.display(size: 18, color: context.bc.text, weight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 14),
+          ...children,
+        ]),
+      );
+
+  /// The design's date tile: caps label, the date, the time under it.
+  Widget _dateTile(String label, String? value, ValueChanged<String?> set, String field, {bool enabled = true}) {
+    final c = context.bc;
+    final parts = (value ?? '').split(' ');
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: !enabled
+            ? null
+            : () async {
+                final v = await pickDateTime(context, initial: value, future: false);
+                if (v != null) setState(() => set(v));
+              },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(label, style: TextStyle(fontSize: 11, letterSpacing: 0.5, fontWeight: FontWeight.w700, color: c.textSecondary))),
+              if (value != null && enabled)
+                InkWell(onTap: () => setState(() => set(null)), child: Icon(Icons.close, size: 16, color: c.muted)),
+            ]),
+            const SizedBox(height: 4),
+            Text(value == null ? 'No limit' : formatDate(parts.first), style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+            Text(value == null ? 'Tap to set' : (parts.length > 1 ? parts[1] : ''), style: TextStyle(fontSize: 12, color: c.textSecondary)),
+            if (_errors[field] != null) Text(_errors[field]!, style: const TextStyle(fontSize: 11.5, color: Color(0xFFDC2626))),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// A toggle row like the design's "ALVY Discovery Deals".
+  Widget _toggle(IconData icon, String title, String sub, bool value, ValueChanged<bool>? onChanged) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+        decoration: BoxDecoration(color: context.bc.subtle, borderRadius: BorderRadius.circular(14)),
+        child: Row(children: [
+          CircleAvatar(radius: 17, backgroundColor: Alvy.orangeSoft, child: Icon(icon, size: 18, color: kOrange)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
+              Text(sub, style: TextStyle(fontSize: 12, color: context.bc.textSecondary)),
+            ]),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ]),
+      );
+
+  /// One of the two Eligible Products choices.
+  Widget _scope(String title, String sub, IconData icon, bool on, VoidCallback? onTap) => Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: on ? context.bc.surface : context.bc.subtle,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: on ? kOrange : Colors.transparent, width: 1.5),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(icon, size: 20, color: on ? kOrange : context.bc.textSecondary),
+                const Spacer(),
+                Icon(on ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 20, color: on ? kOrange : context.bc.muted),
+              ]),
+              const SizedBox(height: 8),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: on ? kOrange : context.bc.text)),
+              Text(sub, style: TextStyle(fontSize: 12, color: context.bc.textSecondary)),
+            ]),
           ),
         ),
       );
 
   @override
   Widget build(BuildContext context) {
+    final c = context.bc;
     final lockedHint = _locked ? 'Buyers claimed this voucher: only the end date and usage limit can change.' : null;
+    final value = _value.text.trim().isEmpty ? '0' : _value.text.trim();
     return Scaffold(
-      backgroundColor: context.bc.background,
+      backgroundColor: c.background,
       appBar: sellerBar(widget.voucherId == null ? 'New store voucher' : 'Edit voucher'),
       body: LoadState(
         loading: _loading,
         error: _error,
         onRetry: _load,
-        child: ListView(padding: const EdgeInsets.all(12), children: [
-          if (lockedHint != null)
-            Card(color: const Color(0xFFFFF7ED), child: Padding(padding: const EdgeInsets.all(12), child: Text(lockedHint, style: const TextStyle(color: Color(0xFF9A3412))))),
-          SectionCard(
-            child: Column(children: [
-              FormInput(_code, 'Voucher code *', readOnly: _locked, helper: '4 to 12 letters and numbers, e.g. SALE1111.', error: _errors['code']),
-              FormInput(_name, 'Name *', readOnly: _locked, maxLength: 120, error: _errors['name']),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: SegmentedButton<String>(
-                  segments: const [ButtonSegment(value: 'fixed', label: Text('₱ off')), ButtonSegment(value: 'percent', label: Text('% off'))],
-                  selected: {_type},
-                  onSelectionChanged: _locked ? null : (s) => setState(() => _type = s.first),
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+          // The design's live preview: the ticket buyers will see.
+          Row(children: [
+            const Icon(Icons.circle, size: 8, color: kOrange),
+            const SizedBox(width: 6),
+            Text('LIVE CUSTOMER PREVIEW', style: TextStyle(fontSize: 11.5, letterSpacing: 0.5, fontWeight: FontWeight.w800, color: c.textSecondary)),
+          ]),
+          const SizedBox(height: 8),
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: cardBox(context, radius: 18),
+            clipBehavior: Clip.antiAlias,
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(
+                  width: 96,
+                  color: kOrange,
+                  padding: const EdgeInsets.all(8),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    FittedBox(
+                      child: Text(_type == 'percent' ? '$value%' : '₱$value',
+                          style: Alvy.display(size: 26, color: Colors.white, weight: FontWeight.w800)),
+                    ),
+                    const Text('OFF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.8)),
+                  ]),
                 ),
-              ),
-              FormInput(_value, _type == 'percent' ? 'Discount (%) *' : 'Discount (₱) *', readOnly: _locked, keyboard: TextInputType.number, error: _errors['discount_value']),
-              if (_type == 'percent') FormInput(_max, 'Maximum discount (₱)', readOnly: _locked, keyboard: TextInputType.number, error: _errors['max_discount']),
-              FormInput(_min, 'Minimum spend (₱)', readOnly: _locked, keyboard: TextInputType.number, error: _errors['min_spend']),
-              Row(children: [
-                Expanded(child: FormInput(_usage, 'Usage limit', keyboard: TextInputType.number, helper: 'Blank = no limit', error: _errors['usage_limit'])),
-                const SizedBox(width: 8),
-                Expanded(child: FormInput(_perUser, 'Per buyer *', readOnly: _locked, keyboard: TextInputType.number, error: _errors['per_user_limit'])),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+                        child: Text(_code.text.trim().isEmpty ? 'CODE' : _code.text.trim().toUpperCase(),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Alvy.orangeDark)),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(_name.text.trim().isEmpty ? 'Voucher name' : _name.text.trim(), maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
+                      Text(_min.text.trim().isEmpty ? 'No min. spend' : 'Min. spend ₱${_min.text.trim()}', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        Icon(Icons.schedule, size: 13, color: c.muted),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(_ends == null ? 'No end date' : 'Ends ${formatDate(_ends!.split(' ').first)}', style: TextStyle(fontSize: 11.5, color: c.muted))),
+                        if (_claimable) const Text('Claim', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: kOrange)),
+                      ]),
+                    ]),
+                  ),
+                ),
               ]),
-              _date('Starts', _starts, (v) => _starts = v, 'starts_at', enabled: !_locked),
-              _date('Ends', _ends, (v) => _ends = v, 'ends_at'),
-              SwitchListTile(contentPadding: EdgeInsets.zero, value: _active, activeThumbColor: kOrange, title: const Text('Active'), onChanged: (v) => setState(() => _active = v)),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _claimable,
-                activeThumbColor: kOrange,
-                title: const Text('Buyers can claim it'),
-                subtitle: const Text('Shown on your store page to collect.'),
-                onChanged: _locked ? null : (v) => setState(() => _claimable = v),
-              ),
-            ]),
+            ),
           ),
+          if (lockedHint != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(14)),
+              child: Text(lockedHint, style: TextStyle(color: Alvy.warnText)),
+            ),
+          _sec('Voucher Basics', Icons.edit_note, [
+            FormInput(_name, 'Voucher display name *', readOnly: _locked, maxLength: 120, error: _errors['name']),
+            FormInput(_code, 'Claim code *', readOnly: _locked, helper: '4 to 12 letters and numbers, e.g. SALE1111.', error: _errors['code']),
+            Text('Discount value', style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+            const SizedBox(height: 8),
+            // The design's two-way switch: a beige track, the chosen side on white.
+            Container(
+              padding: const EdgeInsets.all(4),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                for (final (key, label, icon) in const [('fixed', 'Fixed (₱)', Icons.payments_outlined), ('percent', 'Percentage (%)', Icons.percent)])
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _locked ? null : () => setState(() => _type = key),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(color: _type == key ? c.surface : Colors.transparent, borderRadius: BorderRadius.circular(9)),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(icon, size: 16, color: _type == key ? kOrange : c.textSecondary),
+                          const SizedBox(width: 6),
+                          Text(label, style: TextStyle(fontWeight: _type == key ? FontWeight.w700 : FontWeight.w500, color: _type == key ? kOrange : c.textSecondary)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+            FormInput(_value, _type == 'percent' ? 'Discount (%) *' : 'Discount (₱) *', readOnly: _locked, keyboard: TextInputType.number,
+                error: _errors['discount_value']),
+            if (_type == 'percent') FormInput(_max, 'Maximum discount (₱)', readOnly: _locked, keyboard: TextInputType.number, error: _errors['max_discount']),
+          ]),
+          _sec('Spend & Usage Rules', Icons.tune, [
+            FormInput(_min, 'Minimum order basket (₱)', readOnly: _locked, keyboard: TextInputType.number,
+                helper: 'Orders must reach this amount to use the voucher.', error: _errors['min_spend']),
+            FormInput(_usage, 'Total usage pool', keyboard: TextInputType.number, helper: 'Blank = no limit', error: _errors['usage_limit']),
+            FormInput(_perUser, 'Usage limit per buyer *', readOnly: _locked, keyboard: TextInputType.number, error: _errors['per_user_limit']),
+          ]),
+          _sec('Validity Schedule', Icons.calendar_month_outlined, [
+            Row(children: [
+              _dateTile('STARTS', _starts, (v) => _starts = v, 'starts_at', enabled: !_locked),
+              const SizedBox(width: 10),
+              _dateTile('ENDS', _ends, (v) => _ends = v, 'ends_at'),
+            ]),
+            const SizedBox(height: 12),
+            _toggle(Icons.flash_on_outlined, 'Active', 'Buyers can use it at checkout', _active, (v) => setState(() => _active = v)),
+            _toggle(Icons.storefront_outlined, 'Buyers can claim it', 'Shown on your store page to collect', _claimable,
+                _locked ? null : (v) => setState(() => _claimable = v)),
+          ]),
           if (_products.isNotEmpty)
-            SectionCard(
-              title: 'Only for these products (optional)',
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('None selected = the whole store.', style: TextStyle(fontSize: 12, color: context.bc.muted)),
+            _sec('Eligible Products', Icons.category_outlined, [
+              Row(children: [
+                _scope('All Store Items', 'Entire catalog', Icons.storefront_outlined, !_someProducts,
+                    _locked ? null : () => setState(() {
+                          _someProducts = false;
+                          _productIds.clear();
+                        })),
+                const SizedBox(width: 10),
+                _scope('Selected Items', 'Pick products', Icons.checklist, _someProducts, _locked ? null : () => setState(() => _someProducts = true)),
+              ]),
+              if (_someProducts) ...[
+                const SizedBox(height: 8),
                 for (final p in _products)
                   CheckboxListTile(
                     dense: true,
@@ -333,9 +508,10 @@ class _VoucherFormScreenState extends State<VoucherFormScreen> {
                     title: Text('${p['title']}', maxLines: 1, overflow: TextOverflow.ellipsis),
                     onChanged: _locked ? null : (v) => setState(() => v == true ? _productIds.add(asInt(p['id'])) : _productIds.remove(asInt(p['id']))),
                   ),
-              ]),
-            ),
-          BusyButton('Save voucher', busy: _saving, onPressed: _save),
+              ],
+              const SizedBox(height: 10),
+            ]),
+          BusyButton(widget.voucherId == null ? 'Publish voucher' : 'Save voucher', busy: _saving, icon: Icons.rocket_launch_outlined, onPressed: _save),
           const SizedBox(height: 24),
         ]),
       ),
@@ -370,31 +546,146 @@ class _SellerFlashSalesScreenState extends _ListPageState<SellerFlashSalesScreen
 
   @override
   Widget build(BuildContext context) => page('Flash sales', (d) {
+        final c = context.bc;
         final list = asList(d['sales']);
-        if (list.isEmpty) return ListView(children: const [EmptyNote(Icons.flash_on_outlined, 'No flash sales yet.')]);
-        return ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), children: [
-          for (final s in list)
-            _tile(
-              context,
-              leading: const Icon(Icons.flash_on, color: kOrange),
-              title: '${s['product']} · ${peso(s['flash_price'])}',
-              subtitle: '${formatDateTime(s['starts_at'])} – ${formatDateTime(s['ends_at'])}\n'
-                  '${s['sold']}/${s['quantity']} sold · ${s['reminders']} reminder(s)',
-              trailing: [
-                Pill('${s['state']}', color: Pill.forState(s['state'])),
-                if (s['state'] == 'Upcoming')
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
-                    onPressed: () async {
-                      if (await confirmAction(context, 'Delete this flash sale?', 'It won\'t run.', confirm: 'Delete', danger: true)) {
-                        await act(() => SellerApi.deleteFlashSale(asInt(s['id'])));
-                      }
-                    },
-                  ),
-              ],
+        final live = list.where((x) => x['state'] == 'Ongoing' || x['state'] == 'Live').length;
+        final upcoming = list.where((x) => x['state'] == 'Upcoming').length;
+        return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+          // The design's campaign header: a beige card with the counts and what a flash sale does.
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(20)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+                  child: const Text('FLASH DEALS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Alvy.orangeDark, letterSpacing: 0.4)),
+                ),
+                const Spacer(),
+                const Icon(Icons.alarm, size: 18, color: kOrange),
+                const SizedBox(width: 4),
+                Text('$live live · $upcoming upcoming', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kOrange)),
+              ]),
+              const SizedBox(height: 12),
+              Text('Your Flash Sales', style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('A lower price for a set time and quantity. Buyers can get a reminder before it starts.',
+                  style: TextStyle(color: c.textSecondary, height: 1.4)),
+            ]),
+          ),
+          Row(children: [
+            Expanded(child: Text('Scheduled Products', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700))),
+            if (list.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+                child: Text('${list.length}', style: const TextStyle(fontWeight: FontWeight.w800, color: Alvy.orangeDark)),
+              ),
+          ]),
+          const SizedBox(height: 12),
+          if (list.isEmpty) const EmptyNote(Icons.flash_on_outlined, 'No flash sales yet.'),
+          for (final s in list) _saleCard(s),
+          // The design's "+ Add Another Product to Slot" button.
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: _add,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(16)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.add_circle_outline, color: Alvy.slate),
+                const SizedBox(width: 8),
+                Text('Add Another Product', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate, fontSize: 15)),
+              ]),
             ),
+          ),
         ]);
-      }, fab: _fab('New flash sale', _add));
+      });
+
+  /// One scheduled flash sale as the design's "allocated product" card.
+  Widget _saleCard(Map s) {
+    final c = context.bc;
+    Widget box(String label, IconData icon, String value) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: TextStyle(fontSize: 12, color: c.textSecondary, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(icon, size: 16, color: Alvy.slate),
+                const SizedBox(width: 6),
+                Expanded(child: Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+              ]),
+            ]),
+          ),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: cardBox(context, radius: 20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.flash_on, color: kOrange),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${s['product']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(peso(s['flash_price']), style: Alvy.display(size: 24, color: kOrange, weight: FontWeight.w800)),
+            ]),
+          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Pill('${s['state']}', color: Pill.forState(s['state'])),
+            if (s['state'] == 'Upcoming')
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+                onPressed: () async {
+                  if (await confirmAction(context, 'Delete this flash sale?', 'It won\'t run.', confirm: 'Delete', danger: true)) {
+                    await act(() => SellerApi.deleteFlashSale(asInt(s['id'])));
+                  }
+                },
+              ),
+          ]),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          const Icon(Icons.schedule, size: 16, color: kOrange),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text('${formatDateTime(s['starts_at'])} – ${formatDateTime(s['ends_at'])}',
+                style: TextStyle(fontSize: 12.5, color: c.textSecondary, fontWeight: FontWeight.w600)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          box('Stock for sale', Icons.lock_outline, '${s['quantity']} units'),
+          const SizedBox(width: 10),
+          box('Sold', Icons.shopping_bag_outlined, '${s['sold']} of ${s['quantity']}'),
+        ]),
+        if (asNum(s['reminders']) > 0) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              Icon(Icons.notifications_active_outlined, size: 18, color: Alvy.slate),
+              const SizedBox(width: 8),
+              Expanded(child: Text('${s['reminders']} buyer(s) asked for a reminder', style: TextStyle(color: Alvy.slate, fontWeight: FontWeight.w600))),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
 }
 
 class _FlashSaleSheet extends StatefulWidget {
@@ -427,12 +718,12 @@ class _FlashSaleSheetState extends State<_FlashSaleSheet> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('New flash sale', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text('New flash sale', style: Alvy.display(size: 20, color: context.bc.text, weight: FontWeight.w800)),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
               isExpanded: true,
               initialValue: _product,
-              decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder(), isDense: true),
+              decoration: const InputDecoration(labelText: 'Product', isDense: true),
               items: [for (final x in widget.products) DropdownMenuItem(value: asInt(x['id']), child: Text('${x['title']}', overflow: TextOverflow.ellipsis))],
               onChanged: (v) => setState(() => _product = v),
             ),
@@ -462,7 +753,7 @@ class _FlashSaleSheetState extends State<_FlashSaleSheet> {
               },
             ),
             const SizedBox(height: 8),
-            BusyButton('Schedule', busy: false, onPressed: () {
+            BusyButton('Schedule flash sale', busy: false, icon: Icons.flash_on, onPressed: () {
               Navigator.pop(context, {
                 'product_id': _product,
                 'flash_price': _price.text.trim(),
@@ -501,33 +792,100 @@ class _SellerPromotionsScreenState extends _ListPageState<SellerPromotionsScreen
 
   @override
   Widget build(BuildContext context) => page('Bundles & promos', (d) {
+        final c = context.bc;
         final list = asList(d['promotions']);
-        if (list.isEmpty) return ListView(children: const [EmptyNote(Icons.redeem_outlined, 'No promotions yet.')]);
-        return ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), children: [
-          for (final p in list)
-            _tile(
-              context,
-              leading: const Icon(Icons.redeem, color: kOrange),
-              title: '${p['name']}',
-              subtitle: '${p['label']}${p['ends_at'] != null ? '\nUntil ${formatDateTime(p['ends_at'])}' : ''}',
-              trailing: [
-                Switch(
-                  value: p['is_active'] == true,
-                  activeThumbColor: kOrange,
-                  onChanged: (_) => act(() => SellerApi.togglePromotion(asInt(p['id']))),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
-                  onPressed: () async {
-                    if (await confirmAction(context, 'Delete "${p['name']}"?', 'Buyers no longer get this deal.', confirm: 'Delete', danger: true)) {
-                      await act(() => SellerApi.deletePromotion(asInt(p['id'])));
-                    }
-                  },
-                ),
-              ],
+        final active = list.where((x) => x['is_active'] == true).length;
+        return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+          // The design's header: the engine chip, "PROMOTION TYPE" and the big title.
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: Alvy.orangeSoft, borderRadius: BorderRadius.circular(99)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.auto_awesome, size: 14, color: Alvy.orangeDark),
+                const SizedBox(width: 5),
+                Text('$active active', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Alvy.orangeDark)),
+              ]),
             ),
+          ]),
+          const SizedBox(height: 10),
+          Text('PROMOTION TYPE', style: TextStyle(fontSize: 11.5, letterSpacing: 0.6, fontWeight: FontWeight.w700, color: Alvy.slate)),
+          Text('Shop More & Save', style: Alvy.display(size: 22, color: c.text, weight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('Bundle discounts and buy-X-get-Y deals on your products.', style: TextStyle(color: c.textSecondary)),
+          const SizedBox(height: 16),
+          if (list.isEmpty) const EmptyNote(Icons.redeem_outlined, 'No promotions yet.'),
+          for (final p in list) _promoCard(p),
+          const SizedBox(height: 4),
+          BusyButton('Create Promotion', busy: false, icon: Icons.rocket_launch_outlined, onPressed: _add),
         ]);
-      }, fab: _fab('New promotion', _add));
+      });
+
+  /// One promotion as the design's tier card.
+  Widget _promoCard(Map p) {
+    final c = context.bc;
+    final on = p['is_active'] == true;
+    final bundle = p['type'] != 'bxgy';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+      decoration: cardBox(context, radius: 20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: bundle ? Alvy.orangeSoft : Alvy.slateSoft, borderRadius: BorderRadius.circular(99)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(bundle ? Icons.check_circle_outline : Icons.redeem, size: 14, color: bundle ? Alvy.orangeDark : Alvy.slate),
+              const SizedBox(width: 5),
+              Text(bundle ? 'Bundle Discount' : 'Buy X Get Y', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: bundle ? Alvy.orangeDark : Alvy.slate)),
+            ]),
+          ),
+          const Spacer(),
+          Switch(value: on, onChanged: (_) => act(() => SellerApi.togglePromotion(asInt(p['id'])))),
+        ]),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Text('${p['name']}', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: on ? Alvy.orangeSoft : c.subtle, borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: on ? kOrange : Alvy.slateSoft,
+                child: Icon(bundle ? Icons.shopping_basket_outlined : Icons.card_giftcard, size: 17, color: on ? Colors.white : Alvy.slate),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text('${p['label']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+            ]),
+          ),
+        ),
+        Row(children: [
+          Icon(Icons.schedule, size: 15, color: c.muted),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(p['ends_at'] != null ? 'Until ${formatDateTime(p['ends_at'])}' : 'No end date',
+                style: TextStyle(fontSize: 12, color: c.textSecondary)),
+          ),
+          IconButton(
+            tooltip: 'Delete',
+            icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+            onPressed: () async {
+              if (await confirmAction(context, 'Delete "${p['name']}"?', 'Buyers no longer get this deal.', confirm: 'Delete', danger: true)) {
+                await act(() => SellerApi.deletePromotion(asInt(p['id'])));
+              }
+            },
+          ),
+        ]),
+      ]),
+    );
+  }
 }
 
 class _PromotionSheet extends StatefulWidget {
@@ -563,16 +921,18 @@ class _PromotionSheetState extends State<_PromotionSheet> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('New promotion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 10),
-            SegmentedButton<String>(
-              segments: const [ButtonSegment(value: 'bundle', label: Text('Bundle deal')), ButtonSegment(value: 'bxgy', label: Text('Buy X get Y'))],
-              selected: {_type},
-              onSelectionChanged: (s) => setState(() {
-                _type = s.first;
-                _minQty.text = _type == 'bundle' ? '2' : '1';
-              }),
-            ),
+            Text('New promotion', style: Alvy.display(size: 20, color: context.bc.text, weight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text('Promotion logic', style: TextStyle(fontWeight: FontWeight.w600, color: context.bc.textSecondary)),
+            const SizedBox(height: 8),
+            // The design's logic pills.
+            Wrap(spacing: 8, children: [
+              for (final (key, label) in const [('bundle', 'Bundle Discount'), ('bxgy', 'Buy X Get Y')])
+                FilterPill(label, selected: _type == key, onTap: () => setState(() {
+                  _type = key;
+                  _minQty.text = _type == 'bundle' ? '2' : '1';
+                })),
+            ]),
             const SizedBox(height: 12),
             FormInput(_name, 'Name', maxLength: 120),
             Text('Products', style: TextStyle(fontWeight: FontWeight.w700, color: context.bc.text)),
@@ -593,7 +953,7 @@ class _PromotionSheetState extends State<_PromotionSheet> {
               DropdownButtonFormField<int>(
                 isExpanded: true,
                 initialValue: _free,
-                decoration: const InputDecoration(labelText: 'Free product', border: OutlineInputBorder(), isDense: true),
+                decoration: const InputDecoration(labelText: 'Free product', isDense: true),
                 items: [for (final p in widget.products) DropdownMenuItem(value: asInt(p['id']), child: Text('${p['title']}', overflow: TextOverflow.ellipsis))],
                 onChanged: (v) => setState(() => _free = v),
               ),
@@ -609,7 +969,7 @@ class _PromotionSheetState extends State<_PromotionSheet> {
                 if (v != null) setState(() => _ends = v);
               },
             ),
-            BusyButton('Create', busy: false, onPressed: () {
+            BusyButton('Create Promotion', busy: false, icon: Icons.rocket_launch_outlined, onPressed: () {
               Navigator.pop(context, {
                 'name': _name.text.trim(),
                 'type': _type,
@@ -718,10 +1078,19 @@ class _SellerStoreCategoriesScreenState extends _ListPageState<SellerStoreCatego
   Widget _row(Map<String, dynamic> cat, List<Map<String, dynamic>> siblings, int index, {bool child = false}) {
     final hidden = cat['is_hidden'] == true;
     return ListTile(
-      contentPadding: EdgeInsets.only(left: child ? 28 : 4),
+      contentPadding: EdgeInsets.only(left: child ? 40 : 12, right: 4),
       dense: child,
-      title: Text('${cat['name']}', style: TextStyle(color: hidden ? context.bc.muted : context.bc.text, fontWeight: child ? null : FontWeight.w700)),
-      subtitle: Text('${cat['products']} product(s)${hidden ? ' · hidden' : ''}${cat['from_alvy'] == true ? '' : ' · your own name'}'),
+      leading: child
+          ? Icon(Icons.subdirectory_arrow_right, size: 18, color: context.bc.muted)
+          : Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: hidden ? context.bc.subtle : Alvy.orangeSoft, borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.category_outlined, size: 19, color: hidden ? context.bc.muted : kOrange),
+            ),
+      title: Text('${cat['name']}', style: TextStyle(color: hidden ? context.bc.muted : context.bc.text, fontWeight: child ? FontWeight.w600 : FontWeight.w700)),
+      subtitle: Text('${cat['products']} product(s)${hidden ? ' · hidden' : ''}${cat['from_alvy'] == true ? '' : ' · your own name'}',
+          style: TextStyle(fontSize: 12, color: context.bc.textSecondary)),
       trailing: PopupMenuButton<String>(
         onSelected: (a) async {
           final id = asInt(cat['id']);
@@ -753,25 +1122,41 @@ class _SellerStoreCategoriesScreenState extends _ListPageState<SellerStoreCatego
 
   @override
   Widget build(BuildContext context) => page('Store categories', (d) {
+        final c = context.bc;
         final list = asList(d['categories']);
-        if (list.isEmpty) {
-          return ListView(children: const [
-            EmptyNote(Icons.category_outlined, 'Add the ALVY categories you sell in (e.g. Automotive & Motorcycle, Health & Beauty). They show as tabs on your store page.')
-          ]);
-        }
-        return ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 90), children: [
+        return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+          // The design's "Storefront Sections" header.
+          Text('Storefront Sections', style: Alvy.display(size: 21, color: c.text, weight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text('Shown as tabs on your store page. Use the ⋮ menu to hide, reorder or delete.', style: TextStyle(color: c.textSecondary)),
+          const SizedBox(height: 14),
+          if (list.isEmpty)
+            const EmptyNote(Icons.category_outlined, 'Add the ALVY categories you sell in (e.g. Automotive & Motorcycle, Health & Beauty). They show as tabs on your store page.'),
           for (var i = 0; i < list.length; i++)
-            Card(
-              elevation: 0,
-              margin: const EdgeInsets.only(bottom: 8),
-              color: context.bc.surface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: context.bc.border)),
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: cardBox(context, radius: 18),
               child: Column(children: [
                 _row(list[i], list, i),
                 for (var j = 0; j < asList(list[i]['children']).length; j++)
                   _row(asList(list[i]['children'])[j], asList(list[i]['children']), j, child: true),
               ]),
             ),
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: _add,
+            child: Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(16)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.add_circle_outline, color: Alvy.slate),
+                const SizedBox(width: 8),
+                Text('Add Category', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate, fontSize: 15)),
+              ]),
+            ),
+          ),
         ]);
-      }, fab: _fab('Add category', _add));
+      });
 }

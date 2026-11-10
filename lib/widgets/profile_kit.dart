@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../theme/buyer_colors.dart';
 import 'responsive.dart';
 
@@ -9,7 +11,7 @@ import 'responsive.dart';
 // buyer, seller and logistics profile screens so they all look the same.
 
 const _primary = Color(0xFFFA4E1C);
-const _slate = Color(0xFF406185);
+Color get _slate => Alvy.slate;
 
 List<BoxShadow> _softShadow() => const [
       BoxShadow(color: Color(0x0F2A1A10), blurRadius: 14, offset: Offset(0, 3)),
@@ -41,7 +43,7 @@ class ProfileHeaderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         gradient: Theme.of(context).brightness == Brightness.dark
             ? null
-            : const LinearGradient(colors: [Colors.white, Color(0xFFFAF2EB)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            : LinearGradient(colors: [Colors.white, Alvy.subtle], begin: Alignment.topLeft, end: Alignment.bottomRight),
         boxShadow: _softShadow(),
       ),
       child: Row(
@@ -52,7 +54,7 @@ class ProfileHeaderCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: avatarColor,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
+              border: Border.all(color: Alvy.surface, width: 3),
               boxShadow: const [BoxShadow(color: Color(0x262A1A10), blurRadius: 8, offset: Offset(0, 2))],
             ),
             child: Center(
@@ -77,7 +79,7 @@ class ProfileHeaderCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD1E4FF),
+                    color: Alvy.slateSoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -89,7 +91,7 @@ class ProfileHeaderCard extends StatelessWidget {
                       ],
                       Text(
                         roleLabel.toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: _slate,
@@ -347,9 +349,10 @@ class ProfileMenuRow extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? _slate;
   final VoidCallback onTap;
-  const ProfileMenuRow({super.key, required this.icon, required this.title, this.subtitle, this.color = _slate, required this.onTap});
+  ProfileMenuRow({super.key, required this.icon, required this.title, this.subtitle, Color? color, required this.onTap}) : _color = color;
 
   @override
   Widget build(BuildContext context) {
@@ -404,11 +407,50 @@ class ProfileShortcutRow extends StatelessWidget {
                   child: Icon(i.icon, size: 21, color: c.textSecondary),
                 ),
                 const SizedBox(height: 6),
-                Text(i.label, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.text, height: 1.2)),
+                // One line, shrunk to fit, so every icon stays on the same row ("To Receive" used to wrap and push its icon up).
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(i.label, maxLines: 1, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c.text, height: 1.2)),
+                ),
               ]),
             ),
           ),
         ),
     ]);
+  }
+}
+
+/// The Appearance switch for the account menus (seller, rider, logistics): light or dark, saved on the device.
+class DarkModeRow extends StatelessWidget {
+  const DarkModeRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.watch<ThemeProvider>();
+    final c = context.bc;
+    final on = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => theme.setMode(on ? ThemeMode.light : ThemeMode.dark),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: Alvy.slate.withValues(alpha: 0.10), shape: BoxShape.circle),
+            child: Icon(on ? Icons.dark_mode : Icons.dark_mode_outlined, size: 20, color: Alvy.slate),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Dark mode', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: c.text)),
+              Text('Easier on the eyes at night', style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+            ]),
+          ),
+          Switch(value: on, onChanged: (v) => theme.setMode(v ? ThemeMode.dark : ThemeMode.light)),
+        ]),
+      ),
+    );
   }
 }

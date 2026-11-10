@@ -4,6 +4,7 @@ import '../buyer/account/policy_screens.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../widgets/profile_kit.dart';
+import '../../widgets/staff_shell.dart';
 import '../auth/login_screen.dart';
 import '../buyer/account/notifications_screen.dart';
 import '../buyer/account/security_screen.dart';
@@ -68,29 +69,30 @@ class _CourierMainScreenState extends State<CourierMainScreen> {
               ];
         if (_index >= tabs.length) _index = 0;
 
-        return Scaffold(
+        void select(int i) => setState(() {
+              if (i != _index) _opened[i] = (_opened[i] ?? 0) + 1;
+              _index = i;
+            });
+        return StaffShell(
+          brand: linehaul ? 'LINEHAUL' : rider ? 'RIDER' : 'COURIER',
+          place: linehaul ? 'Hub-to-hub Trips' : rider ? 'Rider Console' : 'Courier Console',
+          userName: auth.user!.name,
+          userRole: linehaul ? 'Linehaul courier' : rider ? 'Rider' : 'Courier',
+          tabs: tabs,
+          index: _index,
+          onSelect: select,
           body: IndexedStack(index: _index, children: [
             // A hidden tab's timers (e.g. Hub Jobs' 15-second refresh) pause: TickerMode is off for it.
             for (var i = 0; i < tabs.length; i++)
               TickerMode(enabled: i == _index, child: KeyedSubtree(key: ValueKey('tab-$i-${_opened[i] ?? 0}'), child: tabs[i].$3)),
           ]),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _index,
-            indicatorColor: const Color(0xFFFA4E1C).withValues(alpha: 0.12),
-            onDestinationSelected: (i) => setState(() {
-              if (i != _index) _opened[i] = (_opened[i] ?? 0) + 1;
-              _index = i;
-            }),
-            destinations: [
-              for (final t in tabs)
-                NavigationDestination(icon: Icon(t.$1), selectedIcon: Icon(t.$1, color: const Color(0xFFFA4E1C)), label: t.$2),
-            ],
-          ),
         );
       },
     );
   }
 }
+
+const _orange = Color(0xFFFA4E1C);
 
 class _MoreScreen extends StatelessWidget {
   final bool rider;
@@ -110,31 +112,48 @@ class _MoreScreen extends StatelessWidget {
           email: user?.email ?? '',
           roleLabel: rider ? 'Rider' : 'Courier',
           roleIcon: Icons.two_wheeler,
-          avatarColor: const Color(0xFF00838F),
+          avatarColor: const Color(0xFFFA4E1C),
         ),
         const SizedBox(height: 16),
-        ProfileActionGrid(actions: [
+        // The buyer account hub's grouped rows, in the logo's two colors.
+        ProfileMenuGroup(title: 'Work', rows: [
           if (linehaul)
-            ProfileAction(icon: Icons.badge_outlined, label: 'My Profile', color: const Color(0xFFFA4E1C), onTap: () => _push(context, const LinehaulProfileScreen()))
+            ProfileMenuRow(icon: Icons.badge_outlined, color: _orange, title: 'My Profile', subtitle: 'Vehicle, license and documents',
+                onTap: () => _push(context, const LinehaulProfileScreen()))
           else if (rider)
-            ProfileAction(icon: Icons.badge_outlined, label: 'Rider Profile', color: const Color(0xFFFA4E1C), onTap: () => _push(context, const RiderProfileScreen()))
+            ProfileMenuRow(icon: Icons.badge_outlined, color: _orange, title: 'Rider Profile', subtitle: 'Vehicle, license and documents',
+                onTap: () => _push(context, const RiderProfileScreen()))
           else
-            ProfileAction(icon: Icons.person_outline, label: 'Account', color: const Color(0xFFFA4E1C), onTap: () => _push(context, const CourierAccountScreen())),
+            ProfileMenuRow(icon: Icons.person_outline, color: _orange, title: 'Account', subtitle: 'Your courier details',
+                onTap: () => _push(context, const CourierAccountScreen())),
           // A direct courier who is also a logistics company's rider gets Hub Jobs too (the web's nav shows both).
           if (!rider && user?.hasRider == true) ...[
-            ProfileAction(icon: Icons.inventory_2_outlined, label: 'Hub Jobs', color: const Color(0xFF2563EB), onTap: () => _push(context, const RiderJobsScreen())),
-            ProfileAction(icon: Icons.history, label: 'Job History', color: const Color(0xFF6B7280), onTap: () => _push(context, const RiderHistoryScreen())),
-            ProfileAction(icon: Icons.payments_outlined, label: 'Rider Pay', color: const Color(0xFF15803D), onTap: () => _push(context, const RiderEarningsScreen())),
-            ProfileAction(icon: Icons.account_balance_wallet_outlined, label: 'COD Remittance', color: const Color(0xFFB45309), onTap: () => _push(context, const RiderCodScreen())),
-            ProfileAction(icon: Icons.badge_outlined, label: 'Rider Profile', color: const Color(0xFF9333EA), onTap: () => _push(context, const RiderProfileScreen())),
+            ProfileMenuRow(icon: Icons.inventory_2_outlined, color: _orange, title: 'Hub Jobs', subtitle: 'Pickups and deliveries from your hub',
+                onTap: () => _push(context, const RiderJobsScreen())),
+            ProfileMenuRow(icon: Icons.history, color: _orange, title: 'Job History', subtitle: 'Jobs you finished', onTap: () => _push(context, const RiderHistoryScreen())),
+            ProfileMenuRow(icon: Icons.payments_outlined, color: _orange, title: 'Rider Pay', subtitle: 'What you earned', onTap: () => _push(context, const RiderEarningsScreen())),
+            ProfileMenuRow(icon: Icons.account_balance_wallet_outlined, color: _orange, title: 'COD Remittance', subtitle: 'Cash to hand over',
+                onTap: () => _push(context, const RiderCodScreen())),
+            ProfileMenuRow(icon: Icons.badge_outlined, color: _orange, title: 'Rider Profile', subtitle: 'Vehicle, license and documents',
+                onTap: () => _push(context, const RiderProfileScreen())),
           ],
-          // The web's floating chat on the courier pages.
-          ProfileAction(icon: Icons.chat_bubble_outline, label: 'Messages', color: const Color(0xFF2563EB), onTap: () => _push(context, const ChatListScreen())),
-          ProfileAction(icon: Icons.notifications_outlined, label: 'Notifications', color: const Color(0xFFF59E0B), onTap: () => _push(context, const NotificationsScreen())),
-          ProfileAction(icon: Icons.lock_outline, label: 'Security', color: const Color(0xFFDC2626), onTap: () => _push(context, const SecurityScreen())),
-          ProfileAction(icon: Icons.policy_outlined, label: 'Policies', color: const Color(0xFF5C4039), onTap: () => _push(context, const PoliciesScreen())),
-          ProfileAction.logout(context),
         ]),
+        const SizedBox(height: 14),
+        ProfileMenuGroup(title: 'Account & Preferences', rows: [
+          // The web's floating chat on the courier pages.
+          ProfileMenuRow(icon: Icons.chat_bubble_outline, title: 'Messages', subtitle: 'Chats about your jobs', onTap: () => _push(context, const ChatListScreen())),
+          ProfileMenuRow(icon: Icons.notifications_outlined, title: 'Notifications', subtitle: 'New jobs and updates', onTap: () => _push(context, const NotificationsScreen())),
+          ProfileMenuRow(icon: Icons.lock_outline, title: 'Security', subtitle: 'Password', onTap: () => _push(context, const SecurityScreen())),
+          const DarkModeRow(),
+          ProfileMenuRow(icon: Icons.policy_outlined, title: 'Policies', subtitle: 'Terms and rules', onTap: () => _push(context, const PoliciesScreen())),
+        ]),
+        const SizedBox(height: 18),
+        TextButton.icon(
+          onPressed: ProfileAction.logout(context).onTap,
+          icon: const Icon(Icons.logout, size: 20),
+          label: const Text('Log Out'),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }

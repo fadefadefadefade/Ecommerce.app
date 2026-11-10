@@ -8,6 +8,7 @@ import '../../../services/rider_api.dart';
 import '../../../services/seller_api.dart';
 import '../../../widgets/buyer_kit.dart' show showResult, phoneFormatters;
 import '../../../widgets/password_code_dialog.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
 import 'account_ui.dart';
 
@@ -74,7 +75,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
       labelStyle: TextStyle(color: c.muted),
       filled: true,
       fillColor: c.subtle,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+      prefixIcon: Icon(Icons.lock_outline, color: c.muted, size: 20),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       suffixIcon: IconButton(
         icon: Icon(_show ? Icons.visibility_off : Icons.visibility, color: c.muted),
         onPressed: () => setState(() => _show = !_show),
@@ -91,33 +93,31 @@ class _SecurityScreenState extends State<SecurityScreen> {
       backgroundColor: c.background,
       appBar: accountAppBar('Security'),
       body: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           AccountCard(
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: BuyerPalette.primary.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.shield_outlined, color: BuyerPalette.primary),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(14)),
+                  child: Icon(Icons.verified_user_outlined, color: Alvy.slate),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Signed in as', style: TextStyle(fontSize: 12, color: c.muted)),
-                      Text(user?.email ?? '', style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+                      Text('SIGNED IN AS', style: TextStyle(fontSize: 11, letterSpacing: 0.5, fontWeight: FontWeight.w700, color: c.textSecondary)),
+                      Text(user?.email ?? '', style: Alvy.display(size: 16, color: c.text, weight: FontWeight.w700)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           AccountCard(
             title: 'Change Password',
             child: Form(
@@ -131,7 +131,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: _decoration(context, 'Current password'),
                     validator: (v) => (v == null || v.isEmpty) ? 'Enter your current password' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextFormField(
                     controller: _new,
                     obscureText: !_show,
@@ -169,7 +169,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text('Example: Mamimili@2027', style: TextStyle(fontSize: 12, color: c.muted)),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextFormField(
                     controller: _confirm,
                     obscureText: !_show,
@@ -177,24 +177,17 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: _decoration(context, 'Confirm new password'),
                     validator: (v) => v != _new.text ? 'Passwords do not match' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   PasswordCodeChoice(onChanged: (v) => _via = v),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: FilledButton.icon(
                       onPressed: _saving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: BuyerPalette.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Continue'),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                      icon: _saving
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.lock_outline, size: 18),
+                      label: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ],
@@ -203,12 +196,12 @@ class _SecurityScreenState extends State<SecurityScreen> {
           ),
           // Email / phone change with a code is on the buyer's security page; sellers, couriers and logistics change them on their account page.
           if (user?.isSeller != true && user?.isCourier != true && user?.isLogistics != true) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             const _ContactChangeCard(),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           AccountCard(
-            title: 'Tips',
+            title: 'Keep your account safe',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -221,7 +214,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.check_circle_outline, size: 16, color: BuyerPalette.primary),
+                            Icon(Icons.check_circle_outline, size: 16, color: Alvy.slate),
                             const SizedBox(width: 8),
                             Expanded(child: Text(t, style: TextStyle(fontSize: 13, color: c.textSecondary))),
                           ],
@@ -313,27 +306,33 @@ class _ContactChangeCardState extends State<_ContactChangeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.bc;
     final pending = me?['pending_email'] ?? me?['pending_phone'];
     return AccountCard(
       title: 'Email & Phone',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Email'),
-          subtitle: Text(me?['email'] ?? '', style: TextStyle(color: c.textSecondary)),
-          trailing: TextButton(onPressed: busy ? null : () => _change('email'), child: const Text('Change')),
+        AccountRow(
+          icon: Icons.mail_outline,
+          title: 'Email',
+          subtitle: me?['email'] ?? '',
+          navy: true,
+          trailing: TextButton(onPressed: busy ? null : () => _change('email'), child: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700))),
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Phone'),
-          subtitle: Text(me?['phone'] ?? '—', style: TextStyle(color: c.textSecondary)),
-          trailing: TextButton(onPressed: busy ? null : () => _change('phone'), child: const Text('Change')),
+        AccountRow(
+          icon: Icons.phone_iphone,
+          title: 'Phone',
+          subtitle: me?['phone'] ?? '—',
+          navy: true,
+          trailing: TextButton(onPressed: busy ? null : () => _change('phone'), child: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700))),
         ),
         if (pending != null) ...[
-          Text('Waiting for the code to confirm: $pending', style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309))),
+          Container(
+            margin: const EdgeInsets.only(top: 6, bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Alvy.warnSoft, borderRadius: BorderRadius.circular(12)),
+            child: Text('Waiting for the code to confirm: $pending', style: const TextStyle(fontSize: 12.5, color: Color(0xFFB45309))),
+          ),
           Wrap(spacing: 8, children: [
-            ElevatedButton(onPressed: busy ? null : _verify, child: const Text('Enter code')),
+            FilledButton(onPressed: busy ? null : _verify, child: const Text('Enter code')),
             TextButton(onPressed: busy ? null : () => _run(BuyerApi.resendContact), child: const Text('Resend')),
             TextButton(onPressed: busy ? null : () => _run(BuyerApi.cancelContact), child: const Text('Cancel change')),
           ]),

@@ -1,5 +1,7 @@
 import 'assistant_screen.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/allie.dart';
+import '../../widgets/motion.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/buyer_api.dart';
@@ -32,8 +34,9 @@ class BuyerMainScreen extends StatefulWidget {
 class BuyerMainScreenState extends State<BuyerMainScreen> {
   static const tabHome = 0;
   static const tabShop = 1;
-  static const tabCart = 2;
-  static const tabAccount = 3;
+  static const tabWishlist = 2;
+  static const tabCart = 3;
+  static const tabAccount = 4;
 
   late int _currentIndex = widget.initialIndex;
   int get currentIndex => _currentIndex;
@@ -41,12 +44,18 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   int _cartCount = 0;
   // Bumped each time the Cart tab opens so it reloads items added elsewhere.
   int _cartReloadToken = 0;
+  // Bumped each time the Wishlist tab opens so hearts tapped elsewhere show up.
+  int _wishReloadToken = 0;
   DateTime _cartCountAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   // No load in initState: the IndexedStack builds the Cart tab right away, and its first load sets the badge.
 
+  /// The cart badge for headers inside the tabs (Home's cart icon).
+  final cartNotifier = ValueNotifier<int>(0);
+
   void _setCartCount(int count) {
     _cartCountAt = DateTime.now();
+    cartNotifier.value = count;
     if (mounted && count != _cartCount) setState(() => _cartCount = count);
   }
 
@@ -64,6 +73,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
   @override
   void dispose() {
     tabNotifier.dispose();
+    cartNotifier.dispose();
     super.dispose();
   }
 
@@ -71,6 +81,7 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
     tabNotifier.value = index;
     setState(() {
       if (index == tabCart) _cartReloadToken++;   // the reloaded cart updates the badge itself
+      if (index == tabWishlist) _wishReloadToken++;
       _currentIndex = index;
     });
     // Other tabs: only re-check a badge older than 30 s (catches items added on a product page).
@@ -108,25 +119,18 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
                   onTab: goTo,
                   onMessages: () => push(const ChatListScreen()),
                   onNotifications: () => push(const NotificationsScreen()),
-                  onWishlist: () => push(const WishlistScreen()),
+                  onWishlist: () => goTo(tabWishlist),
                   onSearch: (q) => push(ShopScreen(initialSearch: q)),
                   accountName: authProvider.user?.name,
                 )
               : null,
-          // The website's ALVY Assistant bubble, on Home and Shop.
-          floatingActionButton: _currentIndex <= 1
-              ? FloatingActionButton(
-                  heroTag: 'alvy-assistant',
-                  tooltip: 'ALVY Assistant',
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssistantScreen())),
-                  child: const Icon(Icons.support_agent),
-                )
-              : null,
-          body: (wide ? (Widget w) => WebWidth(child: w) : (Widget w) => w)(IndexedStack(
+          body: Stack(children: [
+            Positioned.fill(child: (wide ? (Widget w) => WebWidth(child: w) : (Widget w) => w)(TabFade(value: _currentIndex, child: IndexedStack(
             index: _currentIndex,
             children: [
               const BuyerHomeScreen(),
               const ShopScreen(),
+              WishlistScreen(key: ValueKey(_wishReloadToken)),
               CartScreen(
                 key: ValueKey(_cartReloadToken),
                 onBrowse: () => goTo(tabShop),
@@ -134,10 +138,18 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
               ),
               const ProfileScreen(),
             ],
-          )),
+          )))),
+            // ALLIE, on Home and Shop: drag, hide and bring back (kept alive so she stays where she is between tabs).
+            Positioned.fill(
+              child: Offstage(
+                offstage: _currentIndex > 1,
+                child: AllieFloating(onOpen: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssistantScreen()))),
+              ),
+            ),
+          ]),
           bottomNavigationBar: DecoratedBox(
-            decoration: BoxDecoration(
-              boxShadow: const [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
+            decoration: const BoxDecoration(
+              boxShadow: [BoxShadow(color: Color(0x142A1A10), blurRadius: 16, offset: Offset(0, -3))],
             ),
             child: NavigationBar(
               selectedIndex: _currentIndex,
@@ -145,9 +157,10 @@ class BuyerMainScreenState extends State<BuyerMainScreen> {
               destinations: [
                 const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
                 const NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'Shop'),
+                const NavigationDestination(icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite), label: 'Wishlist'),
                 NavigationDestination(
-                  icon: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart_outlined)),
-                  selectedIcon: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart)),
+                  icon: PopOnChange(value: _cartCount, child: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart_outlined))),
+                  selectedIcon: PopOnChange(value: _cartCount, child: Badge(isLabelVisible: _cartCount > 0, label: Text(_cartCount > 99 ? '99+' : '$_cartCount'), backgroundColor: const Color(0xFFFA4E1C), child: const Icon(Icons.shopping_cart))),
                   label: 'Cart',
                 ),
                 const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),

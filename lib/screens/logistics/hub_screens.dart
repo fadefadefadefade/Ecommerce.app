@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 import '../../services/logistics_api.dart';
 import '../../theme/buyer_colors.dart';
@@ -97,67 +98,215 @@ class _SortingScreenState extends State<SortingScreen> {
             : RefreshIndicator(
                 color: kOrange,
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.all(12), children: [
-                  // The website's summary: what to sort, what was sorted, what waits for riders, busy barangays.
-                  StatGrid([
-                    StatTile(label: 'Waiting to sort', value: '${asList(d['pending']).length}', icon: Icons.inbox_outlined, color: kOrange),
-                    StatTile(label: 'Sorted today', value: '${d['sorted_today'] ?? 0}', icon: Icons.check_circle_outline, color: const Color(0xFF15803D)),
-                    StatTile(label: 'Ready for riders', value: '${areas.fold<int>(0, (n, a) => n + asInt(a['sorted']))}', icon: Icons.sort, color: const Color(0xFF2563EB)),
-                    StatTile(label: 'Barangays with parcels', value: '${areas.where((a) => asInt(a['sorted']) > 0).length} / ${areas.length}', icon: Icons.place_outlined, color: const Color(0xFF6D4AA5)),
-                  ]),
-                  const SizedBox(height: 12),
-                  // Ready for riders, per barangay (busiest first), with the website's "Find a barangay".
-                  if (areas.isNotEmpty) ...[
-                    TextField(
-                      decoration: const InputDecoration(hintText: 'Find a barangay…', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
-                      onChanged: (v) => setState(() => _find = v.trim().toLowerCase()),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6, runSpacing: 6, children: [
-                      for (final a in [...areas]..sort((x, y) => asInt(y['sorted']).compareTo(asInt(x['sorted']))))
-                        if (_find.isEmpty || '${a['name']}'.toLowerCase().contains(_find))
-                          Pill('${a['name']}: ${a['sorted']}', color: asInt(a['sorted']) > 0 ? const Color(0xFF2563EB) : c.muted),
-                    ]),
-                    const SizedBox(height: 14),
-                  ],
-                  Row(children: [
-                    Text('Sorting queue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: c.text)),
-                    const SizedBox(width: 8),
-                    Pill('${asList(d['pending']).length} ${asList(d['pending']).length == 1 ? 'parcel' : 'parcels'}',
-                        color: asList(d['pending']).isEmpty ? const Color(0xFF15803D) : kOrange),
-                  ]),
-                  const SizedBox(height: 8),
-                  if (asList(d['pending']).isEmpty) const EmptyNote(Icons.sort, 'No parcels waiting to be sorted.'),
-                  for (final p in asList(d['pending']))
-                    ParcelCard(
-                      p,
-                      onTap: () => openParcel(context, asInt(p['id']), _load),
-                      extra: [if (p['covered'] != true) 'Outside your coverage — transfer it'],
-                      actions: [
-                        SizedBox(
-                          width: 220,
-                          child: DropdownButtonFormField<int>(
-                            isExpanded: true,
-                            initialValue: _chosen[asInt(p['id'])] ?? (p['suggested_area_id'] == null ? null : asInt(p['suggested_area_id'])),
-                            decoration: const InputDecoration(labelText: 'Barangay', isDense: true, border: OutlineInputBorder()),
-                            items: [for (final a in areas) DropdownMenuItem(value: asInt(a['id']), child: Text('${a['name']}', overflow: TextOverflow.ellipsis))],
-                            onChanged: (v) => setState(() => _chosen[asInt(p['id'])] = v),
-                          ),
-                        ),
-                        FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: kOrange),
-                          onPressed: () {
-                            final area = _chosen[asInt(p['id'])] ?? (p['suggested_area_id'] == null ? null : asInt(p['suggested_area_id']));
-                            act(context, () => LogisticsApi.sort(asInt(p['id']), area ?? 0), then: _load);
-                          },
-                          child: const Text('Sort'),
-                        ),
-                      ],
-                    ),
-                ]),
+                child: LayoutBuilder(builder: (context, box) {
+                  final all = _kiosk(d, areas);
+                  // Tablet: the design's kiosk dock station — the parcel on the belt on the left, the queue and barangays on the right.
+                  if (box.maxWidth < 760) return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: all);
+                  return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 8, 24), children: all.sublist(0, _leftEnd))),
+                    Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(8, 4, 16, 24), children: all.sublist(_leftEnd))),
+                  ]);
+                }),
               ),
       ),
     );
+  }
+
+  int? _areaFor(Map p) => _chosen[asInt(p['id'])] ?? (p['suggested_area_id'] == null ? null : asInt(p['suggested_area_id']));
+
+  String _areaName(List<Map<String, dynamic>> areas, int? id) =>
+      areas.where((a) => asInt(a['id']) == id).map((a) => '${a['name']}').firstOrNull ?? 'Choose a barangay';
+
+  /// Where the kiosk's left column ends on a tablet (after the parcel on the belt and its buttons).
+  int _leftEnd = 0;
+
+  /// The design's sorting kiosk: the station's numbers, the parcel on the belt in big type, then the queue.
+  List<Widget> _kiosk(Map<String, dynamic> d, List<Map<String, dynamic>> areas) {
+    final c = context.bc;
+    final pending = asList(d['pending']);
+    final ready = areas.fold<int>(0, (n, a) => n + asInt(a['sorted']));
+    Widget stat(String label, String value, String sub, Color color) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(12)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: TextStyle(fontSize: 10.5, letterSpacing: 0.4, fontWeight: FontWeight.w700, color: c.textSecondary)),
+              const SizedBox(height: 2),
+              Text(value, style: Alvy.display(size: 22, color: color, weight: FontWeight.w800)),
+              Text(sub, style: TextStyle(fontSize: 11, color: c.textSecondary)),
+            ]),
+          ),
+        );
+    final out = <Widget>[
+      Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(20)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            CircleAvatar(radius: 18, backgroundColor: Alvy.slateSoft, child: Icon(Icons.sort, color: Alvy.slate, size: 20)),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Sorting Station', style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700))),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            stat('WAITING', '${pending.length}', 'to sort', kOrange),
+            const SizedBox(width: 8),
+            stat('SORTED', '${d['sorted_today'] ?? 0}', 'today', Alvy.slate),
+            const SizedBox(width: 8),
+            stat('READY', '$ready', 'for riders', c.text),
+          ]),
+        ]),
+      ),
+    ];
+
+    if (pending.isEmpty) {
+      out.add(const EmptyNote(Icons.sort, 'No parcels waiting to be sorted.'));
+      _leftEnd = out.length;
+    } else {
+      final p = asMap(pending.first);
+      final area = _areaFor(p);
+      out.add(Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        clipBehavior: Clip.antiAlias,
+        decoration: cardBox(context, radius: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(height: 6, color: kOrange),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('ASSIGNED BARANGAY', style: TextStyle(fontSize: 11.5, letterSpacing: 0.5, fontWeight: FontWeight.w800, color: c.textSecondary)),
+              Text(_areaName(areas, area).toUpperCase(), style: Alvy.display(size: 30, color: kOrange, weight: FontWeight.w800)),
+              Text('#${p['tracking']}', style: TextStyle(fontWeight: FontWeight.w700, color: Alvy.slate)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon(Icons.storefront_outlined, size: 17, color: Alvy.slate),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text('${p['seller'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w700, color: c.text))),
+                    if (p['weight_kg'] != null) Text('${p['weight_kg']} kg', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.place_outlined, size: 17, color: kOrange),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text('${p['receiver'] ?? ''} — ${p['dropoff_address'] ?? p['destination'] ?? ''}',
+                          style: TextStyle(fontSize: 12.5, color: c.textSecondary)),
+                    ),
+                  ]),
+                ]),
+              ),
+              if (p['covered'] != true)
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text('Outside your coverage — transfer it', style: TextStyle(color: Alvy.dangerText, fontWeight: FontWeight.w600))),
+                  ]),
+                ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                isExpanded: true,
+                initialValue: area,
+                decoration: const InputDecoration(labelText: 'Barangay', isDense: true),
+                items: [for (final a in areas) DropdownMenuItem(value: asInt(a['id']), child: Text('${a['name']}', overflow: TextOverflow.ellipsis))],
+                onChanged: (v) => setState(() => _chosen[asInt(p['id'])] = v),
+              ),
+            ]),
+          ),
+        ]),
+      ));
+      out.add(BusyButton('Confirm Sorted to ${_areaName(areas, area)}', busy: false, icon: Icons.done_all,
+          onPressed: () => act(context, () => LogisticsApi.sort(asInt(p['id']), area ?? 0), then: _load)));
+      out.add(const SizedBox(height: 10));
+      out.add(OutlinedButton.icon(
+        onPressed: () => openParcel(context, asInt(p['id']), _load),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Alvy.slateSoft,
+          side: BorderSide.none,
+          minimumSize: const Size.fromHeight(46),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        icon: Icon(Icons.open_in_new, size: 18, color: Alvy.slate),
+        label: Text('Open parcel', style: TextStyle(color: Alvy.slate, fontWeight: FontWeight.w700)),
+      ));
+      _leftEnd = out.length;
+
+      // The rest of the queue (the design's "recent station scans" list style).
+      if (pending.length > 1) {
+        out.add(Padding(
+          padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+          child: Row(children: [
+            Icon(Icons.history, size: 18, color: Alvy.slate),
+            const SizedBox(width: 6),
+            Text('NEXT IN QUEUE', style: TextStyle(fontSize: 12, letterSpacing: 0.5, fontWeight: FontWeight.w800, color: c.text)),
+            const Spacer(),
+            Text('${pending.length - 1} more', style: TextStyle(fontSize: 12, color: Alvy.slate, fontWeight: FontWeight.w600)),
+          ]),
+        ));
+        for (final x in pending.skip(1)) {
+          final q = asMap(x);
+          final qa = _areaFor(q);
+          out.add(InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => openParcel(context, asInt(q['id']), _load),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              decoration: cardBox(context, radius: 14),
+              child: Row(children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: Alvy.orangeSoft, shape: BoxShape.circle),
+                  child: const Icon(Icons.inventory_2_outlined, size: 18, color: kOrange),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('#${q['tracking']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                    Text([if (q['weight_kg'] != null) '${q['weight_kg']} kg', _areaName(areas, qa)].join(' · '),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                  ]),
+                ),
+                TextButton(
+                  onPressed: qa == null ? null : () => act(context, () => LogisticsApi.sort(asInt(q['id']), qa), then: _load),
+                  child: const Text('Sort', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ]),
+            ),
+          ));
+        }
+      }
+    }
+
+    // Ready for riders, per barangay (busiest first), with the website's "Find a barangay".
+    if (areas.isNotEmpty) {
+      out.addAll([
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+          child: Text('Ready for riders', style: Alvy.display(size: 17, color: c.text, weight: FontWeight.w700)),
+        ),
+        TextField(
+          decoration: const InputDecoration(hintText: 'Find a barangay…', prefixIcon: Icon(Icons.search), isDense: true),
+          onChanged: (v) => setState(() => _find = v.trim().toLowerCase()),
+        ),
+        const SizedBox(height: 10),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final a in [...areas]..sort((x, y) => asInt(y['sorted']).compareTo(asInt(x['sorted']))))
+            if (_find.isEmpty || '${a['name']}'.toLowerCase().contains(_find))
+              Pill('${a['name']}: ${a['sorted']}', color: asInt(a['sorted']) > 0 ? Alvy.slate : c.muted),
+        ]),
+      ]);
+    }
+    return out;
   }
 }
 
@@ -190,11 +339,11 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
       ],
       fetch: (page, tab) => LogisticsApi.assignment(areaId: _area, page: page),
       header: (ctx, body, reload) => SizedBox(
-        height: 46,
+        height: 52,
         child: ListView(scrollDirection: Axis.horizontal, children: [
           Padding(
-            padding: const EdgeInsets.only(right: 6, bottom: 6),
-            child: ChoiceChip(label: Text('All areas (${body['waiting_total'] ?? 0})'), selected: _area == null, onSelected: (_) {
+            padding: const EdgeInsets.only(right: 8, bottom: 8),
+            child: FilterPill('All areas (${body['waiting_total'] ?? 0})', selected: _area == null, onTap: () {
               _area = null;
               reload();
             }),
@@ -202,8 +351,8 @@ class _AssignmentScreenState extends State<AssignmentScreen> {
           // Like the website: parcels waiting in each barangay, the busiest first.
           for (final a in [...asList(body['areas'])]..sort((x, y) => asInt(y['waiting']).compareTo(asInt(x['waiting']))))
             Padding(
-              padding: const EdgeInsets.only(right: 6, bottom: 6),
-              child: ChoiceChip(label: Text('${a['name']} (${a['waiting'] ?? 0})'), selected: _area == asInt(a['id']), onSelected: (_) {
+              padding: const EdgeInsets.only(right: 8, bottom: 8),
+              child: FilterPill('${a['name']} (${a['waiting'] ?? 0})', selected: _area == asInt(a['id']), onTap: () {
                 _area = asInt(a['id']);
                 reload();
               }),

@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 
 import '../../../services/api_client.dart';
 import '../../../services/seller_api.dart';
+import '../../../theme/app_theme.dart';
 import '../../../theme/buyer_colors.dart';
 import '../../../widgets/product_thumb.dart';
 import '../../../widgets/reason_dialog.dart';
@@ -148,17 +149,16 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
 
   Widget _gcashCard(Map<String, dynamic> g) {
     final checking = g['checking'] == true;
-    return Card(
-      elevation: 0,
-      color: const Color(0xFFF5F9FF),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFDBEAFE))),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: cardBox(context, color: Alvy.slateSoft),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Text('GCash payment', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A))),
+            Text('GCash payment', style: TextStyle(fontWeight: FontWeight.w800, color: Alvy.slate)),
             const Spacer(),
-            Pill(checking ? 'For verification' : '${asMap(_o?['payment'])['status'] ?? ''}', color: checking ? const Color(0xFFB45309) : const Color(0xFF047857)),
+            Pill(checking ? 'For verification' : '${asMap(_o?['payment'])['status'] ?? ''}', color: checking ? const Color(0xFFB45309) : Alvy.successText),
           ]),
           const SizedBox(height: 6),
           Text('Amount to receive: ${peso(g['amount'])}', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -173,7 +173,7 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
             const Text('No receipt was uploaded.', style: TextStyle(fontSize: 12)),
           if (checking)
             Text('Open your GCash app and check that ${peso(g['amount'])} arrived before you accept the order.',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                style: TextStyle(fontSize: 12, color: Alvy.warnText)),
         ]),
       ),
     );
@@ -183,14 +183,7 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.bc.background,
-      appBar: sellerBar(_o == null ? 'Order' : '${_o!['number']}', actions: [
-        if (_o != null)
-          IconButton(
-            tooltip: 'Message buyer',
-            icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(type: 'order', id: '$_id'))),
-          ),
-      ]),
+      appBar: sellerBar('Order Details'),
       body: LoadState(
         loading: _loading,
         error: _error,
@@ -219,30 +212,159 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
           ]),
         );
 
-    return ListView(padding: const EdgeInsets.all(12), children: [
+    final items = asList(o['order_items']);
+    final note = (ship['note'] ?? '').toString();
+
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+      // The design's orange header: the step, the order number, the buyer and when it was placed.
+      Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Alvy.orange, Alvy.orangeDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: Alvy.buttonShadow,
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(99)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.circle, size: 7, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(stepLabel(o['seller_step'], o['status']).toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
+              ]),
+            ),
+            const Spacer(),
+            Text(formatDateTime(o['created_at']), style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+          ]),
+          const SizedBox(height: 14),
+          Row(children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Colors.white,
+              child: Text(_initials('${ship['name'] ?? o['buyer'] ?? ''}'),
+                  style: Alvy.display(size: 15, color: Alvy.orange, weight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${ship['name'] ?? o['buyer'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: Alvy.display(size: 18, color: Colors.white, weight: FontWeight.w700)),
+                Text('${o['payment'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+              ]),
+            ),
+            IconButton(
+              tooltip: 'Message buyer',
+              style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.2)),
+              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 20),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(type: 'order', id: '$_id'))),
+            ),
+          ]),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Text('Order Reference', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text('${o['number']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
+            ]),
+          ),
+          if (f['collect_cod'] != null) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              const Icon(Icons.payments_outlined, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text('Rider collects ${peso(f['collect_cod'])} (COD)',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ],
+        ]),
+      ),
+      if ((o['cancellation_reason'] ?? '').toString().isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Alvy.dangerSoft, borderRadius: BorderRadius.circular(14)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.info_outline, color: Color(0xFFDC2626), size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text('${o['cancellation_reason']}', style: TextStyle(color: Alvy.dangerText))),
+          ]),
+        ),
+      // GCash paid outside ALVY: the receipt the buyer sent. Accepting the order confirms the money arrived.
+      if (o['gcash'] != null) _gcashCard(asMap(o['gcash'])),
+      // Ship to: the design's destination card, with the buyer's note in a beige box.
       SectionCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('Placed ${formatDateTime(o['created_at'])}', style: TextStyle(color: c.muted, fontSize: 12))),
-            Pill(stepLabel(o['seller_step'], o['status']), color: Pill.forState(o['status'])),
+            const Icon(Icons.local_shipping_outlined, color: Alvy.orange, size: 18),
+            const SizedBox(width: 6),
+            const Expanded(child: Text('Ship to', style: TextStyle(color: Alvy.orange, fontWeight: FontWeight.w700, fontSize: 13))),
+            if (o['payment'] != null) _chip('${o['payment']}'),
           ]),
-          const SizedBox(height: 6),
-          Text('${o['payment'] ?? ''}', style: TextStyle(color: c.textSecondary)),
-          if (f['collect_cod'] != null)
+          const SizedBox(height: 10),
+          Text('${ship['name'] ?? ''}', style: Alvy.display(size: 18, color: c.text, weight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text('${ship['address'] ?? ''}', style: TextStyle(color: c.textSecondary, height: 1.4)),
+          if ((ship['phone'] ?? '').toString().isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text('Rider collects ${peso(f['collect_cod'])} (COD)', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('${ship['phone']}', style: TextStyle(color: c.textSecondary, fontWeight: FontWeight.w600)),
             ),
-          if ((o['cancellation_reason'] ?? '').toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text('${o['cancellation_reason']}', style: const TextStyle(color: Color(0xFFDC2626))),
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(12)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.sticky_note_2_outlined, color: Alvy.orange, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Customer Request Note', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.text)),
+                    const SizedBox(height: 2),
+                    Text('"$note"', style: TextStyle(fontStyle: FontStyle.italic, color: c.textSecondary)),
+                  ]),
+                ),
+              ]),
+            ),
+          ],
+        ]),
+      ),
+      SectionCard(
+        title: 'Order Items (${items.length})',
+        trailing: _chip('${items.fold<int>(0, (n, it) => n + asInt(it['quantity']))} pcs'),
+        child: Column(children: [
+          for (final it in items)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+              child: Row(children: [
+                ClipRRect(borderRadius: BorderRadius.circular(10), child: ProductThumb(url: it['image_url'], size: 56)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${it['title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
+                    Text('${it['variation'] != null ? '${it['variation']} · ' : ''}Qty: ${it['quantity']}',
+                        style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                    if (it['refunded'] != null) Text('Refunded ${peso(it['refunded'])}', style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                Text(peso(asNum(it['price']) * asInt(it['quantity'])), style: Alvy.display(size: 14.5, color: Alvy.orange, weight: FontWeight.w700)),
+              ]),
             ),
         ]),
       ),
-      _actions(a, centers, reasons),
-      // GCash paid outside ALVY: the receipt the buyer sent. Accepting the order confirms the money arrived.
-      if (o['gcash'] != null) _gcashCard(asMap(o['gcash'])),
       if (o['tracking'] != null && parcel != null) ShipmentTrackingCard(asMap(o['tracking'])),
       if (parcel != null || delivery != null)
         SectionCard(
@@ -258,76 +380,102 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
               Text('Courier: ${delivery['status']}'),
               if (delivery['pickup_scheduled_at'] != null) Text('Pickup ${formatDateTime(delivery['pickup_scheduled_at'])}'),
             ],
+            // Like the website: the rider's proof-of-delivery photo once the parcel is delivered.
+            if (parcel?['status'] == 'delivered' || delivery?['status'] == 'delivered') ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => showDocument(context, SellerApi.proofOfDelivery(_id), 'Proof of delivery'),
+                icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                label: const Text('View proof of delivery'),
+              ),
+            ],
           ]),
         ),
       if (ret != null) _returnCard(ret),
+      // The design's "Escrow Summary": what the buyer paid, what comes off, and the big payout box.
       SectionCard(
-        title: 'Items',
-        child: Column(children: [
-          for (final it in asList(o['order_items']))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(children: [
-                ProductThumb(url: it['image_url'], size: 48),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${it['title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.text)),
-                    if (it['variation'] != null) Text('${it['variation']}', style: TextStyle(fontSize: 12, color: c.muted)),
-                    if (it['refunded'] != null) Text('Refunded ${peso(it['refunded'])}', style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
-                  ]),
-                ),
-                Text('${peso(it['price'])} ×${it['quantity']}', style: TextStyle(color: c.textSecondary)),
-              ]),
-            ),
+        title: 'Earnings Summary',
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.lock_outline, size: 14, color: Alvy.slate),
+          const SizedBox(width: 4),
+          Text('Protected', style: TextStyle(fontSize: 12, color: Alvy.slate, fontWeight: FontWeight.w700)),
         ]),
-      ),
-      SectionCard(
-        title: 'Your earnings',
         child: Column(children: [
-          money('Items', f['gross']),
+          money('Order subtotal (items)', f['gross']),
           if (asNum(f['promo']) > 0) money('Promotions', f['promo'], minus: true),
           if (asNum(f['store_voucher']) > 0) money('Store voucher${f['store_voucher_code'] != null ? ' (${f['store_voucher_code']})' : ''}', f['store_voucher'], minus: true),
+          money('Buyer paid total', o['total'], bold: true),
           money('ALVY commission', f['commission'], minus: true),
-          const Divider(),
-          money('You earn', f['earnings'], bold: true, color: const Color(0xFF15803D)),
-          if (asNum(f['alvy_voucher']) > 0 || asNum(f['shipping_fee']) > 0) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Buyer paid ${peso(o['total'])} · shipping ${peso(f['shipping_fee'])}'
-              '${asNum(f['alvy_voucher']) > 0 ? ' · ALVY voucher −${peso(f['alvy_voucher'])} (ALVY pays this)' : ''}',
-              style: TextStyle(fontSize: 11, color: c.muted),
+          if (asNum(f['alvy_voucher']) > 0 || asNum(f['shipping_fee']) > 0)
+            Container(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Shipping ${peso(f['shipping_fee'])}'
+                '${asNum(f['alvy_voucher']) > 0 ? ' · ALVY voucher −${peso(f['alvy_voucher'])} (ALVY pays this)' : ''}',
+                style: TextStyle(fontSize: 11, color: c.muted),
+              ),
             ),
-          ],
-        ]),
-      ),
-      SectionCard(
-        title: 'Ship to',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${ship['name']} · ${ship['phone'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
-          Text('${ship['address'] ?? ''}'),
-          if ((ship['note'] ?? '').toString().isNotEmpty) Text('Note: ${ship['note']}', style: TextStyle(color: c.muted)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: c.subtle, borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('You earn', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                  Text('Paid to you after delivery', style: TextStyle(fontSize: 12, color: c.textSecondary)),
+                ]),
+              ),
+              Text(peso(f['earnings']), style: Alvy.display(size: 24, color: Alvy.orange, weight: FontWeight.w800)),
+            ]),
+          ),
         ]),
       ),
       if (asList(o['timeline']).isNotEmpty)
         SectionCard(
           title: 'Timeline',
           child: Column(children: [
-            for (final e in asList(o['timeline']))
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.circle, size: 10, color: kOrange),
-                title: Text('${e['status']}'),
-                subtitle: Text('${e['note'] ?? ''}${(e['note'] ?? '').toString().isNotEmpty ? '\n' : ''}${formatDateTime(e['at'])}'),
-              ),
+            for (final (i, e) in asList(o['timeline']).indexed)
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Icon(i == 0 ? Icons.radio_button_checked : Icons.circle, size: i == 0 ? 14 : 10, color: i == 0 ? Alvy.orange : c.muted),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${e['status']}', style: TextStyle(fontWeight: FontWeight.w700, color: c.text)),
+                      if ((e['note'] ?? '').toString().isNotEmpty) Text('${e['note']}', style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
+                      Text(formatDateTime(e['at']), style: TextStyle(color: c.muted, fontSize: 11.5)),
+                    ]),
+                  ),
+                ),
+              ]),
           ]),
         ),
+      _actions(a, centers, reasons),
     ]);
   }
 
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    return (parts.first[0] + (parts.length > 1 ? parts.last[0] : '')).toUpperCase();
+  }
+
+  Widget _chip(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: Alvy.slateSoft, borderRadius: BorderRadius.circular(99)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, color: Alvy.slate, fontWeight: FontWeight.w700)),
+      );
+
+  /// The design's stacked buttons at the end: the next step in orange, the label in navy, then message / cancel side by side.
   Widget _actions(Map<String, dynamic> a, List<Map<String, dynamic>> centers, List<String> reasons) {
-    final buttons = <Widget>[
+    final c = context.bc;
+    final steps = <Widget>[
       if (a['accept'] == true)
         BusyButton('${a['accept_label'] ?? 'Accept order'}', busy: _busy, icon: Icons.check_circle_outline, onPressed: () => _do(() => SellerApi.accept(_id))),
       if (a['pack'] == true)
@@ -339,26 +487,51 @@ class _SellerOrderDetailsScreenState extends State<SellerOrderDetailsScreen> {
           if (await confirmAction(context, 'Handed over?', 'Confirm the courier picked up the parcel.')) _do(() => SellerApi.handedOver(_id));
         }),
       if (a['decide_return'] == true)
-        BusyButton('Decide on the return', busy: _busy, icon: Icons.assignment_return_outlined, color: const Color(0xFF2563EB), onPressed: _decideReturn),
+        BusyButton('Decide on the return', busy: _busy, icon: Icons.assignment_return_outlined, color: Alvy.navyFill, onPressed: _decideReturn),
       if (a['returned_received'] == true)
         BusyButton(a['returned_label'] != null ? 'Received the returned parcel (${a['returned_label']})' : 'Received the returned parcel',
             busy: _busy, icon: Icons.move_to_inbox_outlined, onPressed: () async {
           if (await confirmAction(context, 'Parcel received?', 'Confirm the returned parcel is back with you.')) _do(() => SellerApi.returnedReceived(_id));
         }),
       if (a['waybill'] == true)
-        OutlinedButton.icon(onPressed: _waybill, icon: const Icon(Icons.print_outlined), label: const Text('Print waybill')),
-      if (a['cancel'] == true)
-        TextButton.icon(
-          onPressed: _busy ? null : () => _cancel(reasons),
-          icon: const Icon(Icons.cancel_outlined, color: Color(0xFFDC2626)),
-          label: const Text('Cancel order', style: TextStyle(color: Color(0xFFDC2626))),
+        FilledButton.icon(
+          onPressed: _waybill,
+          style: FilledButton.styleFrom(backgroundColor: Alvy.navyFill, minimumSize: const Size.fromHeight(50)),
+          icon: const Icon(Icons.print_outlined, size: 18),
+          label: const Text('Print waybill', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
     ];
-    if (buttons.isEmpty) return const SizedBox();
-    return SectionCard(
-      title: 'Next step',
+    final soft = OutlinedButton.styleFrom(
+      backgroundColor: c.subtle,
+      side: BorderSide.none,
+      minimumSize: const Size.fromHeight(46),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        for (final b in buttons) Padding(padding: const EdgeInsets.only(bottom: 8), child: b),
+        for (final b in steps) Padding(padding: const EdgeInsets.only(bottom: 10), child: b),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              style: soft,
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(type: 'order', id: '$_id'))),
+              icon: Icon(Icons.chat_outlined, size: 18, color: c.text),
+              label: Text('Message', style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
+            ),
+          ),
+          if (a['cancel'] == true) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                style: soft,
+                onPressed: _busy ? null : () => _cancel(reasons),
+                icon: const Icon(Icons.cancel_outlined, size: 18, color: Color(0xFFDC2626)),
+                label: const Text('Cancel order', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ]),
       ]),
     );
   }
